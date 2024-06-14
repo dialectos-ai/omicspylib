@@ -1,4 +1,4 @@
-"""Test protein dataset transformations."""
+"""Fixtures shared across tests"""
 import pandas as pd
 import pytest
 

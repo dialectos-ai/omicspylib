@@ -3,8 +3,10 @@ Proteins dataset object definition.
 """
 from __future__ import annotations
 
-from typing import List
+from functools import reduce
+from typing import List, Tuple
 
+import numpy as np
 import pandas as pd
 
 
@@ -71,6 +73,42 @@ class ProteinsDatasetExpCondition:
         Get experimental condition name (e.g. treated, untreated etc).
         """
         return self._name
+
+    def describe(self) -> dict:
+        """
+        Returns basic information about the dataset.
+        """
+        return {
+            'name': self._name,
+            'n_experiments': self.n_experiments,
+            'n_records': len(self.record_ids),
+            'experiment_names': self._data.columns.tolist(),
+            'n_proteins_per_experiment': np.sum(self._data.values > 0, axis=0).tolist()
+        }
+
+    def to_table(self) -> pd.DataFrame:
+        """
+        Returns the individual experiments from this condition
+        as a pandas data frame.
+
+        Returns
+        -------
+        pd.DataFrame
+            A table with protein ids as rows and experiment quantitative
+            values as columns.
+        """
+        return self._data
+
+    def missing_values(self, threshold: float = 0.0) -> Tuple[pd.DataFrame, int, int]:
+        n_missing_per_exp = self._data.shape[0] - np.sum(self._data > threshold, axis=0)
+        n_missing_total = np.sum(n_missing_per_exp)
+        total_values = self._data.shape[0] * self._data.shape[1]
+        df = pd.DataFrame({
+            'experiment': self._data.columns,
+            'n_missing': n_missing_per_exp.tolist(),
+            'condition': self._name
+        })
+        return df, n_missing_total, total_values
 
 
 class ProteinsDataset:
@@ -258,3 +296,62 @@ class ProteinsDataset:
     @staticmethod
     def _rm_only_modified(data: pd.DataFrame) -> pd.DataFrame:
         return data.loc[data['Only identified by site'] != "+", :].copy()
+
+    def describe(self):
+        """
+        Returns basic information about the dataset.
+
+        Returns
+        -------
+        dict
+            Dataset statistics.
+        """
+        return {
+            'n_conditions_total': self.n_conditions,
+            'n_records_total': self.n_records,
+            'n_experiments_total': self.n_experiments,
+            'statistics_per_condition': [c.describe() for c in self._conditions]
+        }
+
+    def to_table(self) -> pd.DataFrame:
+        """
+        Merge individual experimental conditions to one table.
+
+        Returns
+        -------
+        pd.DataFrame
+            A pandas data frame containing all experimental conditions.
+        """
+        tables = [c.to_table() for c in self._conditions]
+        return reduce(lambda left, right: pd.merge(
+            left, right, left_index=True,
+            right_index=True, how='outer'), tables)
+
+    def missing_values(self, threshold: float = 0.0) -> (
+            Tuple)[pd.DataFrame, int, int]:
+        """
+        Returns number of missing values per experiment and condition.
+        Missing values are considered the cases that are either missing
+        or are below the specified threshold.
+
+        Parameters
+        ----------
+        threshold : float, optional
+            Values below or equal to this threshold are considered missing.
+
+        Returns
+        -------
+        pd.DataFrame
+            A pandas data frame with the number of missing cases per
+            experiment and condition.
+        """
+        dfs = []
+        n_missing = 0
+        n_total = 0
+        for cond in self._conditions:
+            df, n_missing_cond, n_total_cond = cond.missing_values(threshold=threshold)
+            n_missing += n_missing_cond
+            n_total += n_total_cond
+
+            dfs.append(df)
+        return pd.concat(dfs), n_missing, n_total

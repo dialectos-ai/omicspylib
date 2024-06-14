@@ -83,3 +83,29 @@ def test_protein_dataset_creation_from_mq_output(rm_contaminants, rm_reverse, rm
     # assertion
     assert dset_from_fp.n_records == n_rows
     assert dset_from_df.n_records == n_rows
+
+
+def test_protein_dataset_stats(proteins_dataset):
+    """
+    You should be able to extract basic statistics from your dataset
+    as a dict, so that you can evaluate and manage the flow programmatically.
+    """
+    # setup
+    exp_high_level_keys = [
+        'n_conditions_total', 'n_records_total',
+        'n_experiments_total', 'statistics_per_condition']
+    exp_low_level_keys = [
+        'name', 'n_experiments', 'n_records',
+        'experiment_names', 'n_proteins_per_experiment']
+
+    # action
+    stats = proteins_dataset.describe()
+
+    # assertion
+    assert isinstance(stats, dict)
+    for key in exp_high_level_keys:
+        assert key in stats
+
+    example_cond = stats['statistics_per_condition'][0]
+    for key in exp_low_level_keys:
+        assert key in example_cond
