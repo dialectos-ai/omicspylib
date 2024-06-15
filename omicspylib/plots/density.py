@@ -1,6 +1,8 @@
 """
 Plot dataset values as in a density plot.
 """
+from typing import Union
+
 import numpy as np
 
 import matplotlib.pyplot as plt
@@ -17,7 +19,7 @@ def plot_density(
         ylabel: str = 'Density',
         title: str = 'Distribution of values across experiments',
         hide_legend: bool = False,
-        ax: plt.Axes | None = None) -> plt.Axes:
+        ax: Union[plt.Axes, None] = None) -> plt.Axes:
     """
     Generic function for creating a density plot over quantitative
     values of a dataset. It returns a matplotlib axes object that you can

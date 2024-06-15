@@ -28,7 +28,7 @@ def test_protein_dataset_creation_from_df():
     assert dataset.n_conditions == 3
     assert dataset.n_experiments == 15
     assert dataset.n_records == 100
-    experimental_conditions = dataset.exp_conditions
+    experimental_conditions = dataset.conditions
     for condition_name, exp_names in config['conditions'].items():
         assert condition_name in experimental_conditions
         experiment_names = dataset.experiments(condition_name)

@@ -3,12 +3,14 @@ Proteins dataset object definition.
 """
 from __future__ import annotations
 
+import copy
 from functools import reduce
-from typing import List, Tuple
+from typing import List, Tuple, Union, Literal
 
 import numpy as np
 import pandas as pd
 
+MergeHow = Literal["left", "right", "inner", "outer", "cross"]
 
 class ProteinsDatasetExpCondition:
     """
@@ -70,7 +72,7 @@ class ProteinsDatasetExpCondition:
     @property
     def name(self) -> str:
         """
-        Get experimental condition name (e.g. treated, untreated etc).
+        Get experimental condition name (e.g. treated, untreated etc.).
         """
         return self._name
 
@@ -99,8 +101,25 @@ class ProteinsDatasetExpCondition:
         """
         return self._data
 
-    def missing_values(self, threshold: float = 0.0) -> Tuple[pd.DataFrame, int, int]:
-        n_missing_per_exp = self._data.shape[0] - np.sum(self._data > threshold, axis=0)
+    def missing_values(self, na_threshold: float = 0.0) -> Tuple[pd.DataFrame, int, int]:
+        """
+        Calculate number of missing values per experiment.
+
+        Parameters
+        ----------
+        na_threshold : float, optional
+            Values equal or below this threshold will be considered missing.
+
+        Returns
+        -------
+        pd.DataFrame
+            A pandas data frame with the number of missing values per experiment.
+        int
+            Number of missing values in total.
+        int
+            Number of total values of that condition.
+        """
+        n_missing_per_exp = self._data.shape[0] - np.sum(self._data > na_threshold, axis=0)
         n_missing_total = np.sum(n_missing_per_exp)
         total_values = self._data.shape[0] * self._data.shape[1]
         df = pd.DataFrame({
@@ -109,6 +128,53 @@ class ProteinsDatasetExpCondition:
             'condition': self._name
         })
         return df, n_missing_total, total_values
+
+    def filter(self,
+               min_frequency: Union[int, None] = None,
+               na_threshold: float = 0.0) -> ProteinsDatasetExpCondition:
+        """
+        Filter dataset based on a given set of properties.
+
+        Parameters
+        ----------
+        min_frequency: int or None, optional
+            If specified, records of the dataset will be filtered based on their
+            within group frequency.
+        na_threshold: float or None, optional
+            Values below or equal to this threshold are considered missing.
+            Is used in to filter records based on the number of missing values.
+
+        Returns
+        -------
+        ProteinsDatasetExpCondition
+            A new instance of the dataset object, filtered based on the
+            user's input.
+        """
+        data = self._data.copy()
+        if min_frequency is not None:
+            valid_rows = np.sum(data > na_threshold, axis=1) >= min_frequency
+            data = data.loc[valid_rows, :].copy()
+
+        return ProteinsDatasetExpCondition(
+            name=self.name,
+            data=data.reset_index(),
+            id_col=self._id_col,
+            experiment_cols=data.columns.tolist())
+
+    def mean(self, na_threshold: float = 0.0) -> pd.DataFrame:
+        mask = self._data > na_threshold
+        data = self._data.copy()
+        data[~mask] = np.nan
+        mean = data.sum(axis=1) / mask.sum(axis=1)
+        return pd.DataFrame({f'mean_{self.name}': mean})
+
+    def frequency(self, na_threshold: float = 0.0) -> pd.DataFrame:
+        f = np.sum(self._data > na_threshold, axis=1)
+        return pd.DataFrame({f'frequency_{self.name}': f})
+
+    def log2_transform(self) -> ProteinsDatasetExpCondition:
+        self._data = np.log2(self._data + 1)  # type: ignore
+        return self
 
 
 class ProteinsDataset:
@@ -127,7 +193,7 @@ class ProteinsDataset:
         return len(self._conditions)
 
     @property
-    def exp_conditions(self):
+    def conditions(self):
         """
         Get a list of experimental condition names.
 
@@ -154,7 +220,7 @@ class ProteinsDataset:
             n_exp += condition.n_experiments
         return n_exp
 
-    def experiments(self, condition: str | None = None) -> list:
+    def experiments(self, condition: Union[str, None] = None) -> list:
         """
         Get experiment names from the dataset. If experimental condition
         name is provided, experiment names will be limited to that case.
@@ -235,7 +301,6 @@ class ProteinsDataset:
             exp_conditions.append(exp_condition_dataset)
         return cls(exp_conditions=exp_conditions)
 
-    # pylint: disable=too-many-arguments
     @classmethod
     def from_maxquant(cls, data: str | pd.DataFrame,
                       conditions: dict[str, list],
@@ -313,9 +378,14 @@ class ProteinsDataset:
             'statistics_per_condition': [c.describe() for c in self._conditions]
         }
 
-    def to_table(self) -> pd.DataFrame:
+    def to_table(self, join_method: MergeHow = 'outer') -> pd.DataFrame:
         """
         Merge individual experimental conditions to one table.
+
+        Parameters
+        ----------
+        join_method: MergeHow, optional
+            Method of joining records of each experimental condition in the output.
 
         Returns
         -------
@@ -323,11 +393,15 @@ class ProteinsDataset:
             A pandas data frame containing all experimental conditions.
         """
         tables = [c.to_table() for c in self._conditions]
+        return self._join_list_of_tables(tables, how=join_method)
+
+    @staticmethod
+    def _join_list_of_tables(tables: List[pd.DataFrame], how: MergeHow = 'outer') -> pd.DataFrame:
         return reduce(lambda left, right: pd.merge(
             left, right, left_index=True,
-            right_index=True, how='outer'), tables)
+            right_index=True, how=how), tables)
 
-    def missing_values(self, threshold: float = 0.0) -> (
+    def missing_values(self, na_threshold: float = 0.0) -> (
             Tuple)[pd.DataFrame, int, int]:
         """
         Returns number of missing values per experiment and condition.
@@ -336,7 +410,7 @@ class ProteinsDataset:
 
         Parameters
         ----------
-        threshold : float, optional
+        na_threshold : float, optional
             Values below or equal to this threshold are considered missing.
 
         Returns
@@ -344,14 +418,130 @@ class ProteinsDataset:
         pd.DataFrame
             A pandas data frame with the number of missing cases per
             experiment and condition.
+        int
+            Number of missing values.
+        int
+            Number of values in total
         """
         dfs = []
         n_missing = 0
         n_total = 0
         for cond in self._conditions:
-            df, n_missing_cond, n_total_cond = cond.missing_values(threshold=threshold)
+            df, n_missing_cond, n_total_cond = cond.missing_values(na_threshold=na_threshold)
             n_missing += n_missing_cond
             n_total += n_total_cond
 
             dfs.append(df)
         return pd.concat(dfs), n_missing, n_total
+
+    def log2_transform(self) -> ProteinsDataset:
+        """Perform log2 transformation."""
+        conditions_copy = copy.deepcopy(self._conditions)
+        log2_conditions = [c.log2_transform() for c in conditions_copy]
+        return ProteinsDataset(log2_conditions)
+
+    def log2_backtransform(self) -> ProteinsDataset:
+        """Invert log2 transformation."""
+        raise NotImplementedError
+
+    def impute(self) -> ProteinsDataset:
+        """Impute missing values."""
+        raise NotImplementedError
+
+    def normalize(self) -> ProteinsDataset:
+        """Normalize the dataset."""
+        raise NotImplementedError
+
+    def filter(self,
+               conditions: Union[list, None] = None,
+               min_frequency: Union[int, None] = None,
+               na_threshold: float = 0.0) -> ProteinsDataset:
+        """
+        Filter dataset based on a given set of properties.
+
+        Parameters
+        ----------
+        conditions: list, optional
+            List of experimental condition names. If provided only the conditions
+            specified will remain in the dataset.
+        min_frequency: int or None, optional
+            If specified, records of the dataset will be filtered based on their
+            within group frequency.
+        na_threshold: float or None, optional
+            Values below or equal to this threshold are considered missing.
+            Is used in to filter records based on the number of missing values.
+
+        Returns
+        -------
+        ProteinsDataset
+            A new instance of the dataset object, filtered based on the
+            user's input.
+        """
+        exp_conditions = self._conditions.copy()
+
+        if conditions is not None:
+            exp_conditions = [c for c in exp_conditions if c.name in conditions]
+
+        if min_frequency:
+            exp_conditions = [
+                c.filter(min_frequency=min_frequency,
+                         na_threshold=na_threshold) for c in exp_conditions]
+
+        return ProteinsDataset(exp_conditions=exp_conditions)
+
+    def mean(self,
+             na_threshold: float = 0.0,
+             join_method: MergeHow = 'inner') -> pd.DataFrame:
+        """
+        Calculate the average value for each record within each
+        experimental condition and return a merged data frame for
+        all conditions.
+
+        Missing values (and values below or equal the specified
+        threshold) are omitted.
+
+        By default, and inner join is performed across all conditions.
+        Adjust accordingly if needed.
+
+        Parameters
+        ----------
+        na_threshold : float, optional
+            Values below or equal to this threshold are considered missing.
+        join_method: MergeHow, optional
+            Method of joining records of each experimental
+            condition in the output.
+
+        Returns
+        -------
+        pd.DataFrame
+            A pandas data frame containing the average value for
+            each condition.
+        """
+        tables = [c.mean(na_threshold=na_threshold) for c in self._conditions]
+        return self._join_list_of_tables(tables, how=join_method)
+
+    def frequency(self,
+                  na_threshold: float = 0.0,
+                  join_method: MergeHow = 'outer') -> pd.DataFrame:
+        """
+        Calculate the number of experiments within each experimental condition
+        with quantitative value above the specified threshold,
+        and return a merged data frame for all conditions.
+
+        By default, and outer join is performed across all conditions.
+        Adjust accordingly if needed.
+
+        Parameters
+        ----------
+        na_threshold : float, optional
+            Values below or equal to this threshold are considered missing.
+        join_method: MergeHow, optional
+            Method of joining records of each experimental condition in the output.
+
+        Returns
+        -------
+        pd.DataFrame
+            A pandas data frame containing the average value for each condition.
+        """
+        tables = [c.frequency(na_threshold=na_threshold) for c in self._conditions]
+        return self._join_list_of_tables(tables, how=join_method)

@@ -1,19 +1,20 @@
 """
 Plot number of missing values per experiment.
 """
+from typing import Union
+
 import matplotlib.pyplot as plt
 
 from omicspylib import ProteinsDataset
 
 
-#pylint: disable=too-many-arguments
 def plot_missing_values(
         dataset: ProteinsDataset,
         xlabel: str = 'Experiment',
         ylabel: str = 'Number of missing values',
         title: str = 'Missing values over experiments',
         min_threshold: float = 0,
-        ax: plt.Axes | None = None) -> plt.Axes:
+        ax: Union[plt.Axes, None] = None) -> plt.Axes:
     """
     Plot number of missing values per experiment of the dataset.
 
