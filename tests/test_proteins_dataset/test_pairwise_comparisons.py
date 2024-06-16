@@ -5,7 +5,7 @@ def test_pairwise_ttest_fold_change_comparison_success_case(proteins_dataset):
     # setup
     exp_cols = [
         'p-value', 't-statistic', 'adj-p-value',
-        'fold change c1 over c2', 'log2 fold change c1 over c2'
+        'fold change', 'log2 fold change'
     ]
     comparison = PairwiseComparisonTTestFC(proteins_dataset, condition_a='c1', condition_b='c2')
 

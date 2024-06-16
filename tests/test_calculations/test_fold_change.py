@@ -14,8 +14,8 @@ def test_fold_change_calculation():
     df = pd.DataFrame(data)
     column1 = 'A'
     column2 = 'B'
-    exp_fc_col = f'fold change {column1} over {column2}'
-    exp_log2_fc_col = f'log2 fold change {column1} over {column2}'
+    exp_fc_col = f'fold change'
+    exp_log2_fc_col = f'log2 fold change'
 
     # action
     fc_out = calc_fold_change(df, column1, column2)

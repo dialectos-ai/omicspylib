@@ -10,7 +10,10 @@ class PairwiseComparisonTTestFC:
     Perform pairwise comparison between two groups,
     using a t-test and a fold change rule.
     """
-    def __init__(self, dataset: ProteinsDataset, condition_a: str, condition_b: str):
+    def __init__(self,
+                 dataset: ProteinsDataset,
+                 condition_a: str,
+                 condition_b: str):
         self._raw_dataset = dataset
         self._condition_a = condition_a
         self._condition_b = condition_b
