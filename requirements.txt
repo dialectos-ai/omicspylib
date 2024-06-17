@@ -3,4 +3,5 @@ numpy>=2.0.0rc2
 scipy
 statsmodels
 matplotlib
+matplotlib-venn
 seaborn

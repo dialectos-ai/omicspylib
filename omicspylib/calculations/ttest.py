@@ -1,4 +1,4 @@
-from typing import Union, Literal
+from typing import Literal, Optional
 
 import numpy as np
 import pandas as pd
@@ -26,13 +26,31 @@ def calc_ttest_adj(
         condition_a: str,
         condition_b: str,
         na_threshold: float = 0.0,
-        pval_adj_method: Union[MULTITEST_METHOD, None] = 'fdr_bh') -> pd.DataFrame:
+        pval_adj_method: Optional[MULTITEST_METHOD] = 'fdr_bh') -> pd.DataFrame:
     """
     Calculate t-test and correct p-values for multiple-hypothesis testing error.
 
     Parameters
     ----------
+    data: ProteinsDataset
+        A proteins dataset object.
+    condition_a: str
+        Name of condition A to be evaluated.
+    condition_b: str
+        Name of condition B to be evaluated.
+    na_threshold: float
+        Threshold for NaN values.
+    pval_adj_method: MULTITEST_METHOD, optional
+        Method to adjust p-values for multiple-hypothesis testing.
+        By default, Benjamini/Hochberg  (non-negative) (`fdr_bh`)
+        is selected.
 
+    Returns
+    -------
+    pd.DataFrame
+        A pandas data frame with the calculated p-values, t-statistic
+        and optionally adjusted p-values. Row indices remain as they
+        were provided.
     """
     df = data.to_table(join_method='inner')
     mask = df > na_threshold

@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -11,11 +11,13 @@ def plot_volcano(
         fc_col: str,
         condition_a: str,
         condition_b: str,
+        color_a: str = 'blue',
+        color_b: str = 'red',
         pval_threshold: float = 0.05,
         fold_change_threshold: float = 2.0,
-        xmax: Union[float, None] = None,
-        ymax: Union[float, None] = None,
-        ax: Union[plt.Axes, None] = None) -> plt.Axes:
+        xmax: Optional[float] = None,
+        ymax: Optional[float] = None,
+        ax: Optional[plt.Axes] = None) -> plt.Axes:
     """
     Create a volcano plot, by plotting on the x-axis the fold change
     (in log2 scale) and on the y-axis the p-value (-log10 transformed).
@@ -98,8 +100,8 @@ def plot_volcano(
     ax.vlines(x=1, ymin=0, ymax=ymax, color='grey', linestyles=':', alpha=0.3)
     ax.hlines(y=-np.log10(0.05), xmin=-xmax, xmax=xmax, linestyles=':', alpha=0.3, color='grey')
     ax.scatter(ns_df[log2_fc_col], ns_df[minus_log10_pval_col], label='non-significant', color='grey')
-    ax.scatter(sign_a[log2_fc_col], sign_a[minus_log10_pval_col], label=condition_a, color='red')
-    ax.scatter(sign_b[log2_fc_col], sign_b[minus_log10_pval_col], label=condition_b, color='blue')
+    ax.scatter(sign_a[log2_fc_col], sign_a[minus_log10_pval_col], label=condition_a, color=color_a)
+    ax.scatter(sign_b[log2_fc_col], sign_b[minus_log10_pval_col], label=condition_b, color=color_b)
 
     ax.set_xlim(-xmax, xmax)
     ax.set_xlabel(f'Fold change {condition_a}/{condition_b} (log2 scale)')

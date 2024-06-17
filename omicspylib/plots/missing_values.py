@@ -1,7 +1,7 @@
 """
 Plot number of missing values per experiment.
 """
-from typing import Union
+from typing import Optional
 
 import matplotlib.pyplot as plt
 
@@ -14,7 +14,7 @@ def plot_missing_values(
         ylabel: str = 'Number of missing values',
         title: str = 'Missing values over experiments',
         min_threshold: float = 0,
-        ax: Union[plt.Axes, None] = None) -> plt.Axes:
+        ax: Optional[plt.Axes] = None) -> plt.Axes:
     """
     Plot number of missing values per experiment of the dataset.
 

@@ -27,7 +27,8 @@ def calc_fold_change(data: pd.DataFrame, condition_a: str, condition_b: str) -> 
     """
     fc = data[condition_a] / data[condition_b]
     log2_fc = np.log2(fc)
+
     return pd.DataFrame({
-        f'fold change': fc,
-        f'log2 fold change': log2_fc
+        'fold change': fc,
+        'log2 fold change': log2_fc
     })

@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Optional
 
 from omicspylib import ProteinsDataset
 from omicspylib.calculations.fold_change import calc_fold_change
@@ -21,7 +21,7 @@ class PairwiseComparisonTTestFC:
     def compare(self,
                 min_frequency: int = 3,
                 na_threshold: float = 0.0,
-                pval_adj_method: Union[MULTITEST_METHOD, None] = 'fdr_bh'):
+                pval_adj_method: Optional[MULTITEST_METHOD] = 'fdr_bh'):
         """
 
         Parameters

@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import copy
 from functools import reduce
-from typing import List, Tuple, Union, Literal
+from typing import List, Tuple, Optional, Literal
 
 import numpy as np
 import pandas as pd
@@ -130,7 +130,7 @@ class ProteinsDatasetExpCondition:
         return df, n_missing_total, total_values
 
     def filter(self,
-               min_frequency: Union[int, None] = None,
+               min_frequency: Optional[int] = None,
                na_threshold: float = 0.0) -> ProteinsDatasetExpCondition:
         """
         Filter dataset based on a given set of properties.
@@ -220,7 +220,7 @@ class ProteinsDataset:
             n_exp += condition.n_experiments
         return n_exp
 
-    def experiments(self, condition: Union[str, None] = None) -> list:
+    def experiments(self, condition: Optional[str] = None) -> list:
         """
         Get experiment names from the dataset. If experimental condition
         name is provided, experiment names will be limited to that case.
@@ -453,8 +453,8 @@ class ProteinsDataset:
         raise NotImplementedError
 
     def filter(self,
-               conditions: Union[list, None] = None,
-               min_frequency: Union[int, None] = None,
+               conditions: Optional[list] = None,
+               min_frequency: Optional[int] = None,
                na_threshold: float = 0.0) -> ProteinsDataset:
         """
         Filter dataset based on a given set of properties.
