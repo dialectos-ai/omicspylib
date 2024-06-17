@@ -53,6 +53,7 @@ def plot_missing_values(
     ax.set_title(title + f' (~{round(prc_missing, 1)} missing)%')
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
+    ax.set_xticks(ax.get_xticks())
     ax.set_xticklabels(df['experiment'], rotation=45, ha='right')
     ax.bar_label(bar_container)
     plt.tight_layout()
