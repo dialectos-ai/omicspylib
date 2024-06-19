@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = 'omicspylib'
+dynamic = [
+    'version'
+]
+description = 'A python library for omics data analysis'
+readme = 'README.md'
+authors = [
+    { name = 'Kostas Tsolis', email='kostas.tsolis@dialectos.ai'}
+]
+license = { file = 'LICENSE'}
+requires-python = '>=3.9'
+dependencies = [
+    "numpy>=1.26.0",
+    "pandas>=2.0.0",
+    "scipy>=1.13.1",
+    "statsmodels>=0.14.0",
+    "matplotlib>=3.0.1",
+    "matplotlib-venn>=0.11.1",
+    "seaborn>=0.11.1"
+]
+
+[project.urls]
+homepage = 'https://github.com/dialectos-ai/omicspylib'
+documentation = 'https://github.com/dialectos-ai/omicspylib'
+repository = 'https://github.com/dialectos-ai/omicspylib'
