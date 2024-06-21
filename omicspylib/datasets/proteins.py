@@ -5,12 +5,36 @@ from __future__ import annotations
 
 import copy
 from functools import reduce
-from typing import List, Tuple, Optional, Literal
+from typing import List, Tuple, Optional, Literal, Union
 
 import numpy as np
 import pandas as pd
 
-MergeHow = Literal["left", "right", "inner", "outer", "cross"]
+MergeHow = Literal['left', 'right', 'inner', 'outer', 'cross']
+ImputeMethod = Literal[
+    'fixed',
+    'global min',
+    'global mean',
+    'global median',
+    'global row min',
+    'global row median',
+    'global row mean',
+    'group row min',
+    'group row mean',
+    'group row median',
+    'group row mean with noise'
+]
+
+ConditionImputeMethod = Literal[
+    'fixed',
+    'fixed row',
+    'row min',
+    'row mean',
+    'row median'
+    'row mean with noise'
+]
+AxisName = Literal['rows', 'columns']
+
 
 class ProteinsDatasetExpCondition:
     """
@@ -75,6 +99,22 @@ class ProteinsDatasetExpCondition:
         Get experimental condition name (e.g. treated, untreated etc.).
         """
         return self._name
+
+    def min(self,
+            na_threshold: float = 0.0,
+            axis: Optional[AxisName] = None) -> Union[float, pd.Series]:
+        """
+        Calculate minimum value of that condition.
+        By default, calculates min value from all experiments,
+        """
+        df = self._data.copy()
+        df[df <= na_threshold] = np.nan
+        if axis is None:
+            min_value = np.nanmin(df.values.flatten())
+        elif axis == 'rows':
+            min_value = df.min(axis=0)
+
+        return min_value
 
     def describe(self) -> dict:
         """
@@ -176,6 +216,90 @@ class ProteinsDatasetExpCondition:
         self._data = np.log2(self._data + 1)  # type: ignore
         return self
 
+    def impute(self,
+               method: ConditionImputeMethod,
+               na_threshold: float = 0.0,
+               value: Optional[Union[float, pd.Series]] = None,
+               shift: float = 0.0) -> ProteinsDatasetExpCondition:
+        """
+        TBD ...
+
+        Parameters
+        ----------
+        method
+        value
+        na_threshold
+        shift
+
+        Returns
+        -------
+
+        """
+        self._data[self._data <= na_threshold] = np.nan
+
+        if method == 'fixed':
+            if value is None:
+                raise ValueError(
+                    f"To impute missing values with a fixed value,"
+                    f" you also need to specify the target fixed value,"
+                    f" using the ``value`` argument. Received ``{value}``.")
+            self._data.fillna(value=value, inplace=True)
+        elif method == 'fixed row':
+            if value is None:
+                raise ValueError(
+                    f"To impute missing values with a fixed row value,"
+                    f" you also need to specify the target fixed value array,"
+                    f" using the ``value`` argument. Received ``{value}``.")
+            self._data = self._data.apply(
+                lambda row: self._fillna(row, value),  # type: ignore
+                axis=1)  # type: ignore
+        elif method == 'row min':
+            impute_values = self._data.min(axis=1) - shift
+            self._data = self._data.apply(
+                lambda row: self._fillna(row, impute_values),  # type: ignore
+                axis=1)
+        elif method == 'row median':
+            impute_values = self._data.median(axis=1, skipna=True) - shift
+            self._data = self._data.apply(
+                lambda row: self._fillna(row, impute_values),  # type: ignore
+                axis=1)
+        elif method == 'row mean':
+            impute_values = self._data.mean(axis=1, skipna=True) - shift
+            self._data = self._data.apply(
+                lambda row: self._fillna(row, impute_values),  # type: ignore
+                axis=1)
+        elif method == 'row mean with noise':
+            mean_values = self._data.mean(axis=1, skipna=True) - shift
+            std_values = self._data.std(axis=1, skipna=True)
+            self._data = self._data.apply(
+                lambda row: self._fillna(row, mean_values, std_values),  # type: ignore
+                axis=1)
+        else:
+            raise ValueError(f"Method {method} not implemented")
+
+        return self
+
+    @staticmethod
+    def _fillna(
+            row: pd.Series,
+            values: pd.Series,
+            std_values: Optional[pd.Series] = None) -> pd.Series:
+        """
+        Fill nan values of a pandas data frame row with the
+        specified value in the values array.
+        The index of the target value in the values array,
+        matches the row.name attribute of the row.
+        """
+        val_idx = np.where(row.name == values.index)[0][0]
+        if std_values is None:
+            row = row.fillna(values[val_idx])
+        else:
+            std_idx = np.where(row.name == std_values.index)[0][0]
+            for j, val in enumerate(row):
+                if np.isnan(val):
+                    row[j] = np.random.normal(values[val_idx], std_values[std_idx])
+
+        return row
 
 class ProteinsDataset:
     """
@@ -444,9 +568,120 @@ class ProteinsDataset:
         """Invert log2 transformation."""
         raise NotImplementedError
 
-    def impute(self) -> ProteinsDataset:
-        """Impute missing values."""
-        raise NotImplementedError
+    def impute(self,
+               method: ImputeMethod,
+               na_threshold: float = 0.0,
+               value: Optional[float] = None,
+               shift: float = 0.0) -> ProteinsDataset:
+        """
+        Impute missing values.
+
+        Parameters
+        ----------
+        method: str
+            Imputation method. Can be one of:
+                - fixed: A fixed value. All values below the given threshold
+                  will be set to that value. To use this method you also need
+                  to specify the `value` parameter.
+                - global min: First the min value of the dataset is calculated
+                  and then missing values are set to that fixed value. You can
+                  also specify the `shift` parameter to shift the calculated min
+                  by a fixed step.
+                - global row min|median|mean: Similar to ``global min`` but the
+                  min|median|mean value refers to the row entry value instead of
+                  the value across all entries of that table.
+        na_threshold: float, optional
+            Values below or equal to this threshold are considered missing.
+        value: float, optional
+            If ``fixed`` method is specified, you also need to set that value here.
+        shift: float, optional
+            If ``global|group-min`` method is specified, you can also decrease
+            that value by a fixed step.
+        """
+        imputed_conditions = copy.deepcopy(self._conditions)
+        if method == 'fixed':
+            imputed_conditions = self._intra_group_imputation(
+                imputed_conditions, 'fixed', na_threshold, value)
+        elif method == 'global min':
+            imputed_conditions = self._impute_by_global_value(
+                imputed_conditions, 'min', na_threshold, shift)
+        elif method == 'global mean':
+            imputed_conditions = self._impute_by_global_value(
+                imputed_conditions, 'mean', na_threshold, shift)
+        elif method == 'global median':
+            imputed_conditions = self._impute_by_global_value(
+                imputed_conditions, 'median', na_threshold, shift)
+        elif method == 'global row min':
+            imputed_conditions = self._impute_by_global_row_value(
+                imputed_conditions, 'min', na_threshold, shift)
+        elif method == 'global row mean':
+            imputed_conditions = self._impute_by_global_row_value(
+                imputed_conditions, 'mean', na_threshold, shift)
+        elif method == 'global row median':
+            imputed_conditions = self._impute_by_global_row_value(
+                imputed_conditions, 'median', na_threshold, shift)
+        elif method == 'group row min':
+            imputed_conditions = self._intra_group_imputation(
+                imputed_conditions, 'row min', na_threshold, value, shift)
+        elif method == 'group row mean':
+            imputed_conditions = self._intra_group_imputation(
+                imputed_conditions, 'row mean', na_threshold, value, shift)
+        elif method == 'group row median':
+            imputed_conditions = self._intra_group_imputation(
+                imputed_conditions, 'row median', na_threshold, value, shift)
+        elif method == 'group row mean with noise':
+            imputed_conditions = self._intra_group_imputation(
+                imputed_conditions, 'row mean with noise', na_threshold, value, shift)
+
+        return ProteinsDataset(imputed_conditions)
+
+    def _impute_by_global_row_value(self, imputed_conditions, value_type, na_threshold, shift):
+        df = self.to_table()
+        df[df <= na_threshold] = np.nan
+        if value_type == 'min':
+            values_series = df.min(axis=1, skipna=True)
+        elif value_type == 'mean':
+            values_series = df.mean(axis=1, skipna=True)
+        elif value_type == 'median':
+            values_series = df.median(axis=1, skipna=True)
+        else:
+            raise ValueError(f'Value type {value_type} not supported.')
+
+        imputed_conditions = [
+            c.impute(method='fixed row', na_threshold=na_threshold, value=values_series - shift)
+            for c in imputed_conditions]
+        return imputed_conditions
+
+    def _impute_by_global_value(self, imputed_conditions, value_type, na_threshold, shift):
+        df = self.to_table()
+        df[df <= na_threshold] = np.nan
+        all_values = df.values.flatten()
+        if value_type == 'min':
+            targ_value = np.nanmin(all_values)
+        elif value_type == 'mean':
+            targ_value = np.nanmean(all_values)
+        elif value_type == 'median':
+            targ_value = np.nanmedian(all_values)
+        else:
+            raise ValueError(f'Value type {value_type} not supported.')
+
+        return self._intra_group_imputation(
+            conditions=imputed_conditions,
+            method='fixed',
+            na_threshold=na_threshold,
+            value=targ_value - shift)
+
+    @staticmethod
+    def _intra_group_imputation(
+            conditions,
+            method,
+            na_threshold,
+            value,
+            shift: float = 0.0) -> List[ProteinsDatasetExpCondition]:
+        imputed_conditions = [
+            c.impute(method=method, na_threshold=na_threshold, value=value, shift=shift)
+            for c in conditions]
+        return imputed_conditions
 
     def normalize(self) -> ProteinsDataset:
         """Normalize the dataset."""
