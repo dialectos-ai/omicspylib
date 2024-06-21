@@ -61,7 +61,10 @@ class ProteinsDatasetExpCondition:
         self._name = name
         self._data = data[[id_col]+experiment_cols].copy().set_index(id_col)
         self._id_col = id_col
-        self._experiments = experiment_cols
+
+    @property
+    def _experiments(self) -> list:
+        return self._data.columns.tolist()
 
     @property
     def n_experiments(self) -> int:
@@ -72,7 +75,7 @@ class ProteinsDatasetExpCondition:
         -------
             int: The number of experiments.
         """
-        return len(self._experiments)
+        return len(self._data.columns)
 
     @property
     def experiments(self) -> List[str]:
@@ -300,6 +303,19 @@ class ProteinsDatasetExpCondition:
                     row[j] = np.random.normal(values[val_idx], std_values[std_idx])
 
         return row
+
+    def drop(self, exp: Union[str, list], omit_missing_cols: bool = True) -> ProteinsDatasetExpCondition:
+        if isinstance(exp, str):
+            exp = [exp]
+
+        if omit_missing_cols:
+            # allow the user to pass column names that don't exist or
+            # are already excluded from previous steps.
+            exp = [e for e in exp if e in self._data.columns]
+
+        self._data = self._data.drop(exp, axis=1)
+        return self
+
 
 class ProteinsDataset:
     """
@@ -780,3 +796,22 @@ class ProteinsDataset:
         """
         tables = [c.frequency(na_threshold=na_threshold) for c in self._conditions]
         return self._join_list_of_tables(tables, how=join_method)
+
+    def drop(self,
+             exp: Optional[Union[str, list]] = None,
+             cond: Optional[Union[str, list]] = None) -> ProteinsDataset:
+        """
+        Drop specified experiment(s) and or condition(s).
+        """
+        filt_conditions = copy.deepcopy(self._conditions)
+        if isinstance(exp, str):
+            exp = [exp]
+        if isinstance(cond, str):
+            cond = [cond]
+        if cond is not None:
+            filt_conditions = [c for c in filt_conditions if c.name not in cond]
+
+        if exp is not None:
+            filt_conditions = [c.drop(exp) for c in filt_conditions]
+
+        return ProteinsDataset(filt_conditions)
