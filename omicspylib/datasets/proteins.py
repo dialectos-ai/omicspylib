@@ -219,6 +219,10 @@ class ProteinsDatasetExpCondition:
         self._data = np.log2(self._data + 1)  # type: ignore
         return self
 
+    def log2_backtransform(self) -> ProteinsDatasetExpCondition:
+        self._data = 2**self._data - 1
+        return self
+
     def impute(self,
                method: ConditionImputeMethod,
                na_threshold: float = 0.0,
@@ -582,7 +586,9 @@ class ProteinsDataset:
 
     def log2_backtransform(self) -> ProteinsDataset:
         """Invert log2 transformation."""
-        raise NotImplementedError
+        conditions_copy = copy.deepcopy(self._conditions)
+        bt_conditions = [c.log2_backtransform() for c in conditions_copy]
+        return ProteinsDataset(bt_conditions)
 
     def impute(self,
                method: ImputeMethod,
