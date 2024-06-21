@@ -29,3 +29,17 @@ def test_log2_transformation(proteins_dataset: ProteinsDataset):
     assert np.isclose(mean_raw_int, 1_567_714, 1_000_000)
     assert np.isclose(mean_log2_int, 25, 10)
 
+
+def test_log2_back_transformation(proteins_dataset: ProteinsDataset):
+    # setup
+    log2_dset = proteins_dataset.log2_transform()
+
+    # action
+    bt_dset = log2_dset.log2_backtransform().to_table()
+
+    # assertion
+    # assert
+    mean_raw_int = np.mean(bt_dset.values.reshape(-1))
+    mean_log2_int = np.mean(log2_dset.to_table().values.reshape(-1))
+    assert np.isclose(mean_raw_int, 1_567_714, 1_000_000)
+    assert np.isclose(mean_log2_int, 25, 10)
