@@ -1,33 +1,60 @@
 """Test proteins dataset creation flow."""
+import numpy as np
 import pandas as pd
 import pytest
 
-from omicspylib import ProteinsDataset
+from omicspylib import ProteinsDataset, PeptidesDataset
 
 
-def test_protein_dataset_creation_from_df():
+@pytest.mark.parametrize(
+    "fp,obj_constructor,config,n_conditions,n_exp,n_records",
+    [
+        # proteins dataset example
+        (
+            'tests/data/protein_dataset.tsv',
+             ProteinsDataset.from_df,
+            {
+                'id_col': 'protein_id',
+                'conditions': {
+                    'c1': ['c1_rep1', 'c1_rep2', 'c1_rep3', 'c1_rep4', 'c1_rep5'],
+                    'c2': ['c2_rep1', 'c2_rep2', 'c2_rep3', 'c2_rep4', 'c2_rep5'],
+                    'c3': ['c3_rep1', 'c3_rep2', 'c3_rep3', 'c3_rep4', 'c3_rep5'],
+                }
+            },
+            3, 15, 100,
+        ),
+        # peptides dataset
+        (
+            'tests/data/peptides_dataset.tsv',
+            PeptidesDataset.from_df,
+            {
+                'id_col': 'peptide_id',
+                'conditions': {
+                    'c1': ['c1_rep1', 'c1_rep2', 'c1_rep3', 'c1_rep4', 'c1_rep5'],
+                    'c2': ['c2_rep1', 'c2_rep2', 'c2_rep3', 'c2_rep4', 'c2_rep5'],
+                    'c3': ['c3_rep1', 'c3_rep2', 'c3_rep3', 'c3_rep4', 'c3_rep5'],
+                },
+                'protein_id_col': 'protein_id',
+            },
+            3, 15, 1000,
+        )
+    ]
+)
+def test_protein_dataset_creation_from_df(fp, obj_constructor, config, n_conditions, n_exp, n_records):
     """
     Basic protein dataset constractor. Test that
     created object has expected attributes.
     """
     # setup
-    data_df = pd.read_csv('tests/data/protein_dataset.tsv', sep='\t')
-    config = {
-        'id_col': 'protein_id',
-        'conditions': {
-            'c1': ['c1_rep1', 'c1_rep2', 'c1_rep3', 'c1_rep4', 'c1_rep5'],
-            'c2': ['c2_rep1', 'c2_rep2', 'c2_rep3', 'c2_rep4', 'c2_rep5'],
-            'c3': ['c3_rep1', 'c3_rep2', 'c3_rep3', 'c3_rep4', 'c3_rep5'],
-        }
-    }
+    data_df = pd.read_csv(fp, sep='\t')
 
     # action
-    dataset = ProteinsDataset.from_df(data_df, **config)
+    dataset = obj_constructor(data_df, **config)
 
     # assertion
-    assert dataset.n_conditions == 3
-    assert dataset.n_experiments == 15
-    assert dataset.n_records == 100
+    assert dataset.n_conditions == n_conditions
+    assert dataset.n_experiments == n_exp
+    assert dataset.n_records == n_records
     experimental_conditions = dataset.conditions
     for condition_name, exp_names in config['conditions'].items():
         assert condition_name in experimental_conditions
