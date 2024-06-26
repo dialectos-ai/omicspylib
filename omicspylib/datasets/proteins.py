@@ -10,6 +10,8 @@ from typing import List, Tuple, Optional, Literal, Union
 import numpy as np
 import pandas as pd
 
+from omicspylib.utils import mq_rm_contaminants, mq_rm_reverse, mq_rm_only_modified
+
 MergeHow = Literal['left', 'right', 'inner', 'outer', 'cross']
 ImputeMethod = Literal[
     'fixed',
@@ -512,25 +514,13 @@ class ProteinsDataset:
             id_col = rename_id_col
 
         if rm_contaminants:
-            data = cls._rm_contaminants(data)
+            data = mq_rm_contaminants(data)
         if rm_reverse:
-            data = cls._rm_reverse(data)
+            data = mq_rm_reverse(data)
         if rm_only_modified:
-            data = cls._rm_only_modified(data)
+            data = mq_rm_only_modified(data)
 
         return cls.from_df(data, id_col, conditions)
-
-    @staticmethod
-    def _rm_reverse(data: pd.DataFrame) -> pd.DataFrame:
-        return data.loc[data['Reverse'] != "+", :].copy()
-
-    @staticmethod
-    def _rm_contaminants(data: pd.DataFrame) -> pd.DataFrame:
-        return data.loc[data['Potential contaminant'] != "+", :].copy()
-
-    @staticmethod
-    def _rm_only_modified(data: pd.DataFrame) -> pd.DataFrame:
-        return data.loc[data['Only identified by site'] != "+", :].copy()
 
     def describe(self):
         """
