@@ -17,6 +17,9 @@ def plot_volcano(
         fold_change_threshold: float = 2.0,
         xmax: Optional[float] = None,
         ymax: Optional[float] = None,
+        xlabel: Optional[str] = None,
+        ylabel: str = 't-test P-value (-log10)',
+        title: Optional[str] = None,
         ax: Optional[plt.Axes] = None) -> plt.Axes:
     """
     Create a volcano plot, by plotting on the x-axis the fold change
@@ -37,9 +40,13 @@ def plot_volcano(
         Column name containing the fold change of condition a
         over b. It will be transformed internally with log2.
     condition_a: str
-        Name of condition a, to be included in the legend and title.
+        Name of "condition a" to be included in the legend and title.
     condition_b: str
-        Name of condition b, to be included in the legend and title.
+        Name of "condition b" to be included in the legend and title.
+    color_a: str
+        Color for "condition a".
+    color_b: str
+        Color for "condition b".
     pval_threshold: float
         Threshold value for considering significant difference.
         By default, values below or equal to 0.05 are considered
@@ -57,11 +64,16 @@ def plot_volcano(
         If ``ymax`` is provided, it will be used to set the y limit.
         Otherwise, it will be calculated base on the provided data.
         Note that it corresponds to transformed p-values.
+    xlabel: str
+        If provided will replace the default x-label.
+    ylabel: str
+        If provided will replace the default y-label.
+    title: str
+        If provided will replace the default title.
     ax: plt.Axes or None
         If a matplotlib axes object is provided, the plot will be drawn
         on it. Otherwise, a new plt.Axes object is created and returned
         to the user.
-
 
     Returns
     -------
@@ -104,11 +116,18 @@ def plot_volcano(
     ax.scatter(sign_b[log2_fc_col], sign_b[minus_log10_pval_col], label=condition_b, color=color_b)
 
     ax.set_xlim(-xmax, xmax)
-    ax.set_xlabel(f'Fold change {condition_a}/{condition_b} (log2 scale)')
-    ax.set_ylabel('t-test P-value (-log10)')
+    if xlabel:
+        ax.set_xlabel(xlabel)
+    else:
+        ax.set_xlabel(f'Fold change {condition_a}/{condition_b} (log2 scale)')
+    ax.set_ylabel(ylabel)
     ax.annotate('p<0.05', xy=(-xmax * 0.99, -np.log10(0.05)))
-    ax.set_title(f'Significantly differently abundant proteins \n '
+    if title:
+        ax.set_title(f'Significantly differently abundant proteins \n '
                  f'between {condition_a} and {condition_b}')
+    else:
+        ax.set_title(title)
+
     ax.legend()
 
     return ax
