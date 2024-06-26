@@ -1,12 +1,22 @@
 from __future__ import annotations
 import abc
-from typing import List, Optional, Union, Literal, Type, TypeVar
+from typing import List, Optional, Union, Literal, Type, TypeVar, Tuple
+from functools import reduce
 
 import numpy as np
 import pandas as pd
 
 
 AxisName = Literal['rows', 'columns']
+MergeHow = Literal['left', 'right', 'inner', 'outer', 'cross']
+ConditionImputeMethod = Literal[
+    'fixed',
+    'fixed row',
+    'row min',
+    'row mean',
+    'row median'
+]
+
 T = TypeVar('T', bound='Dataset')
 
 
@@ -74,6 +84,18 @@ class DatasetExpCondition(abc.ABC):
         """
         return self._name
 
+    def describe(self) -> dict:
+        """
+        Returns basic information about the dataset.
+        """
+        return {
+            'name': self._name,
+            'n_experiments': self.n_experiments,
+            'n_records': len(self.record_ids),
+            'experiment_names': self._data.columns.tolist(),
+            'n_records_per_experiment': np.sum(self._data.values > 0, axis=0).tolist()
+        }
+
     def min(self,
             na_threshold: float = 0.0,
             axis: Optional[AxisName] = None) -> Union[float, pd.Series]:
@@ -92,17 +114,180 @@ class DatasetExpCondition(abc.ABC):
 
         return min_value
 
-    def describe(self) -> dict:
+    def missing_values(self, na_threshold: float = 0.0) -> Tuple[pd.DataFrame, int, int]:
         """
-        Returns basic information about the dataset.
+        Calculate number of missing values per experiment.
+
+        Parameters
+        ----------
+        na_threshold : float, optional
+            Values equal or below this threshold will be considered missing.
+
+        Returns
+        -------
+        pd.DataFrame
+            A pandas data frame with the number of missing values per experiment.
+        int
+            Number of missing values in total.
+        int
+            Number of total values of that condition.
         """
-        return {
-            'name': self._name,
-            'n_experiments': self.n_experiments,
-            'n_records': len(self.record_ids),
-            'experiment_names': self._data.columns.tolist(),
-            'n_records_per_experiment': np.sum(self._data.values > 0, axis=0).tolist()
-        }
+        n_missing_per_exp = self._data.shape[0] - np.sum(self._data > na_threshold, axis=0)
+        n_missing_total = np.sum(n_missing_per_exp)
+        total_values = self._data.shape[0] * self._data.shape[1]
+        df = pd.DataFrame({
+            'experiment': self._data.columns,
+            'n_missing': n_missing_per_exp.tolist(),
+            'condition': self._name
+        })
+        return df, int(n_missing_total), int(total_values)
+
+    def log2_transform(self: Type[T]) -> T:
+        self._data = np.log2(self._data + 1)  # type: ignore
+        return self
+
+    def log2_backtransform(self: Type[T]) -> T:
+        self._data = 2 ** self._data - 1
+        return self
+
+    def mean(self, na_threshold: float = 0.0) -> pd.DataFrame:
+        mask = self._data > na_threshold
+        data = self._data.copy()
+        data[~mask] = np.nan
+        mean = data.sum(axis=1) / mask.sum(axis=1)
+        return pd.DataFrame({f'mean_{self.name}': mean})
+
+    def filter(self: Type[T],
+               min_frequency: Optional[int] = None,
+               na_threshold: float = 0.0) -> T:
+        raise NotImplementedError
+
+    def frequency(self, na_threshold: float = 0.0) -> pd.DataFrame:
+        f = np.sum(self._data > na_threshold, axis=1)
+        return pd.DataFrame({f'frequency_{self.name}': f})
+
+    def drop(self: Type[T], exp: Union[str, list], omit_missing_cols: bool = True) -> T:
+        if isinstance(exp, str):
+            exp = [exp]
+
+        if omit_missing_cols:
+            # allow the user to pass column names that don't exist or
+            # are already excluded from previous steps.
+            exp = [e for e in exp if e in self._data.columns]
+
+        self._data = self._data.drop(exp, axis=1)
+        return self
+
+    def _calc_mean_std(self) -> float:
+        """
+        Calculate the average standard deviation between repeats
+        so that you can use it to add random noise during missing value imputation.
+        """
+        return self._data.std(axis=1, skipna=True).dropna().mean()
+
+    def impute(self: Type[T],
+               method: ConditionImputeMethod,
+               na_threshold: float = 0.0,
+               value: Optional[Union[float, pd.Series]] = None,
+               shift: float = 0.0,
+               random_noise: bool = False) -> T:
+        """
+        TBD ...
+
+        Parameters
+        ----------
+        method
+        value
+        na_threshold
+        shift
+        random_noise: bool
+
+        Returns
+        -------
+
+        """
+        self._data[self._data <= na_threshold] = np.nan
+
+        if random_noise:
+            rand_noise_std = self._calc_mean_std()
+        else:
+            rand_noise_std = None
+
+        if method == 'fixed':
+            if value is None:
+                raise ValueError(
+                    f"To impute missing values with a fixed value,"
+                    f" you also need to specify the target fixed value,"
+                    f" using the ``value`` argument. Received ``{value}``.")
+            self._data = self._data.apply(
+                lambda row: self._fillna(row, value, std_value=rand_noise_std),
+                axis=1)
+        elif method == 'fixed row':
+            if value is None:
+                raise ValueError(
+                    f"To impute missing values with a fixed row value,"
+                    f" you also need to specify the target fixed value array,"
+                    f" using the ``value`` argument. Received ``{value}``.")
+            self._data = self._data.apply(
+                lambda row: self._fillna(row, value, std_value=rand_noise_std),
+                axis=1)
+        elif method == 'row min':
+            impute_values = self._data.min(axis=1) - shift
+            self._data = self._data.apply(
+                lambda row: self._fillna(row, impute_values, std_value=rand_noise_std),
+                axis=1)
+        elif method == 'row median':
+            impute_values = self._data.median(axis=1, skipna=True) - shift
+            self._data = self._data.apply(
+                lambda row: self._fillna(row, impute_values, std_value=rand_noise_std),
+                axis=1)
+        elif method == 'row mean':
+            impute_values = self._data.mean(axis=1, skipna=True) - shift
+            self._data = self._data.apply(
+                lambda row: self._fillna(row, impute_values, std_value=rand_noise_std),
+                axis=1)
+        else:
+            raise ValueError(f"Method {method} not implemented")
+
+        return self
+
+    @staticmethod
+    def _fillna(
+            row: pd.Series,
+            val: Union[pd.Series, float],
+            std_value: Optional[float] = None) -> pd.Series:
+        """
+        Fill nan values of a pandas data frame row by row.
+
+        You can either use a fixed value per row, by providing a
+        ``pd.Series`` or the same value for all rows, by providing
+         a ``float``.  For the first case, the index of the target
+        value in the values array, matches the row.name attribute
+        of the row.
+
+        If ``std_value`` is specified, Imputed values will be
+        selected from a normal distribution with mean the
+        value and std the std_value.
+        """
+        # case where you fill with different value per row
+        if isinstance(val, pd.Series):
+            val_idx = np.where(row.name == val.index)[0][0]
+            if std_value is None:
+                row = row.fillna(val.iloc[val_idx])
+            else:
+                for j, v in enumerate(row):
+                    if np.isnan(v):
+                        row.iloc[j] = np.random.normal(val.iloc[val_idx], std_value)
+        # case where you fill with the same value across rows
+        else:
+            if std_value is None:
+                row = row.fillna(val)
+            else:
+                for j, v in enumerate(row):
+                    if np.isnan(v):
+                        row.iloc[j] = np.random.normal(val, std_value)
+
+        return row
 
     def to_table(self) -> pd.DataFrame:
         """
@@ -228,3 +413,46 @@ class Dataset(abc.ABC):
             'n_experiments_total': self.n_experiments,
             'statistics_per_condition': [c.describe() for c in self._conditions]
         }
+
+    def mean(self,
+             na_threshold: float = 0.0,
+             join_method: MergeHow = 'inner') -> pd.DataFrame:
+        """
+        Calculate the average value for each record within each
+        experimental condition and return a merged data frame for
+        all conditions.
+
+        Missing values (and values below or equal the specified
+        threshold) are omitted.
+
+        By default, and inner join is performed across all conditions.
+        Adjust accordingly if needed.
+
+        Parameters
+        ----------
+        na_threshold : float, optional
+            Values below or equal to this threshold are considered missing.
+        join_method: MergeHow, optional
+            Method of joining records of each experimental
+            condition in the output.
+
+        Returns
+        -------
+        pd.DataFrame
+            A pandas data frame containing the average value for
+            each condition.
+        """
+        tables = [c.mean(na_threshold=na_threshold) for c in self._conditions]
+        return self._join_list_of_tables(tables, how=join_method)
+
+    @staticmethod
+    def _join_list_of_tables(tables: List[pd.DataFrame], how: MergeHow = 'outer') -> pd.DataFrame:
+        return reduce(lambda left, right: pd.merge(
+            left, right, left_index=True,
+            right_index=True, how=how), tables)
+
+    def log2_transform(self):
+        raise NotImplementedError
+
+    def log2_backtransform(self):
+        raise NotImplementedError
