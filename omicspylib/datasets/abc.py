@@ -92,6 +92,31 @@ class DatasetExpCondition(abc.ABC):
 
         return min_value
 
+    def describe(self) -> dict:
+        """
+        Returns basic information about the dataset.
+        """
+        return {
+            'name': self._name,
+            'n_experiments': self.n_experiments,
+            'n_records': len(self.record_ids),
+            'experiment_names': self._data.columns.tolist(),
+            'n_records_per_experiment': np.sum(self._data.values > 0, axis=0).tolist()
+        }
+
+    def to_table(self) -> pd.DataFrame:
+        """
+        Returns the individual experiments from this condition
+        as a pandas data frame.
+
+        Returns
+        -------
+        pd.DataFrame
+            A table with protein ids as rows and experiment quantitative
+            values as columns.
+        """
+        return self._data
+
 
 class Dataset(abc.ABC):
     def __init__(self, conditions: List[DatasetExpCondition]) -> None:
@@ -187,3 +212,19 @@ class Dataset(abc.ABC):
         for condition in self._conditions:
             all_records.extend(condition.record_ids)
         return sorted(list(set(all_records)))
+
+    def describe(self):
+        """
+        Returns basic information about the dataset.
+
+        Returns
+        -------
+        dict
+            Dataset statistics.
+        """
+        return {
+            'n_conditions_total': self.n_conditions,
+            'n_records_total': self.n_records,
+            'n_experiments_total': self.n_experiments,
+            'statistics_per_condition': [c.describe() for c in self._conditions]
+        }

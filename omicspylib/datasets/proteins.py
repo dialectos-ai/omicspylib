@@ -41,30 +41,6 @@ class ProteinsDatasetExpCondition(DatasetExpCondition):
     Proteins dataset for a specific experimental condition.
     Includes all experiments (runs) for that case.
     """
-    def describe(self) -> dict:
-        """
-        Returns basic information about the dataset.
-        """
-        return {
-            'name': self._name,
-            'n_experiments': self.n_experiments,
-            'n_records': len(self.record_ids),
-            'experiment_names': self._data.columns.tolist(),
-            'n_proteins_per_experiment': np.sum(self._data.values > 0, axis=0).tolist()
-        }
-
-    def to_table(self) -> pd.DataFrame:
-        """
-        Returns the individual experiments from this condition
-        as a pandas data frame.
-
-        Returns
-        -------
-        pd.DataFrame
-            A table with protein ids as rows and experiment quantitative
-            values as columns.
-        """
-        return self._data
 
     def missing_values(self, na_threshold: float = 0.0) -> Tuple[pd.DataFrame, int, int]:
         """
@@ -354,21 +330,6 @@ class ProteinsDataset(Dataset):
 
         return cls.from_df(data, id_col, conditions)
 
-    def describe(self):
-        """
-        Returns basic information about the dataset.
-
-        Returns
-        -------
-        dict
-            Dataset statistics.
-        """
-        return {
-            'n_conditions_total': self.n_conditions,
-            'n_records_total': self.n_records,
-            'n_experiments_total': self.n_experiments,
-            'statistics_per_condition': [c.describe() for c in self._conditions]
-        }
 
     def to_table(self, join_method: MergeHow = 'outer') -> pd.DataFrame:
         """
