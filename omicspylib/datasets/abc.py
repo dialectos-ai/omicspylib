@@ -17,10 +17,10 @@ ConditionImputeMethod = Literal[
     'row median'
 ]
 
-T = TypeVar('T', bound='Dataset')
+T = TypeVar('T', bound='TabularDataset')
 
 
-class DatasetExpCondition(abc.ABC):
+class TabularDatasetExpCondition(abc.ABC):
     def __init__(self,
                  name: str,
                  data: pd.DataFrame,
@@ -303,8 +303,8 @@ class DatasetExpCondition(abc.ABC):
         return self._data
 
 
-class Dataset(abc.ABC):
-    def __init__(self, conditions: List[DatasetExpCondition]) -> None:
+class TabularDataset(abc.ABC):
+    def __init__(self, conditions: List[TabularDatasetExpCondition]) -> None:
         self._conditions = conditions
 
     @classmethod

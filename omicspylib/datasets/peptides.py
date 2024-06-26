@@ -3,10 +3,10 @@ from typing import List, Optional
 
 import pandas as pd
 
-from omicspylib.datasets.abc import DatasetExpCondition, Dataset
+from omicspylib.datasets.abc import TabularDatasetExpCondition, TabularDataset
 
 
-class PeptidesDatasetExpCondition(DatasetExpCondition):
+class PeptidesDatasetExpCondition(TabularDatasetExpCondition):
     def __init__(self,
                  name: str,
                  data: pd.DataFrame,
@@ -25,7 +25,7 @@ class PeptidesDatasetExpCondition(DatasetExpCondition):
                 self._metadata['peptide_to_protein'][rec[id_col]] = rec[protein_id_col]
 
 
-class PeptidesDataset(Dataset):
+class PeptidesDataset(TabularDataset):
     def __init__(self, conditions: List[PeptidesDatasetExpCondition]) -> None:
         super().__init__(conditions=conditions)
 

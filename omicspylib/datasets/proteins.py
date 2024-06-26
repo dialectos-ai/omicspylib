@@ -9,7 +9,7 @@ from typing import List, Tuple, Optional, Literal, Union
 import numpy as np
 import pandas as pd
 
-from omicspylib.datasets.abc import Dataset, DatasetExpCondition, MergeHow
+from omicspylib.datasets.abc import TabularDataset, TabularDatasetExpCondition, MergeHow
 from omicspylib.utils import mq_rm_contaminants, mq_rm_reverse, mq_rm_only_modified
 
 ImputeMethod = Literal[
@@ -26,7 +26,7 @@ ImputeMethod = Literal[
 ]
 
 
-class ProteinsDatasetExpCondition(DatasetExpCondition):
+class ProteinsDatasetExpCondition(TabularDatasetExpCondition):
     """
     Proteins dataset for a specific experimental condition.
     Includes all experiments (runs) for that case.
@@ -64,7 +64,7 @@ class ProteinsDatasetExpCondition(DatasetExpCondition):
             experiment_cols=data.columns.tolist())
 
 
-class ProteinsDataset(Dataset):
+class ProteinsDataset(TabularDataset):
     """
     A proteins dataset object, including multiple experimental
     conditions with one or more experiments per case.
