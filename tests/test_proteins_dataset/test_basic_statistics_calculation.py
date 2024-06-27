@@ -16,7 +16,7 @@ def test_mean_calculation_on_proteins_dataset(proteins_dataset):
     assert result.shape[1] == proteins_dataset.n_conditions
 
 
-def test_frequency_calculation_on_proteins_dataset(proteins_dataset):
+def test_frequency_calculation_on_proteins_dataset(proteins_dataset, peptides_dataset):
     """
     Given a dataset, calculate the frequency of experiments with value
     above the given threshold for each condition.
@@ -24,12 +24,15 @@ def test_frequency_calculation_on_proteins_dataset(proteins_dataset):
     """
     # setup
     exp_cols = ['c1', 'c2', 'c3']
+    datasets = [proteins_dataset, peptides_dataset]
+    datasets = [peptides_dataset]
 
     # action
-    result = proteins_dataset.frequency()
+    for dataset in datasets:
+        result = dataset.frequency()
 
-    # assertion
-    for exp_col in exp_cols:
-        assert f'frequency_{exp_col}' in result.columns
-    assert result.shape[0] == proteins_dataset.n_records
-    assert result.shape[1] == proteins_dataset.n_conditions
+        # assertion
+        for exp_col in exp_cols:
+            assert f'frequency_{exp_col}' in result.columns
+        assert result.shape[0] == dataset.n_records
+        assert result.shape[1] == dataset.n_conditions

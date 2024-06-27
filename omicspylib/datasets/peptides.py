@@ -3,10 +3,11 @@ from typing import List, Optional
 
 import pandas as pd
 
-from omicspylib.datasets.abc import TabularDatasetExpCondition, TabularDataset
+from omicspylib import ProteinsDataset
+from omicspylib.datasets.abc import TabularExperimentalConditionDataset, TabularDataset
 
 
-class PeptidesDatasetExpCondition(TabularDatasetExpCondition):
+class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
     def __init__(self,
                  name: str,
                  data: pd.DataFrame,
@@ -14,10 +15,9 @@ class PeptidesDatasetExpCondition(TabularDatasetExpCondition):
                  experiment_cols: list,
                  protein_id_col: Optional[str] = None) -> None:
         super().__init__(name=name, data=data, id_col=id_col, experiment_cols=experiment_cols)
+        # todo - specify in the documentation that id_col should have values - and validate inputs
         self._metadata = {
-            'peptide_to_protein': {
-
-            }
+            'peptide_to_protein': {}
         }
         if protein_id_col is not None:
             records = data[[id_col, protein_id_col]].to_dict(orient='records')
@@ -26,9 +26,6 @@ class PeptidesDatasetExpCondition(TabularDatasetExpCondition):
 
 
 class PeptidesDataset(TabularDataset):
-    def __init__(self, conditions: List[PeptidesDatasetExpCondition]) -> None:
-        super().__init__(conditions=conditions)
-
     @classmethod
     def from_df(cls,
                 data: pd.DataFrame,
@@ -64,3 +61,6 @@ class PeptidesDataset(TabularDataset):
                 protein_id_col=protein_id_col)
             exp_conditions.append(exp_condition_dataset)
         return cls(conditions=exp_conditions)
+
+    def to_proteins(self) -> ProteinsDataset:
+        raise NotImplementedError
