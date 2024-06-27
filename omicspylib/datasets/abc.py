@@ -318,10 +318,8 @@ class TabularExperimentalConditionDataset(abc.ABC):
 
 class TabularDataset(abc.ABC):
     def __init__(self,
-                 conditions: List[TabularExperimentalConditionDataset],
-                 metadata: Optional[dict] = None) -> None:
+                 conditions: List[TabularExperimentalConditionDataset]) -> None:
         self._conditions = conditions
-        self._metadata = copy.deepcopy(metadata)
 
     @classmethod
     def from_df(cls: Type[T],
@@ -504,7 +502,7 @@ class TabularDataset(abc.ABC):
         if exp is not None:
             filt_conditions = [c.drop(exp) for c in filt_conditions]
 
-        return self.__class__(conditions=filt_conditions, metadata=self._metadata)
+        return self.__class__(conditions=filt_conditions)
 
     def filter(self: Type[T],
                conditions: Optional[list] = None,
@@ -541,7 +539,7 @@ class TabularDataset(abc.ABC):
                 c.filter(min_frequency=min_frequency,
                          na_threshold=na_threshold) for c in exp_conditions]
 
-        return self.__class__(conditions=exp_conditions, metadata=self._metadata)
+        return self.__class__(conditions=exp_conditions)
 
 
     @staticmethod
@@ -554,13 +552,13 @@ class TabularDataset(abc.ABC):
         """Perform log2 transformation."""
         conditions_copy = copy.deepcopy(self._conditions)
         log2_conditions = [c.log2_transform() for c in conditions_copy]
-        return self.__class__(conditions=log2_conditions, metadata=self._metadata)
+        return self.__class__(conditions=log2_conditions)
 
     def log2_backtransform(self: Type[T]) -> T:
         """Invert log2 transformation."""
         conditions_copy = copy.deepcopy(self._conditions)
         bt_conditions = [c.log2_backtransform() for c in conditions_copy]
-        return self.__class__(conditions=bt_conditions, metadata=self._metadata)
+        return self.__class__(conditions=bt_conditions)
 
     def to_table(self, join_method: MergeHow = 'outer') -> pd.DataFrame:
         """
@@ -688,7 +686,7 @@ class TabularDataset(abc.ABC):
             imputed_conditions = self._intra_group_imputation(
                 imputed_conditions, 'row median', na_threshold, value, shift, random_noise=random_noise)
 
-        return self.__class__(conditions=imputed_conditions, metadata=self._metadata)
+        return self.__class__(conditions=imputed_conditions)
 
     def _impute_by_global_row_value(self, imputed_conditions,
                                     value_type, na_threshold, shift, random_noise):
