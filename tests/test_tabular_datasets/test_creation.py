@@ -2,32 +2,58 @@
 import pandas as pd
 import pytest
 
-from omicspylib import ProteinsDataset
+from omicspylib import ProteinsDataset, PeptidesDataset
 
 
-def test_protein_dataset_creation_from_df():
+@pytest.mark.parametrize(
+    "fp,obj_constructor,config,n_conditions,n_exp,n_records",
+    [
+        # proteins dataset example
+        (
+            'tests/data/protein_dataset.tsv',
+             ProteinsDataset.from_df,
+            {
+                'id_col': 'protein_id',
+                'conditions': {
+                    'c1': ['c1_rep1', 'c1_rep2', 'c1_rep3', 'c1_rep4', 'c1_rep5'],
+                    'c2': ['c2_rep1', 'c2_rep2', 'c2_rep3', 'c2_rep4', 'c2_rep5'],
+                    'c3': ['c3_rep1', 'c3_rep2', 'c3_rep3', 'c3_rep4', 'c3_rep5'],
+                }
+            },
+            3, 15, 100,
+        ),
+        # peptides dataset
+        (
+            'tests/data/peptides_dataset.tsv',
+            PeptidesDataset.from_df,
+            {
+                'id_col': 'peptide_id',
+                'conditions': {
+                    'c1': ['c1_rep1', 'c1_rep2', 'c1_rep3', 'c1_rep4', 'c1_rep5'],
+                    'c2': ['c2_rep1', 'c2_rep2', 'c2_rep3', 'c2_rep4', 'c2_rep5'],
+                    'c3': ['c3_rep1', 'c3_rep2', 'c3_rep3', 'c3_rep4', 'c3_rep5'],
+                },
+                'protein_id_col': 'protein_id',
+            },
+            3, 15, 1000,
+        )
+    ]
+)
+def test_protein_dataset_creation_from_df(fp, obj_constructor, config, n_conditions, n_exp, n_records):
     """
     Basic protein dataset constractor. Test that
     created object has expected attributes.
     """
     # setup
-    data_df = pd.read_csv('tests/data/protein_dataset.tsv', sep='\t')
-    config = {
-        'id_col': 'protein_id',
-        'conditions': {
-            'c1': ['c1_rep1', 'c1_rep2', 'c1_rep3', 'c1_rep4', 'c1_rep5'],
-            'c2': ['c2_rep1', 'c2_rep2', 'c2_rep3', 'c2_rep4', 'c2_rep5'],
-            'c3': ['c3_rep1', 'c3_rep2', 'c3_rep3', 'c3_rep4', 'c3_rep5'],
-        }
-    }
+    data_df = pd.read_csv(fp, sep='\t')
 
     # action
-    dataset = ProteinsDataset.from_df(data_df, **config)
+    dataset = obj_constructor(data_df, **config)
 
     # assertion
-    assert dataset.n_conditions == 3
-    assert dataset.n_experiments == 15
-    assert dataset.n_records == 100
+    assert dataset.n_conditions == n_conditions
+    assert dataset.n_experiments == n_exp
+    assert dataset.n_records == n_records
     experimental_conditions = dataset.conditions
     for condition_name, exp_names in config['conditions'].items():
         assert condition_name in experimental_conditions
@@ -85,7 +111,7 @@ def test_protein_dataset_creation_from_mq_output(rm_contaminants, rm_reverse, rm
     assert dset_from_df.n_records == n_rows
 
 
-def test_protein_dataset_stats(proteins_dataset):
+def test_protein_and_peptides_dataset_stats(proteins_dataset, peptides_dataset):
     """
     You should be able to extract basic statistics from your dataset
     as a dict, so that you can evaluate and manage the flow programmatically.
@@ -96,16 +122,17 @@ def test_protein_dataset_stats(proteins_dataset):
         'n_experiments_total', 'statistics_per_condition']
     exp_low_level_keys = [
         'name', 'n_experiments', 'n_records',
-        'experiment_names', 'n_proteins_per_experiment']
+        'experiment_names', 'n_records_per_experiment']
 
     # action
-    stats = proteins_dataset.describe()
+    for dataset in [proteins_dataset, peptides_dataset]:
+        stats = dataset.describe()
 
-    # assertion
-    assert isinstance(stats, dict)
-    for key in exp_high_level_keys:
-        assert key in stats
+        # assertion
+        assert isinstance(stats, dict)
+        for key in exp_high_level_keys:
+            assert key in stats
 
-    example_cond = stats['statistics_per_condition'][0]
-    for key in exp_low_level_keys:
-        assert key in example_cond
+        example_cond = stats['statistics_per_condition'][0]
+        for key in exp_low_level_keys:
+            assert key in example_cond
