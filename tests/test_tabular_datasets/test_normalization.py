@@ -1,12 +1,20 @@
 import numpy as np
 import pandas as pd
-from matplotlib import pyplot as plt
+import pytest
 
 from omicspylib import PeptidesDataset
-from omicspylib.plots import plot_density
+from omicspylib.datasets.abc import NormMethod
 
 
-def test_normalization_method():
+@pytest.mark.parametrize(
+    "method,ref_exp,ref_condition,use_common_records,atol", [
+        ('mean', None, None, False, 0.1),
+        ('mean', 'c2_rep2', None, False, 0.1),
+        ('mean', None, 'c3', False, 0.1),
+        ('mean', None, 'c3', True, 0.9)
+    ]
+)
+def test_normalization_method(method: NormMethod, ref_exp, ref_condition, use_common_records, atol):
     # setup
     data_df = pd.read_csv('tests/data/peptides_dataset.tsv', sep='\t')
     config = {
@@ -27,16 +35,15 @@ def test_normalization_method():
     col_means_before = dataset.mean(axis=0)
 
     # action
-    norm_dataset = dataset.normalize(method='mean')
+    norm_dataset = dataset.normalize(
+        method=method,
+        ref_exp=ref_exp,
+        ref_condition=ref_condition,
+        use_common_records=use_common_records)
     col_means_after = norm_dataset.mean(axis=0)
 
     # assertion
     global_mean_before = np.mean(col_means_before)
     assert not np.any(np.isclose(global_mean_before, col_means_before, atol=0.1))
     global_mean_after = np.mean(col_means_after)
-    assert np.all(np.isclose(global_mean_after, col_means_after, atol=0.1))
-
-    fig, ax = plt.subplots(1, 2, figsize=(10, 5))
-    plot_density(dataset, ax=ax[0])
-    plot_density(norm_dataset, ax=ax[1])
-    plt.show()
+    assert np.all(np.isclose(global_mean_after, col_means_after, atol=atol))

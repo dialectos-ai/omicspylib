@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import copy
-from typing import List, Optional
+from typing import Optional, Union
 
-import numpy as np
 import pandas as pd
 
 from omicspylib import ProteinsDataset
@@ -34,6 +33,7 @@ class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
             self._metadata = copy.deepcopy(metadata)
 
     def filter(self,
+               exp: Optional[Union[str, list]] = None,
                min_frequency: Optional[int] = None,
                na_threshold: float = 0.0) -> PeptidesDatasetExpCondition:
         """
@@ -41,12 +41,14 @@ class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
 
         Parameters
         ----------
+        exp: list, str, optional
+            List or experiment to keep with. Leave empty to keep all experiments.
         min_frequency: int or None, optional
             If specified, records of the dataset will be filtered based on their
             within group frequency.
         na_threshold: float or None, optional
             Values below or equal to this threshold are considered missing.
-            Is used in to filter records based on the number of missing values.
+            It is used in to filter records based on the number of missing values.
 
         Returns
         -------
@@ -54,10 +56,7 @@ class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
             A new instance of the dataset object, filtered based on the
             user's input.
         """
-        data = self._data.copy()
-        if min_frequency is not None:
-            valid_rows = np.sum(data > na_threshold, axis=1) >= min_frequency
-            data = data.loc[valid_rows, :].copy()
+        data = self._apply_filter(exp, min_frequency, na_threshold)
 
         return PeptidesDatasetExpCondition(
             name=self.name,

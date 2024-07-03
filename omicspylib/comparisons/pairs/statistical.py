@@ -43,7 +43,7 @@ class PairwiseComparisonTTestFC:
             the t-test and fold change calculations.
         """
         dataset = self._raw_dataset.filter(
-            conditions=[self._condition_a, self._condition_b],
+            cond=[self._condition_a, self._condition_b],
             min_frequency=min_frequency,
             na_threshold=na_threshold)
 

@@ -18,7 +18,7 @@ def test_protein_dataset_filter_on_conditions(
 
     # action
     for dataset in datasets:
-        filt_dataset = dataset.filter(conditions=[c1, c2])
+        filt_dataset = dataset.filter(cond=[c1, c2])
 
         # assertion
         assert c1 in filt_dataset.conditions
@@ -47,7 +47,7 @@ def test_filtering_of_rows_with_low_within_group_frequency(
         'peptides': peptides_dataset
     }
     dataset = dsets[dset_name]
-    dset_before = dataset.filter(conditions=conditions)
+    dset_before = dataset.filter(cond=conditions)
 
     # action
     dset_after = dset_before.filter(min_frequency=min_f, na_threshold=0.0)

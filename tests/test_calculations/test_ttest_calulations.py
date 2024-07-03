@@ -12,7 +12,7 @@ from omicspylib.calculations.ttest import calc_ttest_adj
 )
 def test_ttest_calculations(proteins_dataset: ProteinsDataset, padj_method, exp_cols, skipped_cols):
     # setup
-    dataset = proteins_dataset.filter(conditions=['c1', 'c2'])
+    dataset = proteins_dataset.filter(cond=['c1', 'c2'])
 
     # action
     ttest_out = calc_ttest_adj(dataset, condition_a='c1', condition_b='c2', pval_adj_method=padj_method)

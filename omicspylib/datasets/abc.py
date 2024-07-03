@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 
 AxisName = Literal['rows', 'columns']
-NormMethod = Literal['mean']
+NormMethod = Literal['mean']  # future implementation for quantile, median etc
 MergeHow = Literal['left', 'right', 'inner', 'outer', 'cross']
 ConditionImputeMethod = Literal[
     'fixed',
@@ -187,9 +187,25 @@ class TabularExperimentalConditionDataset(abc.ABC):
             return pd.DataFrame({'mean': mean})
 
     def filter(self: Type[T],
+               exp: Optional[Union[str, list]] = None,
                min_frequency: Optional[int] = None,
                na_threshold: float = 0.0) -> T:
         raise NotImplementedError
+
+    def _apply_filter(self, exp, min_frequency, na_threshold):
+        data = self._data.copy()
+        if min_frequency is not None:
+            valid_rows = np.sum(data > na_threshold, axis=1) >= min_frequency
+            data = data.loc[valid_rows, :].copy()
+        if isinstance(exp, str):
+            exp = [exp]
+        if exp is not None:
+            # You might filter by providing names across experimental
+            # conditions. So when you work on each condition separately,
+            # some names are no longer valid.
+            local_exp = [ex for ex in exp if ex in data.columns]
+            data = data[local_exp].copy()
+        return data
 
     def frequency(self, na_threshold: float = 0.0, axis: int = 1) -> pd.DataFrame:
         f = np.sum(self._data > na_threshold, axis=axis)
@@ -337,6 +353,8 @@ class TabularExperimentalConditionDataset(abc.ABC):
     def shift(self, exp, value, na_threshold: float = 0.0) -> None:
         """
         Shift values of a given experiment by a fixed value.
+        The specified value will be subtracted from that experiment.
+
         Parameters
         ----------
         exp
@@ -504,7 +522,8 @@ class TabularDataset(abc.ABC):
     def frequency(self,
                   na_threshold: float = 0.0,
                   join_method: MergeHow = 'outer',
-                  axis: int = 1) -> pd.DataFrame:
+                  axis: int = 1,
+                  conditions: Optional[List[str]] = None) -> pd.DataFrame:
         """
         Calculate the number of experiments within each experimental condition
         with quantitative value above the specified threshold,
@@ -515,17 +534,28 @@ class TabularDataset(abc.ABC):
 
         Parameters
         ----------
-        na_threshold : float, optional
+        na_threshold : float
             Values below or equal to this threshold are considered missing.
-        join_method: MergeHow, optional
+        join_method: MergeHow
             Method of joining records of each experimental condition in the output.
+        axis: int
+            Axis on which to calculate the frequency. Use ``1`` for row by row and
+            ``0`` for column by column.
+        conditions: List[str], optional
+            If specified, only the specified conditions are considered.
 
         Returns
         -------
         pd.DataFrame
             A pandas data frame containing the average value for each condition.
         """
-        tables = [c.frequency(na_threshold=na_threshold, axis=axis) for c in self._conditions]
+        if conditions:
+            tables = [c.frequency(na_threshold=na_threshold, axis=axis)
+                      for c in self._conditions if c.name in conditions]
+        else:
+            tables = [c.frequency(na_threshold=na_threshold, axis=axis)
+                      for c in self._conditions]
+
         if axis == 1:
             return self._join_list_of_tables(tables, how=join_method)
         else:
@@ -551,7 +581,8 @@ class TabularDataset(abc.ABC):
         return self.__class__(conditions=filt_conditions)
 
     def filter(self: Type[T],
-               conditions: Optional[list] = None,
+               exp: Optional[Union[str, list]] = None,
+               cond: Optional[list] = None,
                min_frequency: Optional[int] = None,
                na_threshold: float = 0.0) -> T:
         """
@@ -559,7 +590,9 @@ class TabularDataset(abc.ABC):
 
         Parameters
         ----------
-        conditions: list, optional
+        exp: list, str, optional
+            List or experiment to keep with. Leave empty to keep all experiments.
+        cond: list, optional
             List of experimental condition names. If provided only the conditions
             specified will remain in the dataset.
         min_frequency: int or None, optional
@@ -567,7 +600,7 @@ class TabularDataset(abc.ABC):
             frequency within the experimental condition.
         na_threshold: float or None, optional
             Values below or equal to this threshold are considered missing.
-            Is used in to filter records based on the number of missing values.
+            It is used in to filter records based on the number of missing values.
 
         Returns
         -------
@@ -576,13 +609,17 @@ class TabularDataset(abc.ABC):
             user's input.
         """
         exp_conditions = self._conditions.copy()
-
-        if conditions is not None:
-            exp_conditions = [c for c in exp_conditions if c.name in conditions]
+        if isinstance(exp, str):
+            exp = [exp]
+        if isinstance(cond, str):
+            cond = [cond]
+        if cond is not None:
+            exp_conditions = [c for c in exp_conditions if c.name in cond]
 
         if min_frequency:
             exp_conditions = [
-                c.filter(min_frequency=min_frequency,
+                c.filter(exp=exp,
+                         min_frequency=min_frequency,
                          na_threshold=na_threshold) for c in exp_conditions]
 
         return self.__class__(conditions=exp_conditions)
@@ -791,25 +828,113 @@ class TabularDataset(abc.ABC):
 
     def normalize(self: Type[T],
                   method: NormMethod,
+                  ref_exp: Optional[str] = None,
+                  ref_condition: Optional[str] = None,
                   use_common_records: bool = False,
                   na_threshold: float = 0.0) -> T:
-        """Normalize the dataset."""
-        # step 1 - define reference based on the number of records identified
-        n_entries_per_exp = self.frequency(na_threshold=na_threshold, axis=0).transpose()
-        max_exp = n_entries_per_exp['frequency'].idxmax()
+        """
+        Normalize the dataset.
+
+        Normalization methods:
+        - mean without a use of common records without ref exp.:
+            1. Find experiment with the most records and consider reference.
+            2. Calculate mean experiment intensity and difference from reference.
+            3. Shift each experiment's intensity by the difference with reference.
+        - mean without a use of common records with ref exp.:
+            1 Like above, but reference experiment is defined by the user.
+        - mean with common records without a ref exp.:
+            1. Find experiment with the most records and consider reference.
+            2. Perform pairwise comparison of each experiment with the reference where:
+                i. Filter on common records.
+                ii. Calculate difference from reference.
+                iii. Shift all intensities of that experiment based on that difference.
+        - mean with common records with a ref exp.:
+            1. Similar with previous, but reference is defined by the user.
+        - mean with common records with a ref condition:
+            1. Similar with the previous, reference is selected automatically,
+                from the condition specified.
+
+
+        Parameters
+        ----------
+        method:
+            Normalization method.
+        ref_exp: str, optional
+            If specified, this experiment will be considered the reference. If this
+            is set, the ``ref_condition`` field is ignored.
+        ref_condition: str, optional
+            If specified, the experiment of that condition with the most records
+            will be considered the reference. Note that ``ref_exp`` should not be set.
+        use_common_records: bool
+            If set to ``True``, common records, in a pairwise comparison with the
+            reference, will be considered for normalization.
+
+        Returns
+        -------
+        A new instance of the same object with normalized values.
+        """
+        ref_exp = self._select_norm_ref(na_threshold, ref_condition, ref_exp)
 
         # step 2 - calculate difference
-        mean_before = self.mean(na_threshold=na_threshold, axis=0)
-        ref_mean = mean_before[max_exp].values[0]
-        mean_diff = mean_before - ref_mean
+        if method == 'mean' and use_common_records:
+            exp_conditions = self._mean_norm_with_shared_records(na_threshold, ref_exp)
+        elif method == 'mean' and not use_common_records:
+            exp_conditions = self._base_mean_normalization(na_threshold, ref_exp)
+        else:
+            raise NotImplementedError(
+                f'Normalization method {method} with the specified '
+                f'arguments is not implemented.')
 
+        return self.__class__(conditions=exp_conditions)
+
+    def _mean_norm_with_shared_records(self, na_threshold, ref_exp):
+        exp_conditions = copy.deepcopy(self._conditions)
+
+        ref_c = [c for c in exp_conditions if ref_exp in c.experiments][0]
+        for exp_c in exp_conditions:
+            cond_name = exp_c.name
+            exp_names = exp_c.experiments
+            for targ_exp in exp_names:
+                if cond_name != ref_c.name and targ_exp != ref_exp:
+                    ref_case = ref_c.filter(exp=ref_exp).to_table()
+                    targ_case = exp_c.filter(exp=targ_exp).to_table()
+                    df = ref_case.merge(targ_case, left_index=True, right_index=True, how='inner')
+                    df[df <= na_threshold] = np.nan
+                    df = df.dropna()
+                    mean_ref = df[ref_exp].mean()
+                    mean_targ = df[targ_exp].mean()
+                    norm_diff = mean_targ - mean_ref
+                    exp_c.shift(targ_exp, norm_diff, na_threshold=na_threshold)
+
+        return exp_conditions
+
+    def _base_mean_normalization(self, na_threshold, ref_exp):
+        mean_before = self.mean(na_threshold=na_threshold, axis=0)
+        ref_mean = mean_before[ref_exp].values[0]
+        mean_diff = mean_before - ref_mean
         exp_names = mean_diff.columns
         shift_values = mean_diff.values.reshape(-1)
-
         exp_conditions = copy.deepcopy(self._conditions)
         for condition in exp_conditions:
             for exp, shift_value in zip(exp_names, shift_values):
                 if exp in condition.experiments and shift_value != 0:
                     condition.shift(exp, value=shift_value, na_threshold=na_threshold)
+        return exp_conditions
 
-        return self.__class__(conditions=exp_conditions)
+    def _select_norm_ref(self, na_threshold, ref_condition, ref_exp) -> str:
+        """Select reference experiment for normalization step."""
+        if ref_exp is not None:
+            assert ref_exp in self.experiments(), \
+                f'Reference experiment {ref_exp} not found.'
+        elif ref_condition is not None:
+            assert ref_condition in self.conditions, \
+                f'Reference condition {ref_condition} not found.'
+            n_entries_per_exp = self.frequency(
+                na_threshold=na_threshold, axis=0, conditions=[ref_condition]) \
+                .transpose()
+            ref_exp = n_entries_per_exp['frequency'].idxmax()
+        else:
+            n_entries_per_exp = self.frequency(
+                na_threshold=na_threshold, axis=0).transpose()
+            ref_exp = n_entries_per_exp['frequency'].idxmax()
+        return ref_exp
