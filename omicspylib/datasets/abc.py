@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 
 AxisName = Literal['rows', 'columns']
+NormMethod = Literal['mean']
 MergeHow = Literal['left', 'right', 'inner', 'outer', 'cross']
 ConditionImputeMethod = Literal[
     'fixed',
@@ -163,21 +164,39 @@ class TabularExperimentalConditionDataset(abc.ABC):
         self._data = 2 ** self._data - 1
         return self
 
-    def mean(self, na_threshold: float = 0.0) -> pd.DataFrame:
+    def mean(self, na_threshold: float = 0.0, axis: int = 1) -> pd.DataFrame:
+        """
+
+        Parameters
+        ----------
+        na_threshold
+        axis: int
+            1 for row by row and 0 for column by column.
+
+        Returns
+        -------
+
+        """
         mask = self._data > na_threshold
         data = self._data.copy()
         data[~mask] = np.nan
-        mean = data.sum(axis=1) / mask.sum(axis=1)
-        return pd.DataFrame({f'mean_{self.name}': mean})
+        mean = data.sum(axis=axis) / mask.sum(axis=axis)
+        if axis == 1: # row mean
+            return pd.DataFrame({f'mean_{self.name}': mean})
+        else: # column mean
+            return pd.DataFrame({'mean': mean})
 
     def filter(self: Type[T],
                min_frequency: Optional[int] = None,
                na_threshold: float = 0.0) -> T:
         raise NotImplementedError
 
-    def frequency(self, na_threshold: float = 0.0) -> pd.DataFrame:
-        f = np.sum(self._data > na_threshold, axis=1)
-        return pd.DataFrame({f'frequency_{self.name}': f})
+    def frequency(self, na_threshold: float = 0.0, axis: int = 1) -> pd.DataFrame:
+        f = np.sum(self._data > na_threshold, axis=axis)
+        if axis == 1:
+            return pd.DataFrame({f'frequency_{self.name}': f})
+        else:
+            return pd.DataFrame({'frequency': f})
 
     def drop(self: Type[T], exp: Union[str, list], omit_missing_cols: bool = True) -> T:
         if isinstance(exp, str):
@@ -315,6 +334,21 @@ class TabularExperimentalConditionDataset(abc.ABC):
         """
         return self._data
 
+    def shift(self, exp, value, na_threshold: float = 0.0) -> None:
+        """
+        Shift values of a given experiment by a fixed value.
+        Parameters
+        ----------
+        exp
+        value
+
+        Returns
+        -------
+
+        """
+        mask = self._data[exp] > na_threshold
+        self._data.loc[mask, exp] -= value
+
 
 class TabularDataset(abc.ABC):
     def __init__(self,
@@ -401,7 +435,7 @@ class TabularDataset(abc.ABC):
 
     def unique_records(self) -> list:
         """
-        Returns a list of unique protein ids across
+        Returns a list of unique entry ids across
         all experimental conditions.
         """
         return self._get_unique_records()
@@ -430,7 +464,8 @@ class TabularDataset(abc.ABC):
 
     def mean(self,
              na_threshold: float = 0.0,
-             join_method: MergeHow = 'inner') -> pd.DataFrame:
+             join_method: MergeHow = 'inner',
+             axis: int = 1) -> pd.DataFrame:
         """
         Calculate the average value for each record within each
         experimental condition and return a merged data frame for
@@ -444,11 +479,13 @@ class TabularDataset(abc.ABC):
 
         Parameters
         ----------
-        na_threshold : float, optional
+        na_threshold : float
             Values below or equal to this threshold are considered missing.
         join_method: MergeHow, optional
             Method of joining records of each experimental
             condition in the output.
+        axis: int
+            1 for row by row and 0 for column by column.
 
         Returns
         -------
@@ -456,12 +493,18 @@ class TabularDataset(abc.ABC):
             A pandas data frame containing the average value for
             each condition.
         """
-        tables = [c.mean(na_threshold=na_threshold) for c in self._conditions]
-        return self._join_list_of_tables(tables, how=join_method)
+        assert axis in [0, 1]
+
+        tables = [c.mean(na_threshold=na_threshold, axis=axis) for c in self._conditions]
+        if axis == 1:  # row mean
+            return self._join_list_of_tables(tables, how=join_method)
+        else:
+            return pd.concat(tables).transpose()
 
     def frequency(self,
                   na_threshold: float = 0.0,
-                  join_method: MergeHow = 'outer') -> pd.DataFrame:
+                  join_method: MergeHow = 'outer',
+                  axis: int = 1) -> pd.DataFrame:
         """
         Calculate the number of experiments within each experimental condition
         with quantitative value above the specified threshold,
@@ -482,8 +525,11 @@ class TabularDataset(abc.ABC):
         pd.DataFrame
             A pandas data frame containing the average value for each condition.
         """
-        tables = [c.frequency(na_threshold=na_threshold) for c in self._conditions]
-        return self._join_list_of_tables(tables, how=join_method)
+        tables = [c.frequency(na_threshold=na_threshold, axis=axis) for c in self._conditions]
+        if axis == 1:
+            return self._join_list_of_tables(tables, how=join_method)
+        else:
+            return pd.concat(tables).transpose()
 
     def drop(self: Type[T],
              exp: Optional[Union[str, list]] = None,
@@ -743,7 +789,27 @@ class TabularDataset(abc.ABC):
             for c in conditions]
         return imputed_conditions
 
-
-    def normalize(self: Type[T]) -> T:
+    def normalize(self: Type[T],
+                  method: NormMethod,
+                  use_common_records: bool = False,
+                  na_threshold: float = 0.0) -> T:
         """Normalize the dataset."""
-        raise NotImplementedError
+        # step 1 - define reference based on the number of records identified
+        n_entries_per_exp = self.frequency(na_threshold=na_threshold, axis=0).transpose()
+        max_exp = n_entries_per_exp['frequency'].idxmax()
+
+        # step 2 - calculate difference
+        mean_before = self.mean(na_threshold=na_threshold, axis=0)
+        ref_mean = mean_before[max_exp].values[0]
+        mean_diff = mean_before - ref_mean
+
+        exp_names = mean_diff.columns
+        shift_values = mean_diff.values.reshape(-1)
+
+        exp_conditions = copy.deepcopy(self._conditions)
+        for condition in exp_conditions:
+            for exp, shift_value in zip(exp_names, shift_values):
+                if exp in condition.experiments and shift_value != 0:
+                    condition.shift(exp, value=shift_value, na_threshold=na_threshold)
+
+        return self.__class__(conditions=exp_conditions)
