@@ -56,10 +56,15 @@ class TabularExperimentalConditionDataset(abc.ABC):
         self._name = name
         self._data = data[[id_col]+experiment_cols].copy().set_index(id_col)
         self._id_col = id_col
+        self._metadata = {}
 
     @property
     def _experiments(self) -> list:
         return self._data.columns.tolist()
+
+    @property
+    def metadata(self) -> dict:
+        return self._metadata
 
     @property
     def n_experiments(self) -> int:

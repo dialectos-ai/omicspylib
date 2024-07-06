@@ -105,4 +105,24 @@ class PeptidesDataset(TabularDataset):
         return cls(conditions=exp_conditions)
 
     def to_proteins(self) -> ProteinsDataset:
-        raise NotImplementedError
+        """
+        Aggregate peptides dataset into Proteins dataset.
+        Protein abundance is calculated as the sum of all individual peptides.
+        It is assumed that each peptide belongs into one protein group.
+        """
+
+        cond_conf = {}
+
+        pept2proteins = {}
+        for condition in self._conditions:
+            record = {condition.name: condition.experiments}
+            cond_conf.update(record)
+            metadata = condition.metadata
+            pept2proteins.update(metadata['peptide_to_protein'])
+
+        data = self.to_table()
+        proteins_id_col = 'protein_id'
+        data[proteins_id_col] = [pept2proteins.get(i, '<unk>') for i in data.index.tolist()]
+        proteins_df = data.groupby(proteins_id_col).sum().reset_index()
+
+        return ProteinsDataset.from_df(data=proteins_df, id_col=proteins_id_col, conditions=cond_conf)
