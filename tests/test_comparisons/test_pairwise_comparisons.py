@@ -19,7 +19,6 @@ def test_pairwise_ttest_fold_change_comparison_success_case(proteins_dataset):
 
 def test_unique_entry_comparison_success_case(proteins_dataset):
     # setup
-
     unique_selector = PairwiseUniqueEntryComparison(
         proteins_dataset, condition_a='c1', condition_b='c2')
 

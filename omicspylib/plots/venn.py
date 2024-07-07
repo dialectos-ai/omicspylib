@@ -18,11 +18,18 @@ def plot_venn2(data: pd.DataFrame,
         .groupby('frequency_class')\
         .count()
     counts_col = f_counts.columns.tolist()[-1]
-    grp1_idx = [i for i in f_counts.index if i.endswith(condition_a)][0]
-    grp2_idx = [i for i in f_counts.index if i.endswith(condition_b)][0]
+    grp1_idx = [i for i in f_counts.index if i.endswith(condition_a)]
+    if len(grp1_idx) > 0:
+        f_a = f_counts.loc[grp1_idx[0], counts_col]
+    else:
+        f_a = 0
 
-    f_a = f_counts.loc[grp1_idx, counts_col]
-    f_b = f_counts.loc[grp2_idx, counts_col]
+    grp2_idx = [i for i in f_counts.index if i.endswith(condition_b)]
+    if len(grp2_idx) > 0:
+        f_b = f_counts.loc[grp2_idx[0], counts_col]
+    else:
+        f_b = 0
+
     f_common = f_counts.loc['common', counts_col]
 
     # plot venn

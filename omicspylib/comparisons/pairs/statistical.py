@@ -39,8 +39,9 @@ class PairwiseComparisonTTestFC:
         Returns
         -------
         pd.DataFrame
-            A pandas data frame with the measured values and the results of
-            the t-test and fold change calculations.
+            A Pandas data frame with the results of the t-test and fold
+            change calculations. Use the data frame index to join
+            back the results with the dataset.
         """
         dataset = self._raw_dataset.filter(
             cond=[self._condition_a, self._condition_b],
@@ -67,8 +68,6 @@ class PairwiseComparisonTTestFC:
             na_threshold=na_threshold,
             pval_adj_method=pval_adj_method)
 
-        df = dataset.to_table(join_method='outer')
-        df = df.merge(ttest_out, left_index=True, right_index=True, how='left')
-        df = df.merge(fc_out, left_index=True, right_index=True, how='left')
+        out_df = ttest_out.merge(fc_out, left_index=True, right_index=True, how='outer')
 
-        return df
+        return out_df
