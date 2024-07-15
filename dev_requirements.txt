@@ -4,3 +4,4 @@ pylint
 ruff
 sphinx
 sphinx-rtd-theme
+nbsphinx

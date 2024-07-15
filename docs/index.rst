@@ -6,9 +6,17 @@
 Welcome to omicspylib's documentation!
 ======================================
 
+
+Contents
+--------
+
 .. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+   :maxdepth: 1
+
+   install
+   quickstart
+   tutorials
+   apireference
 
 
 

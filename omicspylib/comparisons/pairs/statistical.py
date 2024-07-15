@@ -21,8 +21,13 @@ class PairwiseComparisonTTestFC:
     def compare(self,
                 min_frequency: int = 3,
                 na_threshold: float = 0.0,
-                pval_adj_method: Optional[MULTITEST_METHOD] = 'fdr_bh'):
+                pval_adj_method: Optional[MULTITEST_METHOD] = 'fdr_bh',
+                use_log_transformed: bool = True):
         """
+        Perform the pairwise comparison between the two groups, using
+        a t-test and a fold change rule. By default, quantitative values
+        are log2 transformed, prior to t-test calculation. For the fold
+        change calculation, the original values are used.
 
         Parameters
         ----------
@@ -35,15 +40,19 @@ class PairwiseComparisonTTestFC:
         pval_adj_method: str or None, optional
             Method to adjust p-values for multiple hypothesis testing error.
             If not provided, no adjustment will be performed.
+        use_log_transformed: bool, optional
+            By default, quantitative values are log2 transformed prior to
+            t-test. If set to ``False`` this transformation will be omitted.
 
         Returns
         -------
         pd.DataFrame
-            A pandas data frame with the measured values and the results of
-            the t-test and fold change calculations.
+            A Pandas data frame with the results of the t-test and fold
+            change calculations. Use the data frame index to join
+            back the results with the dataset.
         """
         dataset = self._raw_dataset.filter(
-            conditions=[self._condition_a, self._condition_b],
+            cond=[self._condition_a, self._condition_b],
             min_frequency=min_frequency,
             na_threshold=na_threshold)
 
@@ -58,17 +67,18 @@ class PairwiseComparisonTTestFC:
             condition_a=self._condition_a,
             condition_b=self._condition_b)
 
-        log2_dset = dataset.log2_transform()
+        if use_log_transformed:
+            ttest_input_dataset = dataset.log2_transform()
+        else:
+            ttest_input_dataset = dataset
 
         ttest_out = calc_ttest_adj(
-            data=log2_dset,
+            data=ttest_input_dataset,
             condition_a=self._condition_a,
             condition_b=self._condition_b,
             na_threshold=na_threshold,
             pval_adj_method=pval_adj_method)
 
-        df = dataset.to_table(join_method='outer')
-        df = df.merge(ttest_out, left_index=True, right_index=True, how='left')
-        df = df.merge(fc_out, left_index=True, right_index=True, how='left')
+        out_df = ttest_out.merge(fc_out, left_index=True, right_index=True, how='outer')
 
-        return df
+        return out_df

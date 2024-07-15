@@ -16,7 +16,7 @@ def plot_missing_values(
         min_threshold: float = 0,
         ax: Optional[plt.Axes] = None) -> plt.Axes:
     """
-    Plot number of missing values per experiment of the dataset.
+    Plot the number of missing values per experiment of the dataset.
 
     Parameters
     ----------
@@ -29,7 +29,7 @@ def plot_missing_values(
     title: str, optional
         Title of the plot.
     min_threshold: float, optional
-        Values below that threshold, will be considered as missing values.
+        Values below that threshold will be considered as missing values.
     ax: plt.Axes, optional
         If an existing axes object is provided, the plot will be drawn on it.
 
