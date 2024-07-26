@@ -4,7 +4,7 @@ import pandas as pd
 
 def calc_fold_change(data: pd.DataFrame, condition_a: str, condition_b: str) -> pd.DataFrame:
     """
-    Calculates fold change of condition a over condition b.
+    Calculates fold change of ``condition a`` over ``condition b``.
     Log2 values of fold change are also calculated, so that
     you can use them for plotting. Note the 2x fold increase
     has log2 = 1 and 2x fold decrease has log2 value = -1.

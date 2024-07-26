@@ -3,7 +3,7 @@ from __future__ import annotations
 import abc
 import copy
 from functools import reduce
-from typing import List, Optional, Union, Literal, Type, TypeVar, Tuple
+from typing import List, Optional, Union, Literal, Type, TypeVar, Tuple, Any, Dict
 
 import numpy as np
 import pandas as pd
@@ -41,18 +41,6 @@ class TabularExperimentalConditionDataset(abc.ABC):
                  id_col: str,
                  experiment_cols: list,
                  **kwargs) -> None:
-        """
-        Parameters
-        ----------
-        name : str
-            The name of the instance.
-        data : pandas.DataFrame
-            The input data for the instance.
-        id_col : str
-            The name of the column containing unique identifiers in the data.
-        experiment_cols : list
-            The list of column names representing different experiments in the data.
-        """
         self._name = name
         self._data = data[[id_col]+experiment_cols].copy().set_index(id_col)
         self._id_col = id_col
@@ -64,6 +52,15 @@ class TabularExperimentalConditionDataset(abc.ABC):
 
     @property
     def metadata(self) -> dict:
+        """
+        Return the dataset's metadata. If no values
+        exist, an empty dictionary is returned.
+
+        Returns
+        -------
+        dict
+            Datasets metadata.
+        """
         return self._metadata
 
     @property
@@ -85,14 +82,20 @@ class TabularExperimentalConditionDataset(abc.ABC):
         Returns
         -------
         list
-            A list of experiment names of that condition.
+            A list of the experiment names from the
+            given experimental condition.
         """
         return self._experiments
 
     @property
     def record_ids(self) -> List[str]:
         """
-        Returns a list of unique protein ids as they are provided by the user.
+        A list of unique protein ids as they are provided by the user.
+
+        Returns
+        -------
+        list
+            A list of unique record ids.
         """
         return self._data.index.values.tolist()
 
@@ -100,12 +103,24 @@ class TabularExperimentalConditionDataset(abc.ABC):
     def name(self) -> str:
         """
         Get experimental condition name (e.g. treated, untreated etc.).
+
+        Returns
+        -------
+        str
+            Dataset's name.
         """
         return self._name
 
     def describe(self) -> dict:
         """
         Returns basic information about the dataset.
+
+        Returns
+        -------
+        dict
+            Dataset's basic information including name, number of
+            experiments, number of records, number of experimental names
+            and number of records per experiment.
         """
         return {
             'name': self._name,
@@ -119,8 +134,16 @@ class TabularExperimentalConditionDataset(abc.ABC):
             na_threshold: float = 0.0,
             axis: Optional[AxisName] = None) -> Union[float, pd.Series]:
         """
-        Calculate minimum value of that condition.
-        By default, calculates min value from all experiments,
+        Calculate the minimum value of that condition.
+        By default, records with quantitative value <= 0.0 will
+        be omitted, so that you don't get 0.0 during ``min`` calculation.
+
+        Parameters
+        ----------
+        na_threshold: float
+            Values below or equal to this threshold are considered missing.
+        axis: AxisName, optional
+            You can calculate the ``min`` over ``rows`` or ``columns``.
         """
         df = self._data.copy()
         df[df <= na_threshold] = np.nan
@@ -389,13 +412,18 @@ class TabularDataset(abc.ABC):
     def n_conditions(self) -> int:
         """
         Return the number of experimental conditions included in the dataset.
+
+        Returns
+        -------
+        int
+            Number of experimental conditions included in the dataset.
         """
         return len(self._conditions)
 
     @property
-    def conditions(self):
+    def conditions(self) -> List[str]:
         """
-        Get a list of experimental condition names.
+        List experimental condition names.
 
         Returns
         -------
@@ -407,20 +435,20 @@ class TabularDataset(abc.ABC):
     @property
     def n_experiments(self) -> int:
         """
-        Returns the number of experiment included in the dataset,
+        Returns the number of experiments included in the dataset,
         across all experimental conditions.
 
         Returns
         -------
         int
-            Number of experiment included in the dataset.
+            Number of experiments included in the dataset.
         """
         n_exp = 0
         for condition in self._conditions:
             n_exp += condition.n_experiments
         return n_exp
 
-    def experiments(self, condition: Optional[str] = None) -> list:
+    def experiments(self, condition: Optional[str] = None) -> List[str]:
         """
         Get experiment names from the dataset. If experimental condition
         name is provided, experiment names will be limited to that case.
@@ -460,6 +488,11 @@ class TabularDataset(abc.ABC):
         """
         Returns a list of unique entry ids across
         all experimental conditions.
+
+        Returns
+        -------
+        list
+            A list of unique entry ids.
         """
         return self._get_unique_records()
 
@@ -469,9 +502,12 @@ class TabularDataset(abc.ABC):
             all_records.extend(condition.record_ids)
         return sorted(list(set(all_records)))
 
-    def describe(self):
+    def describe(self) -> Dict[str, Any]:
         """
         Returns basic information about the dataset.
+        Includes fields like number of experimental conditions,
+        number of records in total, total number of experiments
+        and statistics for each experimental condition.
 
         Returns
         -------
@@ -502,7 +538,7 @@ class TabularDataset(abc.ABC):
 
         Parameters
         ----------
-        na_threshold : float
+        na_threshold: float
             Values below or equal to this threshold are considered missing.
         join_method: MergeHow, optional
             Method of joining records of each experimental
@@ -513,7 +549,7 @@ class TabularDataset(abc.ABC):
         Returns
         -------
         pd.DataFrame
-            A pandas data frame containing the average value for
+            A Pandas data frame containing the average value for
             each condition.
         """
         assert axis in [0, 1]
@@ -571,6 +607,18 @@ class TabularDataset(abc.ABC):
              cond: Optional[Union[str, list]] = None) -> T:
         """
         Drop specified experiment(s) and or condition(s).
+
+        Parameters
+        ----------
+        exp: str, list, optional
+            Experiment name(s) to be dropped.
+        cond: str, list, optional
+            Experimental condition(s) to be dropped.
+
+        Returns
+        -------
+        An object of the same instance type without the
+        specified experiment(s) and/or condition(s).
         """
         filt_conditions = copy.deepcopy(self._conditions)
         if isinstance(exp, str):
@@ -598,7 +646,7 @@ class TabularDataset(abc.ABC):
         exp: list, str, optional
             List or experiment to keep with. Leave empty to keep all experiments.
         cond: list, optional
-            List of experimental condition names. If provided only the conditions
+            List of experimental condition names. If provided, only the conditions
             specified will remain in the dataset.
         min_frequency: int or None, optional
             If specified, records of the dataset will be filtered based on their
@@ -629,21 +677,36 @@ class TabularDataset(abc.ABC):
 
         return self.__class__(conditions=exp_conditions)
 
-
     @staticmethod
-    def _join_list_of_tables(tables: List[pd.DataFrame], how: MergeHow = 'outer') -> pd.DataFrame:
+    def _join_list_of_tables(
+            tables: List[pd.DataFrame],
+            how: MergeHow = 'outer') -> pd.DataFrame:
         return reduce(lambda left, right: pd.merge(
             left, right, left_index=True,
             right_index=True, how=how), tables)
 
     def log2_transform(self: Type[T]) -> T:
-        """Perform log2 transformation."""
+        """
+        Perform log2 transformation in all experiments.
+
+        Returns
+        -------
+        An object of the same instance with the values transformed.
+        """
         conditions_copy = copy.deepcopy(self._conditions)
         log2_conditions = [c.log2_transform() for c in conditions_copy]
         return self.__class__(conditions=log2_conditions)
 
     def log2_backtransform(self: Type[T]) -> T:
-        """Invert log2 transformation."""
+        """
+        Calculate the exponential with base 2.
+        Is used to invert log2 transformation and convert values
+        back to their original scale.
+
+        Returns
+        -------
+        An object of the same instance with the values transformed.
+        """
         conditions_copy = copy.deepcopy(self._conditions)
         bt_conditions = [c.log2_backtransform() for c in conditions_copy]
         return self.__class__(conditions=bt_conditions)
@@ -651,6 +714,11 @@ class TabularDataset(abc.ABC):
     def to_table(self, join_method: MergeHow = 'outer') -> pd.DataFrame:
         """
         Merge individual experimental conditions to one table.
+        You might use this method to extract a Pandas data frame from
+        the dataset and keep working using common procedures.
+
+        Note that the entry identifier is in the index of the
+        data frame.
 
         Parameters
         ----------
@@ -660,7 +728,7 @@ class TabularDataset(abc.ABC):
         Returns
         -------
         pd.DataFrame
-            A pandas data frame containing all experimental conditions.
+            A Pandas data frame containing all experimental conditions.
         """
         tables = [c.to_table() for c in self._conditions]
         return self._join_list_of_tables(tables, how=join_method)
@@ -674,13 +742,13 @@ class TabularDataset(abc.ABC):
 
         Parameters
         ----------
-        na_threshold : float, optional
+        na_threshold : float
             Values below or equal to this threshold are considered missing.
 
         Returns
         -------
         pd.DataFrame
-            A pandas data frame with the number of missing cases per
+            A Pandas data frame with the number of missing cases per
             experiment and condition.
         int
             Number of missing values.
@@ -705,25 +773,28 @@ class TabularDataset(abc.ABC):
                shift: float = 0.0,
                random_noise: bool = False) -> T:
         """
-        Impute missing values.
+        Impute missing values with any of the specified methods.
+        Note that missing value imputation my introduce artifacts in
+        the analysis. Consider the level of missing value imputation
+        before interpreting your results.
 
         Parameters
         ----------
         method: str
             Imputation method. Can be one of:
-                - fixed: A fixed value. All values below the given threshold
-                  will be set to that value. To use this method you also need
-                  to specify the `value` parameter.
-                - global min|mean|median: First the min|mean|median value of
+                - ``fixed``: A fixed value. All values below the given threshold
+                  will be set to that value. To use this method, you also need
+                  to specify the ``value`` parameter.
+                - ``global min|mean|median``: First the ``min|mean|median`` value of
                   the dataset is calculated and then missing values are set
                   to that fixed value. You can also specify the `shift`
                   parameter to shift the calculated min by a fixed step.
-                - global row min|mean|median: Similar to ``global min`` but the
+                - ``global row min|mean|median``: Similar to ``global min`` but the
                   min|median|mean value refers to the row entry value instead of
                   the value across all entries of that table.
-                - `group row min|mean|median`. Similar to the previous but
+                - ``group row min|mean|median``. Similar to the previous but
                   now the min|mean|median is based on the values of the group.
-        na_threshold: float, optional
+        na_threshold: float
             Values below or equal to this threshold are considered missing.
         value: float, optional
             If ``fixed`` method is specified, you also need to set that value here.
@@ -731,7 +802,7 @@ class TabularDataset(abc.ABC):
             If ``global|group-min`` method is specified, you can also decrease
             that value by a fixed step.
         random_noise: bool, optional
-            If specified random noise based on the global or within group variability
+            If specified random noise based on the global or within group variability,
             will be added. Imputed values will be selected from a normal distribution
             with mean the selected value (depending on the method) and std the within
             group or global standard deviation (depending on the method). Because you
@@ -863,7 +934,7 @@ class TabularDataset(abc.ABC):
         Parameters
         ----------
         method:
-            Normalization method.
+            Normalization method. For the moment, only normalization to the ``mean`` is supported.
         ref_exp: str, optional
             If specified, this experiment will be considered the reference. If this
             is set, the ``ref_condition`` field is ignored.
@@ -873,6 +944,8 @@ class TabularDataset(abc.ABC):
         use_common_records: bool
             If set to ``True``, common records, in a pairwise comparison with the
             reference, will be considered for normalization.
+        na_threshold: float
+            Values below or equal to this threshold are considered missing.
 
         Returns
         -------

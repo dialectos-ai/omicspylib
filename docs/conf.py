@@ -2,15 +2,15 @@
 #
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
-import os
-import sys
+# import os
+# import sys
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'omicspylib'
-copyright = '2024, Kostas Tsolis'
-author = 'Kostas Tsolis'
+copyright = '2024, Dialectos.ai'
+author = 'Dialectos.ai'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -24,9 +24,14 @@ templates_path = ['_templates']
 exclude_patterns = []
 
 
-
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 html_theme = 'sphinx_rtd_theme'
 html_static_path = ['_static']
+autodoc_member_order = 'alphabetical'
+
+autoclass_content = 'init'
+# 'class': Use the class's docstring, ignore the __init__ method (this is the default).
+# 'both': Use both the class's and the __init__ method's docstring.
+# 'init': Use the __init__ method's docstring, ignore the class docstring.

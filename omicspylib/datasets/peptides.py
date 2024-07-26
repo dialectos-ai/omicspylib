@@ -10,6 +10,15 @@ from omicspylib.datasets.abc import TabularExperimentalConditionDataset, Tabular
 
 
 class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
+    """
+    Peptides dataset for a specific experimental condition.
+    Includes all experiments (runs) for that case.
+
+    Normally, you don't have to interact with this object.
+    :class:`~omicspylib.datasets.peptides.PeptidesDataset` wraps multiple
+    :class:`~omicspylib.datasets.peptides.PeptidesDatasetExpCondition`
+    objects under one group.
+    """
     def __init__(self,
                  name: str,
                  data: pd.DataFrame,
@@ -17,8 +26,39 @@ class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
                  experiment_cols: list,
                  protein_id_col: Optional[str] = None,
                  metadata: Optional[dict] = None) -> None:
+        """
+        Initializes the object.
+
+        Parameters
+        ----------
+        name: str
+            Name of the object.
+        data: pd.DataFrame
+            Experiments of the specified condition as a Pandas data frame,
+            where each column is one experiment.
+            This table might contain unrelated columns.
+            Only the column names specified under the
+            ``id_col`` and ``experiment_cols`` will be used.
+        id_col: str
+            Column name containing the peptide identifiers.
+            It is expected
+            that this column is unique.
+        experiment_cols: list
+            List of the column names for the experiments you want to include
+            in this experimental condition.
+            All these specified columns
+            should be present in the provided data frame.
+        protein_id_col: str, optional
+            Column name of the protein identifier column (e.g., Uniprot accession number).
+            You might need to specify this name to be able to
+            convert a :class:`~omicspylib.datasets.peptides.PeptidesDataset`
+            to a :class:`~omicspylib.datasets.proteins.ProteinsDataset`.
+            If
+            it is not provided, there is no information about doing that conversion.
+        metadata: dict
+            Optional metadata.
+        """
         super().__init__(name=name, data=data, id_col=id_col, experiment_cols=experiment_cols)
-        # todo - specify in the documentation that id_col should have values - and validate inputs
         # todo - this in not a clean implementation of initializing the object and passing metadata - think of another solution
         self._protein_id_col = protein_id_col
         if metadata is None:
@@ -68,6 +108,11 @@ class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
 
 
 class PeptidesDataset(TabularDataset):
+    """
+    A peptides dataset object.
+    It contains multiple experimental conditions with one
+    or more experiments per condition.
+    """
     @classmethod
     def from_df(cls,
                 data: pd.DataFrame,
@@ -75,6 +120,12 @@ class PeptidesDataset(TabularDataset):
                 conditions: dict[str, list],
                 protein_id_col: Optional[str] = None) -> PeptidesDataset:
         """
+        Creates a :class:`~omicspylib.datasets.peptides.PeptidesDataset`
+        from a Pandas data frame. You might load your data using the
+        method of your choice, partially preprocess and then create a dataset
+        to abstract missing value imputation, normalization and/or
+        statistical analysis between groups.
+
         Parameters
         ----------
         data : pd.DataFrame
@@ -86,12 +137,13 @@ class PeptidesDataset(TabularDataset):
             A dictionary mapping condition names to lists of column names
             representing the corresponding experimental conditions in the DataFrame.
         protein_id_col: str, optional
-            If specified a will be used to link specific peptides with proteins.
+            If specified, will be used to link specific peptides with proteins.
 
         Returns
         -------
         PeptidesDataset
-            A `PeptidesDataset` object created from the input DataFrame.
+            A :class:`~omicspylib.datasets.peptides.PeptidesDataset` object
+            created from the input DataFrame.
         """
         exp_conditions = []
         for condition_name, condition_experiments in conditions.items():
@@ -109,8 +161,17 @@ class PeptidesDataset(TabularDataset):
         Aggregate peptides dataset into Proteins dataset.
         Protein abundance is calculated as the sum of all individual peptides.
         It is assumed that each peptide belongs into one protein group.
-        """
 
+        A common scenario to use this method is first to
+        normalize the peptide intensities and then aggregate to
+        protein abundance for further statistical analysis.
+
+        Returns
+        -------
+        ProteinsDataset
+            A :class:`~omicspylib.datasets.proteins.ProteinsDataset`
+            derived from the specific instance.
+        """
         cond_conf = {}
 
         pept2proteins = {}

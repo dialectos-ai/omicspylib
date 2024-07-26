@@ -15,6 +15,10 @@ class ProteinsDatasetExpCondition(TabularExperimentalConditionDataset):
     """
     Proteins dataset for a specific experimental condition.
     Includes all experiments (runs) for that case.
+
+    Normally, you don't have to interact with this object.
+    ``ProteinsDataset`` wraps multiple ``ProteinsDatasetExpCondition``
+    objects under one group.
     """
     def filter(self,
                exp: Optional[Union[str, list]] = None,
@@ -51,8 +55,9 @@ class ProteinsDatasetExpCondition(TabularExperimentalConditionDataset):
 
 class ProteinsDataset(TabularDataset):
     """
-    A proteins dataset object, including multiple experimental
-    conditions with one or more experiments per case.
+    A proteins dataset object.
+    It contains multiple experimental conditions with one
+    or more experiments per condition.
     """
     @classmethod
     def from_df(cls,
@@ -60,6 +65,8 @@ class ProteinsDataset(TabularDataset):
                 id_col: str,
                 conditions: dict[str, list]) -> ProteinsDataset:
         """
+        Initialize a ``ProteinsDataset`` from a pandas dataframe.
+
         Parameters
         ----------
         data : pd.DataFrame
