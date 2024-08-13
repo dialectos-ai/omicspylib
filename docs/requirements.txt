@@ -3,3 +3,4 @@ sphinx
 nbsphinx
 ipykernel
 nbsphinx
+omicspylib

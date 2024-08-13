@@ -26,5 +26,5 @@ dependencies = [
 
 [project.urls]
 homepage = 'https://github.com/dialectos-ai/omicspylib'
-documentation = 'https://github.com/dialectos-ai/omicspylib'
+documentation = 'https://omicspylib.readthedocs.io/en/latest/index.html'
 repository = 'https://github.com/dialectos-ai/omicspylib'

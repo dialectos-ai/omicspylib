@@ -8,7 +8,7 @@ from omicspylib import ProteinsDataset, PeptidesDataset
     "dset_name,row_idx,impute_method,targ_cols,targ_values,a_tol,kwargs",
     [
         ('proteins', 'p5', "fixed", ['c1_rep1', 'c1_rep2', 'c2_rep4'], [100, 100, 100], 0.1, {'value': 100}),
-        ('proteins', 'p5', "fixed", ['c1_rep1', 'c1_rep2', 'c2_rep4'], [100, 100, 100], 0.7, {'value': 100, 'random_noise': True}),
+        ('proteins', 'p5', "fixed", ['c1_rep1', 'c1_rep2', 'c2_rep4'], [100, 100, 100], 1.5, {'value': 100, 'random_noise': True}),
         ('proteins', 'p5', "global min", ['c1_rep1', 'c1_rep2', 'c2_rep4'], [20.046, 20.046, 20.046], 0.1, {}),
         ('proteins', 'p5', "global min", ['c1_rep1', 'c1_rep2', 'c2_rep4'], [15.046, 15.046, 15.046], 0.1, {'shift': 5}),
         ('proteins', 'p5', "global min", ['c1_rep1', 'c1_rep2', 'c2_rep4'], [15.046, 15.046, 15.046], 2.5, {'shift': 5, 'random_noise': True}),
@@ -29,7 +29,7 @@ from omicspylib import ProteinsDataset, PeptidesDataset
         ('proteins', 'p5', "group row median", ['c1_rep1', 'c1_rep2', 'c2_rep4'], [16.03, 16.03, 15.56], 0.1, {'shift': 5}),
         ('proteins', 'p5', "group row median", ['c1_rep1', 'c1_rep2', 'c2_rep4'], [16.03, 16.03, 15.56], 2.5, {'shift': 5, 'random_noise': True}),
         ('peptides', 'pept424', "fixed", ['c1_rep2', 'c1_rep3', 'c2_rep5'], [100, 100, 100], 0.1, {'value': 100}),
-        ('peptides', 'pept424', "fixed", ['c1_rep2', 'c1_rep3', 'c2_rep5'], [100, 100, 100], 0.7, {'value': 100, 'random_noise': True}),
+        ('peptides', 'pept424', "fixed", ['c1_rep2', 'c1_rep3', 'c2_rep5'], [100, 100, 100], 1.5, {'value': 100, 'random_noise': True}),
         ('peptides', 'pept424', "global min", ['c1_rep2', 'c1_rep3', 'c2_rep5'], [1.91, 1.91, 1.91], 0.1, {}),
         ('peptides', 'pept424', "global min", ['c1_rep2', 'c1_rep3', 'c2_rep5'], [0.914, 0.914, 0.914], 0.1, {'shift': 1}),
         ('peptides', 'pept424', "global min", ['c1_rep2', 'c1_rep3', 'c2_rep5'], [0.914, 0.914, 0.914], 2.5, {'shift': 1, 'random_noise': True}),

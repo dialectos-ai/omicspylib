@@ -912,23 +912,26 @@ class TabularDataset(abc.ABC):
         Normalize the dataset.
 
         Normalization methods:
+
         - mean without a use of common records without ref exp.:
             1. Find experiment with the most records and consider reference.
             2. Calculate mean experiment intensity and difference from reference.
             3. Shift each experiment's intensity by the difference with reference.
         - mean without a use of common records with ref exp.:
-            1 Like above, but reference experiment is defined by the user.
+            - Like above, but reference experiment is defined by the user.
         - mean with common records without a ref exp.:
             1. Find experiment with the most records and consider reference.
             2. Perform pairwise comparison of each experiment with the reference where:
-                i. Filter on common records.
-                ii. Calculate difference from reference.
-                iii. Shift all intensities of that experiment based on that difference.
+
+               i. Filter on common records.
+               ii. Calculate difference from reference.
+               iii. Shift all intensities of that experiment based on that difference.
         - mean with common records with a ref exp.:
-            1. Similar with previous, but reference is defined by the user.
+            - Similar with previous (pairwise comparison and select common records),
+              but reference is defined by the user.
         - mean with common records with a ref condition:
-            1. Similar with the previous, reference is selected automatically,
-                from the condition specified.
+            - Similar with the previous, reference is selected automatically,
+              from the condition specified.
 
 
         Parameters
