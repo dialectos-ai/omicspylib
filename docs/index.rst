@@ -5,7 +5,7 @@
 
 Welcome to omicspylib's documentation!
 ======================================
-
+A python library for omics data analysis.
 
 Contents
 --------

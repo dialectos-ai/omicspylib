@@ -32,9 +32,9 @@ class PairwiseComparisonTTestFC:
         Parameters
         ----------
         min_frequency: int, optional
-            Minimum number of biological repeats, a given property is
-            quantified, within an experimental condition. Records with lower
-            frequency are excluded from the analysis.
+            Records identified in less than this number of biological
+            repeats, in a given experimental condition, will be excluded
+            from the analysis.
         na_threshold: float, optional
             Values equal or below this threshold are considered missing.
         pval_adj_method: str or None, optional

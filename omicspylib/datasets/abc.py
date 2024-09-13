@@ -158,7 +158,7 @@ class TabularExperimentalConditionDataset(abc.ABC):
 
     def missing_values(self, na_threshold: float = 0.0) -> Tuple[pd.DataFrame, int, int]:
         """
-        Calculate number of missing values per experiment.
+        Calculate the number of missing values per experiment.
 
         Parameters
         ----------
@@ -168,7 +168,7 @@ class TabularExperimentalConditionDataset(abc.ABC):
         Returns
         -------
         pd.DataFrame
-            A pandas data frame with the number of missing values per experiment.
+            A Pandas data frame with the number of missing values per experiment.
         int
             Number of missing values in total.
         int
@@ -333,7 +333,7 @@ class TabularExperimentalConditionDataset(abc.ABC):
             val: Union[pd.Series, float],
             std_value: Optional[float] = None) -> pd.Series:
         """
-        Fill nan values of a pandas data frame row by row.
+        Fill nan values of a Pandas data frame row by row.
 
         You can either use a fixed value per row, by providing a
         ``pd.Series`` or the same value for all rows, by providing
@@ -342,8 +342,8 @@ class TabularExperimentalConditionDataset(abc.ABC):
         of the row.
 
         If ``std_value`` is specified, Imputed values will be
-        selected from a normal distribution with mean the
-        value and std the std_value.
+        selected from a normal distribution with the mean
+        value of the dataset and std the specified value.
         """
         # case where you fill with different value per row
         if isinstance(val, pd.Series):
@@ -368,7 +368,7 @@ class TabularExperimentalConditionDataset(abc.ABC):
     def to_table(self) -> pd.DataFrame:
         """
         Returns the individual experiments from this condition
-        as a pandas data frame.
+        as a Pandas data frame.
 
         Returns
         -------
@@ -387,6 +387,7 @@ class TabularExperimentalConditionDataset(abc.ABC):
         ----------
         exp
         value
+        na_threshold : float
 
         Returns
         -------
@@ -588,7 +589,7 @@ class TabularDataset(abc.ABC):
         Returns
         -------
         pd.DataFrame
-            A pandas data frame containing the average value for each condition.
+            A Pandas data frame containing the average value for each condition.
         """
         if conditions:
             tables = [c.frequency(na_threshold=na_threshold, axis=axis)
@@ -649,8 +650,8 @@ class TabularDataset(abc.ABC):
             List of experimental condition names. If provided, only the conditions
             specified will remain in the dataset.
         min_frequency: int or None, optional
-            If specified, records of the dataset will be filtered based on their
-            frequency within the experimental condition.
+            If specified, records of the dataset will be filtered to the records with
+            greater than or equal the specified frequency.
         na_threshold: float or None, optional
             Values below or equal to this threshold are considered missing.
             It is used in to filter records based on the number of missing values.
@@ -786,7 +787,7 @@ class TabularDataset(abc.ABC):
                   will be set to that value. To use this method, you also need
                   to specify the ``value`` parameter.
                 - ``global min|mean|median``: First the ``min|mean|median`` value of
-                  the dataset is calculated and then missing values are set
+                  the dataset is calculated, and then missing values are set
                   to that fixed value. You can also specify the `shift`
                   parameter to shift the calculated min by a fixed step.
                 - ``global row min|mean|median``: Similar to ``global min`` but the
@@ -807,7 +808,7 @@ class TabularDataset(abc.ABC):
             with mean the selected value (depending on the method) and std the within
             group or global standard deviation (depending on the method). Because you
             draw random values from a normal distribution, consider transforming your
-            data if needed, to approximate it (e.g. apply log2 transformation, if needed).
+            data if needed, to approximate it (e.g., apply log2 transformation, if needed).
             After imputation, you can back_transform to the original scale.
         """
         imputed_conditions = copy.deepcopy(self._conditions)
@@ -913,7 +914,7 @@ class TabularDataset(abc.ABC):
 
         Normalization methods:
 
-        - mean without a use of common records without ref exp.:
+        - mean without a use of common records without a ``ref_exp``.:
             1. Find experiment with the most records and consider reference.
             2. Calculate mean experiment intensity and difference from reference.
             3. Shift each experiment's intensity by the difference with reference.
