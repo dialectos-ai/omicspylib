@@ -29,9 +29,12 @@ exclude_patterns = []
 
 html_theme = 'sphinx_rtd_theme'
 html_static_path = ['_static']
+
 autodoc_member_order = 'alphabetical'
 
 autoclass_content = 'init'
 # 'class': Use the class's docstring, ignore the __init__ method (this is the default).
 # 'both': Use both the class's and the __init__ method's docstring.
 # 'init': Use the __init__ method's docstring, ignore the class docstring.
+
+

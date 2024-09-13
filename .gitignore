@@ -8,3 +8,6 @@ build
 dist
 /omicspylib.egg-info/
 /docs/notebooks/.ipynb_checkpoints/
+/docs/_build/
+/docs/_static/
+/docs/_templates/

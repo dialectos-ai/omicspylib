@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import copy
-from typing import Optional, Union
+from typing import Optional, Union, Literal
 
 import pandas as pd
 
@@ -9,9 +9,12 @@ from omicspylib import ProteinsDataset
 from omicspylib.datasets.abc import TabularExperimentalConditionDataset, TabularDataset
 
 
+ProteinsAggMethod = Literal['sum', 'counts']
+
+
 class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
     """
-    Peptides dataset for a specific experimental condition.
+    Peptide dataset for a specific experimental condition.
     Includes all experiments (runs) for that case.
 
     Normally, you don't have to interact with this object.
@@ -113,6 +116,8 @@ class PeptidesDataset(TabularDataset):
     It contains multiple experimental conditions with one
     or more experiments per condition.
     """
+    proteins_id_col = 'protein_id'
+
     @classmethod
     def from_df(cls,
                 data: pd.DataFrame,
@@ -156,15 +161,34 @@ class PeptidesDataset(TabularDataset):
             exp_conditions.append(exp_condition_dataset)
         return cls(conditions=exp_conditions)
 
-    def to_proteins(self) -> ProteinsDataset:
+    def to_proteins(self, agg_method: ProteinsAggMethod = 'sum', names_lookup: dict | None = None) -> ProteinsDataset:
         """
         Aggregate peptides dataset into Proteins dataset.
-        Protein abundance is calculated as the sum of all individual peptides.
+
+        The quantitative value of the returned Proteins dataset depends
+        on the aggregation method specified under ``agg_method``.
+
         It is assumed that each peptide belongs into one protein group.
 
         A common scenario to use this method is first to
         normalize the peptide intensities and then aggregate to
         protein abundance for further statistical analysis.
+        Or from the same peptides dataset, calculate peptide counts
+        (``agg_method="counts"``) rename the columns and join with protein
+        abundance values.
+
+        Parameters
+        ----------
+        agg_method: str
+            One of ``sum``, ``counts``:
+
+                * ``sum``: e.g., calculate protein intensity as the sum of individual peptide intensities.
+                * ``counts``: e.g., calculate peptide counts per protein.
+        names_lookup: str
+            A lookup dictionary used for renaming the column names of the returned dataset.
+            Keys of the dictionary are the original column names and
+            values the new ones.
+            Note that the names should match exactly.
 
         Returns
         -------
@@ -174,6 +198,9 @@ class PeptidesDataset(TabularDataset):
         """
         cond_conf = {}
 
+        # since each experimental condition might have a fraction of the total records
+        # loop over conditions and create a peptide-to-proteins lookup dict including
+        # all the records of all datasets
         pept2proteins = {}
         for condition in self._conditions:
             record = {condition.name: condition.experiments}
@@ -182,8 +209,20 @@ class PeptidesDataset(TabularDataset):
             pept2proteins.update(metadata['peptide_to_protein'])
 
         data = self.to_table()
-        proteins_id_col = 'protein_id'
-        data[proteins_id_col] = [pept2proteins.get(i, '<unk>') for i in data.index.tolist()]
-        proteins_df = data.groupby(proteins_id_col).sum().reset_index()
+        data[self.proteins_id_col] = [pept2proteins.get(i, '<unk>') for i in data.index.tolist()]
+        if agg_method:
+            numeric_cols = [c for c in data.columns if c != self.proteins_id_col]
+            data[numeric_cols] = (data[numeric_cols] > 0).astype(int)
 
-        return ProteinsDataset.from_df(data=proteins_df, id_col=proteins_id_col, conditions=cond_conf)
+        aggregate_df = data.groupby(self.proteins_id_col).sum().reset_index()
+
+        if names_lookup is not None:
+            # since column names are passed in the conditions argument,
+            # update the conditions' configuration accordingly.
+            for _, val in cond_conf.items():
+                for i, v in enumerate(val):
+                    if v in names_lookup:
+                        val[i] = names_lookup[v]
+            aggregate_df = aggregate_df.rename(columns=names_lookup)
+
+        return ProteinsDataset.from_df(data=aggregate_df, id_col=self.proteins_id_col, conditions=cond_conf)

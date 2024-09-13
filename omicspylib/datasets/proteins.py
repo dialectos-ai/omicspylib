@@ -32,8 +32,8 @@ class ProteinsDatasetExpCondition(TabularExperimentalConditionDataset):
         exp: list, str, optional
             List or experiment to keep with. Leave empty to keep all experiments.
         min_frequency: int or None, optional
-            If specified, records of the dataset will be filtered based on their
-            within group frequency.
+            If specified, records of the dataset will be filtered to the records with
+            greater than or equal the specified frequency.
         na_threshold: float or None, optional
             Values below or equal to this threshold are considered missing.
             It is used in to filter records based on the number of missing values.
@@ -112,7 +112,7 @@ class ProteinsDataset(TabularDataset):
         rm_reverse : bool, optional
             If True, remove reverse hits from the dataset, by default True.
         rm_contaminants : bool, optional
-            If True, remove contaminant hits from the dataset, by default True.
+            If True, remove contaminant hits from the dataset, by default, True.
         rm_only_modified : bool, optional
             If True, remove proteins with only modified peptides, by default True.
         id_col : str, optional
