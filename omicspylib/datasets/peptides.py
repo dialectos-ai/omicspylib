@@ -196,6 +196,7 @@ class PeptidesDataset(TabularDataset):
             A :class:`~omicspylib.datasets.proteins.ProteinsDataset`
             derived from the specific instance.
         """
+        assert agg_method in ['sum', 'counts']
         cond_conf = {}
 
         # since each experimental condition might have a fraction of the total records
@@ -210,7 +211,7 @@ class PeptidesDataset(TabularDataset):
 
         data = self.to_table()
         data[self.proteins_id_col] = [pept2proteins.get(i, '<unk>') for i in data.index.tolist()]
-        if agg_method:
+        if agg_method == 'counts':
             numeric_cols = [c for c in data.columns if c != self.proteins_id_col]
             data[numeric_cols] = (data[numeric_cols] > 0).astype(int)
 
