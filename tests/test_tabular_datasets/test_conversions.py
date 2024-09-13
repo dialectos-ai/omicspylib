@@ -12,6 +12,8 @@ def test_peptides_to_proteins_dataset_conversion(peptides_dataset):
 
     # assertion
     assert isinstance(proteins_dataset, ProteinsDataset)
+    row = proteins_dataset.to_table().iloc[0].values
+    assert np.all(row > 40)
 
 
 def test_calc_peptide_counts(peptides_dataset):
