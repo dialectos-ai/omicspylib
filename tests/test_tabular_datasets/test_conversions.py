@@ -46,7 +46,7 @@ def test_column_renaming_while_converting_peptides_to_proteins(peptides_dataset)
     new_names = {c: f'{prefix}{c}' for c in original_cols}
 
     # action
-    pept_counts = peptides_dataset.to_proteins(agg_method=True, names_lookup=new_names)
+    pept_counts = peptides_dataset.to_proteins(agg_method='counts', names_lookup=new_names)
 
     # assertion
     data_df = pept_counts.to_table()
