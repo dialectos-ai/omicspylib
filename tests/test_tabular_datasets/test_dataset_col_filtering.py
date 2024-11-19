@@ -34,8 +34,8 @@ def test_exp_dropping_in_dataset(
 
     # assertion
     if drop_cond is None:
-        exp_before = dataset.experiments()
-        exp_after = new_dataset.experiments()
+        exp_before = dataset.experiment_names()
+        exp_after = new_dataset.experiment_names()
 
         if isinstance(drop_exp, str):
             drop_exp = [drop_exp]
@@ -44,8 +44,8 @@ def test_exp_dropping_in_dataset(
             assert exp in exp_before
             assert exp not in exp_after
     else:
-        cond_before = dataset.conditions
-        cond_after = new_dataset.conditions
+        cond_before = dataset.condition_names
+        cond_after = new_dataset.condition_names
 
         if isinstance(drop_cond, str):
             drop_cond = [drop_cond]

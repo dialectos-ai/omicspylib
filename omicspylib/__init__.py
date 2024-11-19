@@ -3,6 +3,7 @@ Starting point for importing libraries main objects.
 """
 from omicspylib.datasets.proteins import ProteinsDataset
 from omicspylib.datasets.peptides import PeptidesDataset
+from omicspylib.datasets.concat import concat
 from omicspylib.comparisons.pairs.statistical import PairwiseComparisonTTestFC
 from omicspylib.comparisons.pairs.frequency_based import PairwiseUniqueEntryComparison
 
@@ -11,8 +12,9 @@ __all__ = [
     'PeptidesDataset',
     'ProteinsDataset',
     'PairwiseComparisonTTestFC',
-    'PairwiseUniqueEntryComparison'
+    'PairwiseUniqueEntryComparison',
+    'concat'
 ]
 
 
-__version__ = '0.0.6'
+__version__ = '0.0.7'

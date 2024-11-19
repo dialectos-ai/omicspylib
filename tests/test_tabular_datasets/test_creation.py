@@ -54,10 +54,10 @@ def test_protein_dataset_creation_from_df(fp, obj_constructor, config, n_conditi
     assert dataset.n_conditions == n_conditions
     assert dataset.n_experiments == n_exp
     assert dataset.n_records == n_records
-    experimental_conditions = dataset.conditions
+    experimental_conditions = dataset.condition_names
     for condition_name, exp_names in config['conditions'].items():
         assert condition_name in experimental_conditions
-        experiment_names = dataset.experiments(condition_name)
+        experiment_names = dataset.experiment_names(condition_name)
         for exp_name in exp_names:
             assert exp_name in experiment_names
 

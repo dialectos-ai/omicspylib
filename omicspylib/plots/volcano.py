@@ -1,3 +1,6 @@
+"""
+Volcano plot for the comparison of two groups.
+"""
 from typing import Optional
 
 import numpy as np
@@ -25,20 +28,20 @@ def plot_volcano(
     Create a volcano plot, by plotting on the x-axis the fold change
     (in log2 scale) and on the y-axis the p-value (-log10 transformed).
 
-    A pandas data frame needs to be provided to the function, along with the
+    A Pandas data frame needs to be provided to the function, along with the
     basic values for p-value and fold change. Transformed values will be
     calculated internally.
 
     Parameters
     ----------
     data: pd.DataFrame
-        A pandas data frame containing the data to be plotted.
+        A Pandas data frame containing the data to be plotted.
     pval_col: str
         Column name containing the p-values to be plotted. They
         will be transformed internally with -log10.
     fc_col: str
-        Column name containing the fold change of condition a
-        over b. It will be transformed internally with log2.
+        Column name containing the fold change of condition ``a``
+        over ``b``. It will be transformed internally with log2.
     condition_a: str
         Name of "condition a" to be included in the legend and title.
     condition_b: str
@@ -49,7 +52,7 @@ def plot_volcano(
         Color for "condition b".
     pval_threshold: float
         Threshold value for considering significant difference.
-        By default, values below or equal to 0.05 are considered
+        By default, the values below or equal to 0.05 are considered
         significant.
     fold_change_threshold: float
         Threshold value for considering significant difference in
@@ -57,12 +60,12 @@ def plot_volcano(
         is considered significant.
     xmax: float or None
         If ``xmax`` is provided, it will be used to set x limits in the
-        range of (-xmax, xmax). Otherwise, it will be calculated base
+        range of (-xmax, xmax). Otherwise, it will be calculated based
         on the provided data. It corresponds to transformed fold change
         value.
     ymax: float or None
         If ``ymax`` is provided, it will be used to set the y limit.
-        Otherwise, it will be calculated base on the provided data.
+        Otherwise, it will be calculated based on the provided data.
         Note that it corresponds to transformed p-values.
     xlabel: str
         If provided will replace the default x-label.

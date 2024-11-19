@@ -140,3 +140,51 @@ class ProteinsDataset(TabularDataset):
             data = mq_rm_only_modified(data)
 
         return cls.from_df(data, id_col, conditions)
+
+    def append(self, new_obj: ProteinsDataset, skip_duplicates: bool = False) -> ProteinsDataset:
+        """
+        Append another experimental condition in the same dataset.
+
+        Parameters
+        ----------
+        new_obj: ProteinsDataset
+            A Peptides dataset object to join.
+        skip_duplicates: bool
+            If ``False``, when an experimental condition (name) already exists,
+            it will raise an error.
+            Otherwise, it will just be omitted.
+
+        Returns
+        -------
+        ProteinsDataset:
+            A new object containing the experimental conditions of the two datasets.
+
+        Raises
+        ------
+        ValueError:
+            If the provided class differs from the existing or the id_col
+            column name differs, or an experimental condition already exists.
+        """
+        if not self.__class__ == new_obj.__class__:
+            raise ValueError(
+                f'The provided object should be of type {self.__class__}. '
+                f'Received object of type {new_obj.__class__} instead.f')
+        id_col = self._conditions[0].id_col
+
+        if not id_col == new_obj._conditions[0].id_col:
+            raise ValueError(
+                f'Cannot join, because there is a missmatch between the '
+                f'id_col name between the datasets. All datasets should '
+                f'have an id_col == {id_col}.'
+            )
+
+        for new_cond in new_obj._conditions:
+            if new_cond.name in self.condition_names and not skip_duplicates:
+                raise ValueError(
+                    f'Experimental condition {new_cond} already exists in '
+                    f'the current dataset. Either remove it or select to '
+                    f'`skip_duplicates`.'
+                )
+        self._conditions.extend(new_obj._conditions)
+
+        return self.__class__(conditions=self._conditions)

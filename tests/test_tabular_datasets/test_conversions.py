@@ -52,3 +52,19 @@ def test_column_renaming_while_converting_peptides_to_proteins(peptides_dataset)
     data_df = pept_counts.to_table()
     for col in data_df.columns:
         assert col.startswith(prefix)
+
+def test_column_renaming_while_converting_peptides_to_proteins_using_prefix(peptides_dataset):
+    """
+    During this conversion, you might want to add a prefix, so that you
+    avoid naming conflicts during dataset joining later on.
+    """
+    # setup
+    prefix = 'n_peptides_'
+
+    # action
+    pept_counts = peptides_dataset.to_proteins(agg_method='counts', add_prefix=prefix)
+
+    # assertion
+    data_df = pept_counts.to_table()
+    for col in data_df.columns:
+        assert col.startswith(prefix)

@@ -21,9 +21,9 @@ def test_protein_dataset_filter_on_conditions(
         filt_dataset = dataset.filter(cond=[c1, c2])
 
         # assertion
-        assert c1 in filt_dataset.conditions
-        assert c2 in filt_dataset.conditions
-        assert c3 not in filt_dataset.conditions
+        assert c1 in filt_dataset.condition_names
+        assert c2 in filt_dataset.condition_names
+        assert c3 not in filt_dataset.condition_names
 
 
 @pytest.mark.parametrize(

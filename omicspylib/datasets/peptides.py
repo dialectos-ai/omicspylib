@@ -8,7 +8,6 @@ import pandas as pd
 from omicspylib import ProteinsDataset
 from omicspylib.datasets.abc import TabularExperimentalConditionDataset, TabularDataset
 
-
 ProteinsAggMethod = Literal['sum', 'counts']
 
 
@@ -75,6 +74,11 @@ class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
         else:
             self._metadata = copy.deepcopy(metadata)
 
+    @property
+    def protein_id_col(self) -> str:
+        """Returns the column name of the proteins id column."""
+        return self._protein_id_col
+
     def filter(self,
                exp: Optional[Union[str, list]] = None,
                min_frequency: Optional[int] = None,
@@ -116,7 +120,10 @@ class PeptidesDataset(TabularDataset):
     It contains multiple experimental conditions with one
     or more experiments per condition.
     """
-    proteins_id_col = 'protein_id'
+    @property
+    def protein_id_col(self) -> str:
+        """Get protein ID column."""
+        return self._conditions[0].protein_id_col
 
     @classmethod
     def from_df(cls,
@@ -161,7 +168,9 @@ class PeptidesDataset(TabularDataset):
             exp_conditions.append(exp_condition_dataset)
         return cls(conditions=exp_conditions)
 
-    def to_proteins(self, agg_method: ProteinsAggMethod = 'sum', names_lookup: dict | None = None) -> ProteinsDataset:
+    def to_proteins(self, agg_method: ProteinsAggMethod = 'sum',
+                    names_lookup: dict | None = None,
+                    add_prefix: str | None = None) -> ProteinsDataset:
         """
         Aggregate peptides dataset into Proteins dataset.
 
@@ -184,11 +193,15 @@ class PeptidesDataset(TabularDataset):
 
                 * ``sum``: e.g., calculate protein intensity as the sum of individual peptide intensities.
                 * ``counts``: e.g., calculate peptide counts per protein.
-        names_lookup: str
+        names_lookup: dict, optional
             A lookup dictionary used for renaming the column names of the returned dataset.
-            Keys of the dictionary are the original column names and
-            values the new ones.
+            Keys of the dictionary are the original column names and values the new ones.
+            For simpler cases where you prefix a tag, use ``add_prefix`` instead.
             Note that the names should match exactly.
+        add_prefix: str, optional
+            Use ``add_prefix`` instead of ``names_lookup`` for simple name prefixing.
+            NOTE: there will be no seperator between prefix and existing column name.
+            You need to provide it (e.g., intensity_ or pept_counts_).
 
         Returns
         -------
@@ -204,18 +217,20 @@ class PeptidesDataset(TabularDataset):
         # all the records of all datasets
         pept2proteins = {}
         for condition in self._conditions:
-            record = {condition.name: condition.experiments}
+            record = {condition.name: condition.experiment_names}
             cond_conf.update(record)
             metadata = condition.metadata
             pept2proteins.update(metadata['peptide_to_protein'])
 
+        protein_id_col = self._conditions[0].protein_id_col
+
         data = self.to_table()
-        data[self.proteins_id_col] = [pept2proteins.get(i, '<unk>') for i in data.index.tolist()]
+        data[protein_id_col] = [pept2proteins.get(i, '<unk>') for i in data.index.tolist()]
         if agg_method == 'counts':
-            numeric_cols = [c for c in data.columns if c != self.proteins_id_col]
+            numeric_cols = [c for c in data.columns if c != protein_id_col]
             data[numeric_cols] = (data[numeric_cols] > 0).astype(int)
 
-        aggregate_df = data.groupby(self.proteins_id_col).sum().reset_index()
+        aggregate_df = data.groupby(protein_id_col).sum().reset_index()
 
         if names_lookup is not None:
             # since column names are passed in the conditions argument,
@@ -225,5 +240,70 @@ class PeptidesDataset(TabularDataset):
                     if v in names_lookup:
                         val[i] = names_lookup[v]
             aggregate_df = aggregate_df.rename(columns=names_lookup)
+        elif add_prefix is not None:
+            prefixed_names = {}
+            for _, val in cond_conf.items():
+                for i, v in enumerate(val):
+                    val[i] = add_prefix + v
+                    prefixed_names[v] = val[i]
+            aggregate_df = aggregate_df.rename(columns=prefixed_names)
 
-        return ProteinsDataset.from_df(data=aggregate_df, id_col=self.proteins_id_col, conditions=cond_conf)
+        # cond_conf is updated in place to match the new names
+        return ProteinsDataset.from_df(data=aggregate_df, id_col=self.protein_id_col, conditions=cond_conf)
+
+
+    def append(self, new_obj: PeptidesDataset, skip_duplicates: bool = False) -> PeptidesDataset:
+        """
+        Append another experimental condition in the same dataset.
+
+        Parameters
+        ----------
+        new_obj: PeptidesDataset
+            A Peptides dataset object to join.
+        skip_duplicates: bool
+            If ``False``, when an experimental condition (name) already exists,
+            it will raise an error.
+            Otherwise, it will just be omitted.
+
+        Returns
+        -------
+        PeptidesDataset:
+            A new object containing the experimental conditions of the two datasets.
+
+        Raises
+        ------
+        ValueError:
+            If the provided class differs from the existing or the id_col or
+            protein_id_col, column name differs, or an experimental condition
+            already exists.
+        """
+        if not self.__class__ == new_obj.__class__:
+            raise ValueError(
+                f'The provided object should be of type {self.__class__}. '
+                f'Received object of type {new_obj.__class__} instead.f')
+        id_col = self._conditions[0].id_col
+        protein_id_col = self._conditions[0].protein_id_col
+
+        if not id_col == new_obj._conditions[0].id_col:
+            raise ValueError(
+                f'Cannot join, because there is a missmatch between the '
+                f'id_col name between the datasets. All datasets should '
+                f'have an id_col == {id_col}.'
+            )
+        if not protein_id_col == new_obj._conditions[0].protein_id_col:
+            raise ValueError(
+                f'Cannot join, because there is a missmatch between the '
+                f'protein_id_col name between the datasets. All datasets should '
+                f'have a protein_id_col == {protein_id_col}.'
+            )
+
+        for new_cond in new_obj._conditions:
+            if new_cond.name in self.condition_names and not skip_duplicates:
+                raise ValueError(
+                    f'Experimental condition {new_cond} already exists in '
+                    f'the current dataset. Either remove it or select to '
+                    f'`skip_duplicates`.'
+                )
+        self._conditions.extend(new_obj._conditions)
+
+        return self.__class__(conditions=self._conditions)
