@@ -55,8 +55,8 @@ def calc_ttest_adj(
     df = data.to_table(join_method='inner')
     mask = df > na_threshold
     df[~mask] = np.nan
-    a_cols = data.experiments(condition_a)
-    b_cols = data.experiments(condition_b)
+    a_cols = data.experiment_names(condition_a)
+    b_cols = data.experiment_names(condition_b)
     m1 = df[a_cols].values
     m2 = df[b_cols].values
 

@@ -1,3 +1,4 @@
+"""Utility functions for using with MaxQuant output data."""
 import pandas as pd
 
 

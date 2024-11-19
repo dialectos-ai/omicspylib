@@ -47,6 +47,18 @@ class TabularExperimentalConditionDataset(abc.ABC):
         self._metadata = {}
 
     @property
+    def id_col(self) -> str:
+        """
+        Column identifier for the record ids.
+
+        Returns
+        -------
+        str:
+            Column name with the unique identifiers as string.
+        """
+        return self._id_col
+
+    @property
     def _experiments(self) -> list:
         return self._data.columns.tolist()
 
@@ -75,7 +87,7 @@ class TabularExperimentalConditionDataset(abc.ABC):
         return len(self._data.columns)
 
     @property
-    def experiments(self) -> List[str]:
+    def experiment_names(self) -> List[str]:
         """
         Get the list of experiment names.
 
@@ -135,7 +147,7 @@ class TabularExperimentalConditionDataset(abc.ABC):
             axis: Optional[AxisName] = None) -> Union[float, pd.Series]:
         """
         Calculate the minimum value of that condition.
-        By default, records with quantitative value <= 0.0 will
+        By default, records with quantitative value ⇐ 0.0 will
         be omitted, so that you don't get 0.0 during ``min`` calculation.
 
         Parameters
@@ -169,9 +181,9 @@ class TabularExperimentalConditionDataset(abc.ABC):
         -------
         pd.DataFrame
             A Pandas data frame with the number of missing values per experiment.
-        int
+        Int
             Number of missing values in total.
-        int
+        Int
             Number of total values of that condition.
         """
         n_missing_per_exp = self._data.shape[0] - np.sum(self._data > na_threshold, axis=0)
@@ -338,7 +350,7 @@ class TabularExperimentalConditionDataset(abc.ABC):
         You can either use a fixed value per row, by providing a
         ``pd.Series`` or the same value for all rows, by providing
          a ``float``.  For the first case, the index of the target
-        value in the values array, matches the row.name attribute
+        value in the values' array, matches the row.name attribute
         of the row.
 
         If ``std_value`` is specified, Imputed values will be
@@ -399,7 +411,7 @@ class TabularExperimentalConditionDataset(abc.ABC):
 
 class TabularDataset(abc.ABC):
     def __init__(self,
-                 conditions: List[TabularExperimentalConditionDataset]) -> None:
+                 conditions: List[Type[TabularExperimentalConditionDataset]]) -> None:
         self._conditions = conditions
 
     @classmethod
@@ -422,7 +434,7 @@ class TabularDataset(abc.ABC):
         return len(self._conditions)
 
     @property
-    def conditions(self) -> List[str]:
+    def condition_names(self) -> List[str]:
         """
         List experimental condition names.
 
@@ -449,7 +461,7 @@ class TabularDataset(abc.ABC):
             n_exp += condition.n_experiments
         return n_exp
 
-    def experiments(self, condition: Optional[str] = None) -> List[str]:
+    def experiment_names(self, condition: Optional[str] = None) -> List[str]:
         """
         Get experiment names from the dataset. If experimental condition
         name is provided, experiment names will be limited to that case.
@@ -468,7 +480,7 @@ class TabularDataset(abc.ABC):
         exp_names = []
         for exp_condition in self._conditions:
             if condition is None or exp_condition.name == condition:
-                exp_names.extend(exp_condition.experiments)
+                exp_names.extend(exp_condition.experiment_names)
 
         return exp_names
 
@@ -558,8 +570,8 @@ class TabularDataset(abc.ABC):
         tables = [c.mean(na_threshold=na_threshold, axis=axis) for c in self._conditions]
         if axis == 1:  # row mean
             return self._join_list_of_tables(tables, how=join_method)
-        else:
-            return pd.concat(tables).transpose()
+
+        return pd.concat(tables).transpose()
 
     def frequency(self,
                   na_threshold: float = 0.0,
@@ -600,8 +612,8 @@ class TabularDataset(abc.ABC):
 
         if axis == 1:
             return self._join_list_of_tables(tables, how=join_method)
-        else:
-            return pd.concat(tables).transpose()
+
+        return pd.concat(tables).transpose()
 
     def drop(self: Type[T],
              exp: Optional[Union[str, list]] = None,
@@ -751,9 +763,9 @@ class TabularDataset(abc.ABC):
         pd.DataFrame
             A Pandas data frame with the number of missing cases per
             experiment and condition.
-        int
+        Int
             Number of missing values.
-        int
+        Int
             Number of values in total
         """
         dfs = []
@@ -911,22 +923,30 @@ class TabularDataset(abc.ABC):
                   na_threshold: float = 0.0) -> T:
         """
         Normalize the dataset.
+        Any required transformations must be done before calling the
+        ``normalize`` method. For clarity, this is not handled internally.
+
+        For example, you might use ``log2_transform`` method first then
+        ``normalize`` and finally ``log2_backtransform`` the normalized
+        values to return to the same units.
 
         Normalization methods:
 
-        - mean without a use of common records without a ``ref_exp``.:
-            1. Find experiment with the most records and consider reference.
-            2. Calculate mean experiment intensity and difference from reference.
+        - Mean without a use of common records without a ``ref_exp``.:
+            1. Find the experiment with the most records and consider reference.
+            2. Calculate mean experiment intensity and the difference from reference.
             3. Shift each experiment's intensity by the difference with reference.
         - mean without a use of common records with ref exp.:
             - Like above, but reference experiment is defined by the user.
-        - mean with common records without a ref exp.:
+        - Mean with common records without a ref exp.:
             1. Find experiment with the most records and consider reference.
             2. Perform pairwise comparison of each experiment with the reference where:
-
-               i. Filter on common records.
-               ii. Calculate difference from reference.
-               iii. Shift all intensities of that experiment based on that difference.
+               i.
+               Filter on common records.
+               Ii.
+               Calculate difference from reference.
+               Iii.
+               Shift all intensities of that experiment based on that difference.
         - mean with common records with a ref exp.:
             - Similar with previous (pairwise comparison and select common records),
               but reference is defined by the user.
@@ -938,13 +958,15 @@ class TabularDataset(abc.ABC):
         Parameters
         ----------
         method:
-            Normalization method. For the moment, only normalization to the ``mean`` is supported.
+            Normalization method.
+            For the moment, only normalization to the ``mean`` is supported.
         ref_exp: str, optional
-            If specified, this experiment will be considered the reference. If this
-            is set, the ``ref_condition`` field is ignored.
+            If specified, this experiment will be considered the reference.
+            If this is set, the ``ref_condition`` field is ignored.
         ref_condition: str, optional
             If specified, the experiment of that condition with the most records
-            will be considered the reference. Note that ``ref_exp`` should not be set.
+            will be considered the reference.
+            Note that ``ref_exp`` should not be set.
         use_common_records: bool
             If set to ``True``, common records, in a pairwise comparison with the
             reference, will be considered for normalization.
@@ -970,12 +992,12 @@ class TabularDataset(abc.ABC):
         return self.__class__(conditions=exp_conditions)
 
     def _mean_norm_with_shared_records(self, na_threshold, ref_exp):
-        exp_conditions = copy.deepcopy(self._conditions)
+        exp_conditions_data = copy.deepcopy(self._conditions)
 
-        ref_c = [c for c in exp_conditions if ref_exp in c.experiments][0]
-        for exp_c in exp_conditions:
+        ref_c = [c for c in exp_conditions_data if ref_exp in c.experiment_names][0]
+        for exp_c in exp_conditions_data:
             cond_name = exp_c.name
-            exp_names = exp_c.experiments
+            exp_names = exp_c.experiment_names
             for targ_exp in exp_names:
                 if cond_name != ref_c.name and targ_exp != ref_exp:
                     ref_case = ref_c.filter(exp=ref_exp).to_table()
@@ -988,7 +1010,7 @@ class TabularDataset(abc.ABC):
                     norm_diff = mean_targ - mean_ref
                     exp_c.shift(targ_exp, norm_diff, na_threshold=na_threshold)
 
-        return exp_conditions
+        return exp_conditions_data
 
     def _base_mean_normalization(self, na_threshold, ref_exp):
         mean_before = self.mean(na_threshold=na_threshold, axis=0)
@@ -996,20 +1018,20 @@ class TabularDataset(abc.ABC):
         mean_diff = mean_before - ref_mean
         exp_names = mean_diff.columns
         shift_values = mean_diff.values.reshape(-1)
-        exp_conditions = copy.deepcopy(self._conditions)
-        for condition in exp_conditions:
+        exp_conditions_data = copy.deepcopy(self._conditions)
+        for condition in exp_conditions_data:
             for exp, shift_value in zip(exp_names, shift_values):
-                if exp in condition.experiments and shift_value != 0:
+                if exp in condition.experiment_names and shift_value != 0:
                     condition.shift(exp, value=shift_value, na_threshold=na_threshold)
-        return exp_conditions
+        return exp_conditions_data
 
     def _select_norm_ref(self, na_threshold, ref_condition, ref_exp) -> str:
         """Select reference experiment for normalization step."""
         if ref_exp is not None:
-            assert ref_exp in self.experiments(), \
+            assert ref_exp in self.experiment_names(), \
                 f'Reference experiment {ref_exp} not found.'
         elif ref_condition is not None:
-            assert ref_condition in self.conditions, \
+            assert ref_condition in self.condition_names, \
                 f'Reference condition {ref_condition} not found.'
             n_entries_per_exp = self.frequency(
                 na_threshold=na_threshold, axis=0, conditions=[ref_condition]) \
