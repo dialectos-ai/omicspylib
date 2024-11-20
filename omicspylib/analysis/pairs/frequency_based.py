@@ -17,10 +17,10 @@ class PairwiseUniqueEntryComparison:
         self._condition_a = condition_a
         self._condition_b = condition_b
 
-    def compare(self,
-                majority_grp_min_freq: int = 4,
-                minority_grp_max_freq: int = 0,
-                na_threshold: float = 0.0):
+    def eval(self,
+             majority_grp_min_freq: int = 4,
+             minority_grp_max_freq: int = 0,
+             na_threshold: float = 0.0):
         ftable = self._raw_dataset.frequency(
             na_threshold=na_threshold, join_method='outer')
 
