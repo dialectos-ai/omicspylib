@@ -18,11 +18,11 @@ class PairwiseComparisonTTestFC:
         self._condition_a = condition_a
         self._condition_b = condition_b
 
-    def compare(self,
-                min_frequency: int = 3,
-                na_threshold: float = 0.0,
-                pval_adj_method: Optional[MULTITEST_METHOD] = 'fdr_bh',
-                use_log_transformed: bool = True):
+    def eval(self,
+             min_frequency: int = 3,
+             na_threshold: float = 0.0,
+             pval_adj_method: Optional[MULTITEST_METHOD] = 'fdr_bh',
+             use_log_transformed: bool = True):
         """
         Perform the pairwise comparison between the two groups, using
         a t-test and a fold change rule. By default, quantitative values
