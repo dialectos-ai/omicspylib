@@ -1,5 +1,4 @@
-sphinx_rtd_theme
-sphinx-book-theme
+pydata-sphinx-theme
 sphinx
 nbsphinx
 ipykernel
