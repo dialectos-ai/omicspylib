@@ -27,12 +27,18 @@ exclude_patterns = []
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
-html_theme = 'sphinx_rtd_theme'
+# pip install sphinx-book-theme
+# pip install furo
+# html_theme = 'sphinx_rtd_theme'
+# html_theme = 'sphinx_book_theme'
+# html_theme = 'furo'
+html_theme = 'pydata_sphinx_theme'
+
 html_static_path = ['_static']
 
 autodoc_member_order = 'alphabetical'
 
-autoclass_content = 'init'
+autoclass_content = 'class'  # Options: 'class', 'init', 'both'
 # 'class': Use the class's docstring, ignore the __init__ method (this is the default).
 # 'both': Use both the class's and the __init__ method's docstring.
 # 'init': Use the __init__ method's docstring, ignore the class docstring.
