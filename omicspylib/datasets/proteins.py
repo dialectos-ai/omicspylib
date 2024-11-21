@@ -59,6 +59,18 @@ class ProteinsDataset(TabularDataset):
     It contains multiple experimental conditions with one
     or more experiments per condition.
     """
+
+    def __init__(self, conditions: list[ProteinsDatasetExpCondition]) -> None:
+        """
+        Proteins dataset object constractor. This object wraps multiple experiments
+        under sets of experimental conditions.
+
+        Parameters
+        ----------
+        conditions
+        """
+        super().__init__(conditions=conditions)
+
     @classmethod
     def from_df(cls,
                 data: pd.DataFrame,

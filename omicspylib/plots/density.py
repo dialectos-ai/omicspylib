@@ -27,6 +27,7 @@ def plot_density(
     method on the dataset object and create a plot based on your needs.
 
     By default, 0s and nan values are removed.
+
     Parameters
     ----------
     dataset: ProteinsDataset

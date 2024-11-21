@@ -15,6 +15,24 @@ def plot_venn2(data: pd.DataFrame,
                color_b: str = 'red',
                title: str = 'Venn Diagram',
                ax: Optional[plt.Axes] = None) -> plt.Axes:
+    """
+    Venn diagram between two groups.
+
+    Parameters
+    ----------
+    data
+    condition_a
+    condition_b
+    color_a
+    color_b
+    title
+    ax
+
+    Returns
+    -------
+    plt.Axes
+        Matplotlib's Axes object.
+    """
     # extract frequencies
     f_counts = data[['frequency_class']]\
         .reset_index()\

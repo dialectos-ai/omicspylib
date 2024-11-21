@@ -411,7 +411,7 @@ class TabularExperimentalConditionDataset(abc.ABC):
 
 class TabularDataset(abc.ABC):
     def __init__(self,
-                 conditions: List[Type[TabularExperimentalConditionDataset]]) -> None:
+                 conditions: List[TabularExperimentalConditionDataset]) -> None:
         self._conditions = conditions
 
     @classmethod

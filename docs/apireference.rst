@@ -1,12 +1,11 @@
 API Reference
 =============
 
-
 .. toctree::
    :maxdepth: 1
 
-   api/datasets
-   api/comparisons
-   api/calculations
-   api/plots
-   api/utils
+   api/datasets/index
+   api/comparisons/index
+   api/calculations/index
+   api/plots/index
+   api/utils/index
