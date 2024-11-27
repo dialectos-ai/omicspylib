@@ -2,22 +2,13 @@
 from __future__ import annotations
 
 import copy
-from typing import Iterable, Union
-
-from pydantic import RootModel
+from typing import Iterable, Union, List
 
 from omicspylib.datasets.peptides import PeptidesDataset
 from omicspylib.datasets.proteins import ProteinsDataset
 
 
-class ObjTypes(RootModel):
-    root: Iterable[Union[ProteinsDataset, PeptidesDataset]]
-
-    class Config:
-        arbitrary_types_allowed = True
-
-
-def concat(obj: ObjTypes) -> Union[ProteinsDataset, PeptidesDataset]:
+def concat(obj: List[Union[ProteinsDataset, PeptidesDataset]]) -> Union[ProteinsDataset, PeptidesDataset]:
     """
     Concatenate experimental conditions from multiple datasets, into one dataset.
 
