@@ -8,4 +8,5 @@ API Reference
    api/comparisons/index
    api/calculations/index
    api/plots/index
+   api/go/index
    api/utils/index
