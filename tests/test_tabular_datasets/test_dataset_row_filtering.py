@@ -89,6 +89,43 @@ def test_filter_dataset_based_on_primary_id(
         assert fid in target_ids
 
 
+def test_filter_peptides_dataset_based_on_protein_id(
+        peptides_dataset: PeptidesDataset,):
+    """
+    Test that you can indirectly filter peptide records,
+    based on the associated protein id.
+    """
+    # setup
+    target_ids = ['prot1', 'prot2', 'prot3']
+
+    # action
+    filtered_dset = peptides_dataset.filter(protein_ids=target_ids)
+
+    # assertion
+    prot_ids = filtered_dset.to_proteins().to_table().index.tolist()
+    for tid in target_ids:
+        assert tid in prot_ids
+    assert len(prot_ids) == len(target_ids)
+
+
+def test_drop_peptides_dataset_records_based_on_protein_id(
+        peptides_dataset: PeptidesDataset,):
+    """
+    Test that you can indirectly filter peptide records,
+    based on the associated protein id.
+    """
+    # setup
+    target_ids = ['prot1', 'prot2', 'prot3']
+
+    # action
+    filtered_dset = peptides_dataset.drop(protein_ids=target_ids)
+
+    # assertion
+    prot_ids = filtered_dset.to_proteins().to_table().index.tolist()
+    for tid in target_ids:
+        assert tid not in prot_ids
+
+
 @pytest.mark.parametrize(
     "dset_name,target_ids",
     [

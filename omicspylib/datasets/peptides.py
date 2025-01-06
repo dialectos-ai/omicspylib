@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 from typing import Optional, Union, Literal
 
+import numpy as np
 import pandas as pd
 
 from omicspylib import ProteinsDataset
@@ -21,6 +22,7 @@ class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
     :class:`~omicspylib.datasets.peptides.PeptidesDatasetExpCondition`
     objects under one group.
     """
+
     def __init__(self,
                  name: str,
                  data: pd.DataFrame,
@@ -83,7 +85,8 @@ class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
                exp: Optional[Union[str, list]] = None,
                min_frequency: Optional[int] = None,
                na_threshold: float = 0.0,
-               ids: Optional[list] = None) -> PeptidesDatasetExpCondition:
+               ids: Optional[list] = None,
+               protein_ids: Optional[list] = None) -> PeptidesDatasetExpCondition:
         """
         Filter dataset based on a given set of properties.
 
@@ -99,14 +102,17 @@ class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
             It is used in to filter records based on the number of missing values.
         ids: list, optional
             If specified, a list of records ids to keep in the dataset.
+        protein_ids: list, optional
+            If specified, a list of protein ids from which the records will
+            remain in the dataset.
 
         Returns
         -------
-        ProteinsDatasetExpCondition
+        PeptidesDatasetExpCondition
             A new instance of the dataset object, filtered based on the
             user's input.
         """
-        data = self._apply_filter(exp, min_frequency, na_threshold, ids=ids)
+        data = self._apply_filter(exp, min_frequency, na_threshold, ids=ids, protein_ids=protein_ids)
 
         return PeptidesDatasetExpCondition(
             name=self.name,
@@ -116,8 +122,57 @@ class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
             protein_id_col=self._protein_id_col,
             metadata=self._metadata)
 
-    def drop(self, exp: Optional[Union[str, list]] = None, ids: Optional[list] = None, omit_missing_cols: bool = True) -> PeptidesDatasetExpCondition:
-        data = self._apply_drop(exp=exp, ids=ids, omit_missing_cols=omit_missing_cols)
+    def _apply_filter(self, exp, min_frequency, na_threshold, ids=None, protein_ids=None) -> pd.DataFrame:
+        data = self._data.copy()
+        if min_frequency is not None:
+            valid_rows = np.sum(data > na_threshold, axis=1) >= min_frequency
+            data = data.loc[valid_rows, :].copy()
+        if isinstance(exp, str):
+            exp = [exp]
+        if exp is not None:
+            # You might filter by providing names across experimental
+            # conditions. So when you work on each condition separately,
+            # some names are no longer valid.
+            local_exp = [ex for ex in exp if ex in data.columns]
+            data = data[local_exp].copy()
+        if ids is not None:
+            data = data.loc[data.index.isin(ids)].copy()
+        if protein_ids is not None:
+            data = self._drop_or_filter_on_protein_ids(data, protein_ids, action='filter')
+
+        return data
+
+    def drop(self,
+             exp: Optional[Union[str, list]] = None,
+             ids: Optional[list] = None,
+             protein_ids: Optional[list] = None,
+             omit_missing_cols: bool = True) -> PeptidesDatasetExpCondition:
+        """
+        Drop experiments or records from a dataset.
+
+        Parameters
+        ----------
+        exp: list, str, optional
+            List or experiment to drop from the dataset.
+            Leave empty to keep all experiments.
+        ids: list, optional
+            If specified, a list of records ids to keep in the dataset.
+        protein_ids: list, optional
+            If specified, a list of protein ids from which the records will
+            be dropped from the dataset.
+        omit_missing_cols: bool, optional
+            By default, specified columns that do not exist in the dataset
+            are omitted. Set to ``False`` to raise exception instead.
+
+        Returns
+        -------
+        PeptidesDatasetExpCondition
+            A new instance of the dataset object, filtered based on the
+            user's input.
+        """
+        data = self._apply_drop(exp=exp, ids=ids,
+                                protein_ids=protein_ids,
+                                omit_missing_cols=omit_missing_cols)
 
         return PeptidesDatasetExpCondition(
             name=self.name,
@@ -126,6 +181,55 @@ class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
             experiment_cols=data.columns.tolist(),
             protein_id_col=self._protein_id_col,
             metadata=self._metadata)
+
+    def _apply_drop(self,
+                    exp: Optional[Union[str, list]] = None,
+                    ids: Optional[list] = None,
+                    protein_ids: Optional[list] = None,
+                    omit_missing_cols: bool = True) -> pd.DataFrame:
+        data = self._data.copy()
+        if isinstance(exp, str):
+            exp = [exp]
+
+        if omit_missing_cols and exp is not None:
+            # allow the user to pass column names that don't exist or
+            # are already excluded from previous steps.
+            exp = [e for e in exp if e in data.columns]
+
+        if exp is not None:
+            data = data.drop(exp, axis=1)
+
+        if ids is not None:
+            data = data.loc[~data.index.isin(ids)].copy()
+
+        if protein_ids is not None:
+            data = self._drop_or_filter_on_protein_ids(data, protein_ids, action='drop')
+
+        return data
+
+    def _drop_or_filter_on_protein_ids(self, data, protein_ids, action: Literal['drop', 'filter']):
+        assert action in ['drop', 'filter']
+
+        # step 1 - make the reverse lookup but save peptide ids in an array
+        prot2pept = {}
+        for pept_id, prot_id in self._metadata['peptide_to_protein'].items():
+            if action == 'drop':
+                condition = prot_id not in protein_ids
+            else:
+                condition = prot_id in protein_ids
+
+            if condition:
+                if prot_id not in prot2pept:
+                    prot2pept[prot_id] = []
+                prot2pept[prot_id].append(pept_id)
+
+        # step 2 - collect target peptide ids
+        targ_pept_ids = []
+        for prot_id, pept_ids in prot2pept.items():
+            targ_pept_ids.extend(pept_ids)
+
+        # step 3 - do the filtering
+        return data.loc[data.index.isin(targ_pept_ids)].copy()
 
 
 class PeptidesDataset(TabularDataset):
@@ -134,6 +238,7 @@ class PeptidesDataset(TabularDataset):
     It contains multiple experimental conditions with one
     or more experiments per condition.
     """
+
     @property
     def protein_id_col(self) -> str:
         """Get protein ID column."""
@@ -265,7 +370,6 @@ class PeptidesDataset(TabularDataset):
         # cond_conf is updated in place to match the new names
         return ProteinsDataset.from_df(data=aggregate_df, id_col=self.protein_id_col, conditions=cond_conf)
 
-
     def append(self, new_obj: PeptidesDataset, skip_duplicates: bool = False) -> PeptidesDataset:
         """
         Append another experimental condition in the same dataset.
@@ -321,3 +425,106 @@ class PeptidesDataset(TabularDataset):
         self._conditions.extend(new_obj._conditions)
 
         return self.__class__(conditions=self._conditions)
+
+    def filter(self,
+               exp: Optional[Union[str, list]] = None,
+               cond: Optional[list] = None,
+               min_frequency: Optional[int] = None,
+               na_threshold: float = 0.0,
+               ids: Optional[list] = None,
+               protein_ids: Optional[list] = None) -> PeptidesDataset:
+        """
+        Filter the dataset based on a given set of properties.
+
+        Parameters
+        ----------
+        exp: list, str, optional
+            List of experiment name or a single experiment to keep.
+            Leave empty to keep all experiments.
+        cond: list, optional
+            List of experimental condition names. If provided, only the conditions
+            specified will remain in the dataset.
+        min_frequency: int or None, optional
+            If specified, records of the dataset will be filtered to the records with
+            greater than or equal the specified frequency.
+        na_threshold: float or None, optional
+            Values below or equal to this threshold are considered missing.
+            It is used in to filter records based on the number of missing values.
+        ids: list, optional
+            If specified, a list of records ids to keep in the dataset.
+        protein_ids: list, optional
+            If specified, a list of protein ids from which the records will
+            remain in the dataset.
+
+        Returns
+        -------
+        ProteinsDataset
+            A new instance of the dataset object, filtered based on the
+            user's input.
+        """
+        exp_conditions = self._conditions.copy()
+        if isinstance(exp, str):
+            exp = [exp]
+        if isinstance(cond, str):
+            cond = [cond]
+
+        if cond is not None:
+            exp_conditions = [c for c in exp_conditions if c.name in cond]
+
+        filt_min_f = min_frequency is not None
+        filt_na_th = na_threshold is not None
+        filt_ids = ids is not None
+
+        if filt_min_f or filt_na_th or filt_ids:
+            exp_conditions = [
+                c.filter(exp=exp,
+                         min_frequency=min_frequency,
+                         na_threshold=na_threshold,
+                         ids=ids,
+                         protein_ids=protein_ids) for c in exp_conditions]
+
+        return self.__class__(conditions=exp_conditions)
+
+    def drop(self,
+             exp: Optional[Union[str, list]] = None,
+             cond: Optional[Union[str, list]] = None,
+             ids: Optional[list] = None,
+             protein_ids: Optional[list] = None) -> PeptidesDataset:
+        """
+        Drop specified experiment(s) and or condition(s).
+
+        Parameters
+        ----------
+        exp: str, list, optional
+            Experiment name(s) to be dropped.
+        cond: str, list, optional
+            Experimental condition(s) to be dropped.
+        ids: list, optional
+            If specified, a list of records ids to drop from the dataset.
+        protein_ids: list, optional
+            If specified, a list of protein ids from which the records will
+            be dropped from the dataset.
+
+        Returns
+        -------
+        PeptidesDataset
+            An object of the same instance type without
+            the specified experiment(s) and/or condition(s).
+        """
+        filt_conditions = copy.deepcopy(self._conditions)
+        if isinstance(exp, str):
+            exp = [exp]
+        if isinstance(cond, str):
+            cond = [cond]
+        if cond is not None:
+            filt_conditions = [c for c in filt_conditions if c.name not in cond]
+
+        if exp is not None:
+            filt_conditions = [c.drop(exp) for c in filt_conditions]
+
+        if ids is not None:
+            filt_conditions = [c.drop(ids=ids) for c in filt_conditions]
+        if protein_ids is not None:
+            filt_conditions = [c.drop(protein_ids=protein_ids) for c in filt_conditions]
+
+        return self.__class__(conditions=filt_conditions)

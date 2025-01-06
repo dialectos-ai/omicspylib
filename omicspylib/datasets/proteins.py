@@ -57,6 +57,25 @@ class ProteinsDatasetExpCondition(TabularExperimentalConditionDataset):
 
     def drop(self, exp: Optional[Union[str, list]] = None, ids: Optional[list] = None,
              omit_missing_cols: bool = True) -> ProteinsDatasetExpCondition:
+        """
+        Drop experiments or records from a dataset.
+
+        Parameters
+        ----------
+        exp: list, str, optional
+            List or experiment to keep with. Leave empty to keep all experiments.
+        ids: list, optional
+            If specified, a list of records ids to keep in the dataset.
+        omit_missing_cols: bool, optional
+            By default, specified columns that do not exist in the dataset
+            are omitted. Set to ``False`` to raise exception instead.
+
+        Returns
+        -------
+        ProteinsDatasetExpCondition
+            A new instance of the dataset object, filtered based on the
+            user's input.
+        """
         data = self._apply_drop(exp=exp, ids=ids, omit_missing_cols=omit_missing_cols)
 
         return ProteinsDatasetExpCondition(

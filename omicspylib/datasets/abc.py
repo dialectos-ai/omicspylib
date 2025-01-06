@@ -652,8 +652,9 @@ class TabularDataset(abc.ABC):
 
         Returns
         -------
-        An object of the same instance type without the
-        specified experiment(s) and/or condition(s).
+        Type[T]
+            An object of the same instance type without
+            the specified experiment(s) and/or condition(s).
         """
         filt_conditions = copy.deepcopy(self._conditions)
         if isinstance(exp, str):

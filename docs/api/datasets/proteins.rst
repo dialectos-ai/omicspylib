@@ -15,11 +15,10 @@ Constructor
 
 Properties
 ----------
-.. automethod:: ProteinsDataset.condition_names
-.. automethod:: ProteinsDataset.n_conditions
-.. automethod:: ProteinsDataset.n_experiments
-.. automethod:: ProteinsDataset.n_records
-
+.. autoattribute:: ProteinsDataset.condition_names
+.. autoattribute:: ProteinsDataset.n_conditions
+.. autoattribute:: ProteinsDataset.n_experiments
+.. autoattribute:: ProteinsDataset.n_records
 
 
 Methods

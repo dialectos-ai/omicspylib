@@ -14,10 +14,10 @@ Constructor
 
 Properties
 ----------
-.. automethod:: PeptidesDataset.condition_names
-.. automethod:: PeptidesDataset.n_conditions
-.. automethod:: PeptidesDataset.n_experiments
-.. automethod:: PeptidesDataset.n_records
+.. autoattribute:: PeptidesDataset.condition_names
+.. autoattribute:: PeptidesDataset.n_conditions
+.. autoattribute:: PeptidesDataset.n_experiments
+.. autoattribute:: PeptidesDataset.n_records
 
 
 Methods
