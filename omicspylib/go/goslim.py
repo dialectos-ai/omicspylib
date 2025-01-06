@@ -89,4 +89,3 @@ def go_to_goslim(from_ids: List[str], to_ids: List[str],
 
     # reformat outputs
     return {r['slimsFromId']: r['slimsToIds'] for r in all_mappings}
-

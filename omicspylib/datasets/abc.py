@@ -652,12 +652,13 @@ class TabularDataset(abc.ABC):
                min_frequency: Optional[int] = None,
                na_threshold: float = 0.0) -> T:
         """
-        Filter dataset based on a given set of properties.
+        Filter the dataset based on a given set of properties.
 
         Parameters
         ----------
         exp: list, str, optional
-            List or experiment to keep with. Leave empty to keep all experiments.
+            List of experiment name or a single experiment to keep.
+            Leave empty to keep all experiments.
         cond: list, optional
             List of experimental condition names. If provided, only the conditions
             specified will remain in the dataset.

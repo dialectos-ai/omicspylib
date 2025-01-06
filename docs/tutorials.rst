@@ -1,3 +1,5 @@
+.. _tutorials_page_label:
+
 Tutorials
 =========
 

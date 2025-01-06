@@ -1,6 +1,6 @@
 import copy
 from dataclasses import dataclass
-from typing import Tuple, Union, Literal
+from typing import Tuple, Union, Literal, Optional, List
 
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
@@ -40,11 +40,11 @@ class HCHeatmapData:
     """
     filtered_data: pd.DataFrame
     g: 'ClusterGrid'
-    row_groups: list or None
-    col_groups: list or None
     heatmap_inputs: pd.DataFrame
-    row_silhouette_score: float or None
-    col_silhouette_score: float or None
+    row_groups: Optional[List[str]] = None
+    col_groups: Optional[List[str]] = None
+    row_silhouette_score: Optional[float] = None
+    col_silhouette_score: Optional[float] = None
 
 
 class HierarchicallyClusteredHeatmap:
@@ -122,7 +122,7 @@ class HierarchicallyClusteredHeatmap:
 
     def eval(self,
              data: pd.DataFrame,
-             sorted_cols: list = None,
+             sorted_cols: Optional[list] = None,
              figsize: Tuple[int, int] = (10, 14),
              title: str = 'Clustering groups') -> HCHeatmapData:
         """

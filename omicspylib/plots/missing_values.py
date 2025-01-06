@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from omicspylib import ProteinsDataset
 
 
+# pylint: disable=too-many-arguments
 def plot_missing_values(
         dataset: ProteinsDataset,
         xlabel: str = 'Experiment',
