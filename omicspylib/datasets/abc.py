@@ -42,7 +42,7 @@ class TabularExperimentalConditionDataset(abc.ABC):
                  experiment_cols: list,
                  **kwargs) -> None:
         self._name = name
-        self._data = data[[id_col]+experiment_cols].copy().set_index(id_col)
+        self._data = data[[id_col] + experiment_cols].copy().set_index(id_col)
         self._id_col = id_col
         self._metadata = {}
 
@@ -163,7 +163,7 @@ class TabularExperimentalConditionDataset(abc.ABC):
             min_value = np.nanmin(df.values.flatten())
         elif axis == 'rows':
             min_value = df.min(axis=0)
-        else: # axis = columns
+        else:  # axis = columns
             min_value = df.min(axis=1)
 
         return min_value
@@ -221,18 +221,19 @@ class TabularExperimentalConditionDataset(abc.ABC):
         data = self._data.copy()
         data[~mask] = np.nan
         mean = data.sum(axis=axis) / mask.sum(axis=axis)
-        if axis == 1: # row mean
+        if axis == 1:  # row mean
             return pd.DataFrame({f'mean_{self.name}': mean})
-        else: # column mean
+        else:  # column mean
             return pd.DataFrame({'mean': mean})
 
     def filter(self: Type[T],
                exp: Optional[Union[str, list]] = None,
                min_frequency: Optional[int] = None,
-               na_threshold: float = 0.0) -> T:
+               na_threshold: float = 0.0,
+               ids: Optional[list] = None) -> T:
         raise NotImplementedError
 
-    def _apply_filter(self, exp, min_frequency, na_threshold):
+    def _apply_filter(self, exp, min_frequency, na_threshold, ids=None) -> pd.DataFrame:
         data = self._data.copy()
         if min_frequency is not None:
             valid_rows = np.sum(data > na_threshold, axis=1) >= min_frequency
@@ -245,6 +246,9 @@ class TabularExperimentalConditionDataset(abc.ABC):
             # some names are no longer valid.
             local_exp = [ex for ex in exp if ex in data.columns]
             data = data[local_exp].copy()
+        if ids is not None:
+            data = data.loc[data.index.isin(ids)].copy()
+
         return data
 
     def frequency(self, na_threshold: float = 0.0, axis: int = 1) -> pd.DataFrame:
@@ -254,17 +258,32 @@ class TabularExperimentalConditionDataset(abc.ABC):
         else:
             return pd.DataFrame({'frequency': f})
 
-    def drop(self: Type[T], exp: Union[str, list], omit_missing_cols: bool = True) -> T:
+    def drop(self: Type[T],
+             exp: Optional[Union[str, list]] = None,
+             ids: Optional[list] = None,
+             omit_missing_cols: bool = True) -> T:
+        raise NotImplementedError
+
+    def _apply_drop(self,
+                    exp: Optional[Union[str, list]] = None,
+                    ids: Optional[list] = None,
+                    omit_missing_cols: bool = True) -> pd.DataFrame:
+        data = self._data.copy()
         if isinstance(exp, str):
             exp = [exp]
 
-        if omit_missing_cols:
+        if omit_missing_cols and exp is not None:
             # allow the user to pass column names that don't exist or
             # are already excluded from previous steps.
-            exp = [e for e in exp if e in self._data.columns]
+            exp = [e for e in exp if e in data.columns]
 
-        self._data = self._data.drop(exp, axis=1)
-        return self
+        if exp is not None:
+            data = data.drop(exp, axis=1)
+
+        if ids is not None:
+            data = data.loc[~data.index.isin(ids)].copy()
+
+        return data
 
     def _calc_mean_std(self) -> float:
         """
@@ -617,7 +636,8 @@ class TabularDataset(abc.ABC):
 
     def drop(self: Type[T],
              exp: Optional[Union[str, list]] = None,
-             cond: Optional[Union[str, list]] = None) -> T:
+             cond: Optional[Union[str, list]] = None,
+             ids: Optional[list] = None) -> T:
         """
         Drop specified experiment(s) and or condition(s).
 
@@ -627,11 +647,14 @@ class TabularDataset(abc.ABC):
             Experiment name(s) to be dropped.
         cond: str, list, optional
             Experimental condition(s) to be dropped.
+        ids: list, optional
+            If specified, a list of records ids to drop from the dataset.
 
         Returns
         -------
-        An object of the same instance type without the
-        specified experiment(s) and/or condition(s).
+        Type[T]
+            An object of the same instance type without
+            the specified experiment(s) and/or condition(s).
         """
         filt_conditions = copy.deepcopy(self._conditions)
         if isinstance(exp, str):
@@ -644,20 +667,25 @@ class TabularDataset(abc.ABC):
         if exp is not None:
             filt_conditions = [c.drop(exp) for c in filt_conditions]
 
+        if ids is not None:
+            filt_conditions = [c.drop(ids=ids) for c in filt_conditions]
+
         return self.__class__(conditions=filt_conditions)
 
     def filter(self: Type[T],
                exp: Optional[Union[str, list]] = None,
                cond: Optional[list] = None,
                min_frequency: Optional[int] = None,
-               na_threshold: float = 0.0) -> T:
+               na_threshold: float = 0.0,
+               ids: Optional[list] = None) -> T:
         """
-        Filter dataset based on a given set of properties.
+        Filter the dataset based on a given set of properties.
 
         Parameters
         ----------
         exp: list, str, optional
-            List or experiment to keep with. Leave empty to keep all experiments.
+            List of experiment name or a single experiment to keep.
+            Leave empty to keep all experiments.
         cond: list, optional
             List of experimental condition names. If provided, only the conditions
             specified will remain in the dataset.
@@ -667,6 +695,8 @@ class TabularDataset(abc.ABC):
         na_threshold: float or None, optional
             Values below or equal to this threshold are considered missing.
             It is used in to filter records based on the number of missing values.
+        ids: list, optional
+            If specified, a list of records ids to keep in the dataset.
 
         Returns
         -------
@@ -679,14 +709,19 @@ class TabularDataset(abc.ABC):
             exp = [exp]
         if isinstance(cond, str):
             cond = [cond]
+
         if cond is not None:
             exp_conditions = [c for c in exp_conditions if c.name in cond]
 
-        if min_frequency:
+        filt_min_f = min_frequency is not None
+        filt_na_th = na_threshold is not None
+        filt_ids = ids is not None
+        if filt_min_f or filt_na_th or filt_ids:
             exp_conditions = [
                 c.filter(exp=exp,
                          min_frequency=min_frequency,
-                         na_threshold=na_threshold) for c in exp_conditions]
+                         na_threshold=na_threshold,
+                         ids=ids) for c in exp_conditions]
 
         return self.__class__(conditions=exp_conditions)
 
@@ -768,16 +803,24 @@ class TabularDataset(abc.ABC):
         Int
             Number of values in total
         """
-        dfs = []
-        n_missing = 0
-        n_total = 0
-        for cond in self._conditions:
-            df, n_missing_cond, n_total_cond = cond.missing_values(na_threshold=na_threshold)
-            n_missing += n_missing_cond
-            n_total += n_total_cond
+        data = self.to_table()
+        n_missing_per_exp = data.shape[0] - np.sum(data > na_threshold, axis=0)
 
-            dfs.append(df)
-        return pd.concat(dfs), n_missing, n_total
+        n_missing = n_missing_per_exp.reset_index()
+        n_missing.columns = ['experiment', 'n_missing']
+
+        # total number of missing values across all datasets.
+        n_missing_total = np.sum(n_missing_per_exp)
+        n_total = data.shape[0] * len(data.columns)
+        names_lookup = []
+        for cond in self._conditions:
+            experiments = cond.experiment_names
+            for exp in experiments:
+                names_lookup.append({'experiment': exp, 'condition': cond.name})
+        names_lookup_df = pd.DataFrame(names_lookup)
+        out_df = n_missing.merge(names_lookup_df, on='experiment', how='left')
+
+        return out_df, n_missing_total, n_total
 
     def impute(self: Type[T],
                method: ImputeMethod,

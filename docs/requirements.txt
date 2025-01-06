@@ -1,4 +1,4 @@
-pydata-sphinx-theme
+pydata-sphinx-theme==0.16.1
 sphinx
 nbsphinx
 ipykernel

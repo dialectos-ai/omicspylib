@@ -13,12 +13,12 @@ Constructor
 
 Properties
 ----------
-.. automethod:: PeptidesDatasetExpCondition.experiment_names
-.. automethod:: PeptidesDatasetExpCondition.id_col
-.. automethod:: PeptidesDatasetExpCondition.metadata
-.. automethod:: PeptidesDatasetExpCondition.n_experiments
-.. automethod:: PeptidesDatasetExpCondition.name
-.. automethod:: PeptidesDatasetExpCondition.record_ids
+.. autoattribute:: PeptidesDatasetExpCondition.experiment_names
+.. autoattribute:: PeptidesDatasetExpCondition.id_col
+.. autoattribute:: PeptidesDatasetExpCondition.metadata
+.. autoattribute:: PeptidesDatasetExpCondition.n_experiments
+.. autoattribute:: PeptidesDatasetExpCondition.name
+.. autoattribute:: PeptidesDatasetExpCondition.record_ids
 
 
 

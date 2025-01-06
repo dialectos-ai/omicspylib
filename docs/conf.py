@@ -17,6 +17,8 @@ author = 'Dialectos.ai'
 
 extensions = [
     'sphinx.ext.autodoc',
+    'sphinx.ext.autosectionlabel',
+    'sphinx.ext.napoleon',  # If you're using Google or NumPy docstrings
     'nbsphinx',
 ]
 

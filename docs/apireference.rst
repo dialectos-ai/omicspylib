@@ -1,3 +1,6 @@
+.. _api_doc_page_label:
+
+
 API Reference
 =============
 
@@ -8,4 +11,5 @@ API Reference
    api/comparisons/index
    api/calculations/index
    api/plots/index
+   api/go/index
    api/utils/index

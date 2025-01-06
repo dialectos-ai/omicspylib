@@ -13,12 +13,12 @@ Constructor
 
 Properties
 ----------
-.. automethod:: ProteinsDatasetExpCondition.id_col
-.. automethod:: ProteinsDatasetExpCondition.metadata
-.. automethod:: ProteinsDatasetExpCondition.n_experiments
-.. automethod:: ProteinsDatasetExpCondition.experiment_names
-.. automethod:: ProteinsDatasetExpCondition.record_ids
-.. automethod:: ProteinsDatasetExpCondition.name
+.. autoattribute:: ProteinsDatasetExpCondition.id_col
+.. autoattribute:: ProteinsDatasetExpCondition.metadata
+.. autoattribute:: ProteinsDatasetExpCondition.n_experiments
+.. autoattribute:: ProteinsDatasetExpCondition.experiment_names
+.. autoattribute:: ProteinsDatasetExpCondition.record_ids
+.. autoattribute:: ProteinsDatasetExpCondition.name
 
 
 
