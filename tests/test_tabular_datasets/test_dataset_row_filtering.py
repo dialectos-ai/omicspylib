@@ -55,3 +55,67 @@ def test_filtering_of_rows_with_low_within_group_frequency(
     # assertion
     assert dset_before.n_records == n_before
     assert dset_after.n_records < n_after
+
+
+@pytest.mark.parametrize(
+    "dset_name,target_ids",
+    [
+        ('proteins', ['p1', 'p2', 'p3']),
+        ('peptides', ['pept1', 'pept2', 'pept3']),
+    ]
+)
+def test_filter_dataset_based_on_primary_id(
+        proteins_dataset: ProteinsDataset,
+        peptides_dataset: PeptidesDataset,
+        dset_name, target_ids):
+    """
+    Test that you can keep in a dataset only the target ids.
+    """
+    # setup
+    dsets = {
+        'proteins': proteins_dataset,
+        'peptides': peptides_dataset
+    }
+    dataset = dsets[dset_name]
+
+    # action
+    filtered_dset = dataset.filter(ids=target_ids)
+
+    # assertion
+    filt_dset_ids = filtered_dset.to_table().index.tolist()
+    for tid in target_ids:
+        assert tid in filt_dset_ids
+    for fid in filt_dset_ids:
+        assert fid in target_ids
+
+
+@pytest.mark.parametrize(
+    "dset_name,target_ids",
+    [
+        ('proteins', ['p1', 'p2', 'p3']),
+        ('peptides', ['pept1', 'pept2', 'pept3']),
+    ]
+)
+def test_you_can_drop_specific_records_from_the_dataset_based_on_their_id(
+        proteins_dataset: ProteinsDataset,
+        peptides_dataset: PeptidesDataset,
+        dset_name, target_ids):
+    """
+    Test that you can keep in a dataset only the target ids.
+    """
+    # setup
+    dsets = {
+        'proteins': proteins_dataset,
+        'peptides': peptides_dataset
+    }
+    dataset = dsets[dset_name]
+
+    # action
+    filtered_dset = dataset.drop(ids=target_ids)
+
+    # assertion
+    filt_dset_ids = filtered_dset.to_table().index.tolist()
+    dset_ids = dataset.to_table().index.tolist()
+    for tid in target_ids:
+        assert tid not in filt_dset_ids
+        assert tid in dset_ids

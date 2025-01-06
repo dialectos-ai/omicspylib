@@ -229,10 +229,11 @@ class TabularExperimentalConditionDataset(abc.ABC):
     def filter(self: Type[T],
                exp: Optional[Union[str, list]] = None,
                min_frequency: Optional[int] = None,
-               na_threshold: float = 0.0) -> T:
+               na_threshold: float = 0.0,
+               ids: Optional[list] = None) -> T:
         raise NotImplementedError
 
-    def _apply_filter(self, exp, min_frequency, na_threshold):
+    def _apply_filter(self, exp, min_frequency, na_threshold, ids=None):
         data = self._data.copy()
         if min_frequency is not None:
             valid_rows = np.sum(data > na_threshold, axis=1) >= min_frequency
@@ -245,6 +246,9 @@ class TabularExperimentalConditionDataset(abc.ABC):
             # some names are no longer valid.
             local_exp = [ex for ex in exp if ex in data.columns]
             data = data[local_exp].copy()
+        if ids is not None:
+            data = data.loc[data.index.isin(ids)].copy()
+
         return data
 
     def frequency(self, na_threshold: float = 0.0, axis: int = 1) -> pd.DataFrame:
@@ -254,16 +258,21 @@ class TabularExperimentalConditionDataset(abc.ABC):
         else:
             return pd.DataFrame({'frequency': f})
 
-    def drop(self: Type[T], exp: Union[str, list], omit_missing_cols: bool = True) -> T:
+    def drop(self: Type[T], exp: Optional[Union[str, list]] = None, ids: Optional[list] = None, omit_missing_cols: bool = True) -> T:
         if isinstance(exp, str):
             exp = [exp]
 
-        if omit_missing_cols:
+        if omit_missing_cols and exp is not None:
             # allow the user to pass column names that don't exist or
             # are already excluded from previous steps.
             exp = [e for e in exp if e in self._data.columns]
 
-        self._data = self._data.drop(exp, axis=1)
+        if exp is not None:
+            self._data = self._data.drop(exp, axis=1)
+
+        if ids is not None:
+            self._data = self._data.loc[~self._data.index.isin(ids)].copy()
+
         return self
 
     def _calc_mean_std(self) -> float:
@@ -617,7 +626,8 @@ class TabularDataset(abc.ABC):
 
     def drop(self: Type[T],
              exp: Optional[Union[str, list]] = None,
-             cond: Optional[Union[str, list]] = None) -> T:
+             cond: Optional[Union[str, list]] = None,
+             ids: Optional[list] = None) -> T:
         """
         Drop specified experiment(s) and or condition(s).
 
@@ -627,6 +637,8 @@ class TabularDataset(abc.ABC):
             Experiment name(s) to be dropped.
         cond: str, list, optional
             Experimental condition(s) to be dropped.
+        ids: list, optional
+            If specified, a list of records ids to drop from the dataset.
 
         Returns
         -------
@@ -644,13 +656,17 @@ class TabularDataset(abc.ABC):
         if exp is not None:
             filt_conditions = [c.drop(exp) for c in filt_conditions]
 
+        if ids is not None:
+            filt_conditions = [c.drop(ids=ids) for c in filt_conditions]
+
         return self.__class__(conditions=filt_conditions)
 
     def filter(self: Type[T],
                exp: Optional[Union[str, list]] = None,
                cond: Optional[list] = None,
                min_frequency: Optional[int] = None,
-               na_threshold: float = 0.0) -> T:
+               na_threshold: float = 0.0,
+               ids: Optional[list] = None) -> T:
         """
         Filter the dataset based on a given set of properties.
 
@@ -668,6 +684,8 @@ class TabularDataset(abc.ABC):
         na_threshold: float or None, optional
             Values below or equal to this threshold are considered missing.
             It is used in to filter records based on the number of missing values.
+        ids: list, optional
+            If specified, a list of records ids to keep in the dataset.
 
         Returns
         -------
@@ -680,14 +698,19 @@ class TabularDataset(abc.ABC):
             exp = [exp]
         if isinstance(cond, str):
             cond = [cond]
+
         if cond is not None:
             exp_conditions = [c for c in exp_conditions if c.name in cond]
 
-        if min_frequency:
+        filt_min_f = min_frequency is not None
+        filt_na_th = na_threshold is not None
+        filt_ids = ids is not None
+        if filt_min_f or filt_na_th or filt_ids:
             exp_conditions = [
                 c.filter(exp=exp,
                          min_frequency=min_frequency,
-                         na_threshold=na_threshold) for c in exp_conditions]
+                         na_threshold=na_threshold,
+                         ids=ids) for c in exp_conditions]
 
         return self.__class__(conditions=exp_conditions)
 

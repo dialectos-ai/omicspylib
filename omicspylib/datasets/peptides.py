@@ -82,7 +82,8 @@ class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
     def filter(self,
                exp: Optional[Union[str, list]] = None,
                min_frequency: Optional[int] = None,
-               na_threshold: float = 0.0) -> PeptidesDatasetExpCondition:
+               na_threshold: float = 0.0,
+               ids: Optional[list] = None) -> PeptidesDatasetExpCondition:
         """
         Filter dataset based on a given set of properties.
 
@@ -96,6 +97,8 @@ class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
         na_threshold: float or None, optional
             Values below or equal to this threshold are considered missing.
             It is used in to filter records based on the number of missing values.
+        ids: list, optional
+            If specified, a list of records ids to keep in the dataset.
 
         Returns
         -------
@@ -103,7 +106,7 @@ class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
             A new instance of the dataset object, filtered based on the
             user's input.
         """
-        data = self._apply_filter(exp, min_frequency, na_threshold)
+        data = self._apply_filter(exp, min_frequency, na_threshold, ids=ids)
 
         return PeptidesDatasetExpCondition(
             name=self.name,
