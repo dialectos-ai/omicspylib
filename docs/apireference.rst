@@ -1,3 +1,6 @@
+.. _api_doc_page_label:
+
+
 API Reference
 =============
 

@@ -10,7 +10,6 @@ Constructor
 -----------
 .. automethod:: PeptidesDataset.__init__
 .. automethod:: PeptidesDataset.from_df
-.. automethod:: PeptidesDataset.from_maxquant
 
 
 Properties
@@ -19,7 +18,6 @@ Properties
 .. automethod:: PeptidesDataset.n_conditions
 .. automethod:: PeptidesDataset.n_experiments
 .. automethod:: PeptidesDataset.n_records
-
 
 
 Methods

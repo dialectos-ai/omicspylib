@@ -5,3 +5,5 @@ ruff
 sphinx
 sphinx-rtd-theme
 nbsphinx
+types-scipy-sparse
+types-requests

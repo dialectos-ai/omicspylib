@@ -8,6 +8,7 @@ from matplotlib import pyplot as plt
 from matplotlib_venn import venn2  # type: ignore
 
 
+# pylint: disable=too-many-arguments
 def plot_venn2(data: pd.DataFrame,
                condition_a: str,
                condition_b: str,
