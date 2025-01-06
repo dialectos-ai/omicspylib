@@ -55,6 +55,16 @@ class ProteinsDatasetExpCondition(TabularExperimentalConditionDataset):
             id_col=self._id_col,
             experiment_cols=data.columns.tolist())
 
+    def drop(self, exp: Optional[Union[str, list]] = None, ids: Optional[list] = None,
+             omit_missing_cols: bool = True) -> ProteinsDatasetExpCondition:
+        data = self._apply_drop(exp=exp, ids=ids, omit_missing_cols=omit_missing_cols)
+
+        return ProteinsDatasetExpCondition(
+            name=self.name,
+            data=data.reset_index(),
+            id_col=self._id_col,
+            experiment_cols=data.columns.tolist())
+
 
 class ProteinsDataset(TabularDataset):
     """

@@ -42,7 +42,7 @@ class TabularExperimentalConditionDataset(abc.ABC):
                  experiment_cols: list,
                  **kwargs) -> None:
         self._name = name
-        self._data = data[[id_col]+experiment_cols].copy().set_index(id_col)
+        self._data = data[[id_col] + experiment_cols].copy().set_index(id_col)
         self._id_col = id_col
         self._metadata = {}
 
@@ -163,7 +163,7 @@ class TabularExperimentalConditionDataset(abc.ABC):
             min_value = np.nanmin(df.values.flatten())
         elif axis == 'rows':
             min_value = df.min(axis=0)
-        else: # axis = columns
+        else:  # axis = columns
             min_value = df.min(axis=1)
 
         return min_value
@@ -221,9 +221,9 @@ class TabularExperimentalConditionDataset(abc.ABC):
         data = self._data.copy()
         data[~mask] = np.nan
         mean = data.sum(axis=axis) / mask.sum(axis=axis)
-        if axis == 1: # row mean
+        if axis == 1:  # row mean
             return pd.DataFrame({f'mean_{self.name}': mean})
-        else: # column mean
+        else:  # column mean
             return pd.DataFrame({'mean': mean})
 
     def filter(self: Type[T],
@@ -233,7 +233,7 @@ class TabularExperimentalConditionDataset(abc.ABC):
                ids: Optional[list] = None) -> T:
         raise NotImplementedError
 
-    def _apply_filter(self, exp, min_frequency, na_threshold, ids=None):
+    def _apply_filter(self, exp, min_frequency, na_threshold, ids=None) -> pd.DataFrame:
         data = self._data.copy()
         if min_frequency is not None:
             valid_rows = np.sum(data > na_threshold, axis=1) >= min_frequency
@@ -258,22 +258,32 @@ class TabularExperimentalConditionDataset(abc.ABC):
         else:
             return pd.DataFrame({'frequency': f})
 
-    def drop(self: Type[T], exp: Optional[Union[str, list]] = None, ids: Optional[list] = None, omit_missing_cols: bool = True) -> T:
+    def drop(self: Type[T],
+             exp: Optional[Union[str, list]] = None,
+             ids: Optional[list] = None,
+             omit_missing_cols: bool = True) -> T:
+        raise NotImplementedError
+
+    def _apply_drop(self,
+                    exp: Optional[Union[str, list]] = None,
+                    ids: Optional[list] = None,
+                    omit_missing_cols: bool = True) -> pd.DataFrame:
+        data = self._data.copy()
         if isinstance(exp, str):
             exp = [exp]
 
         if omit_missing_cols and exp is not None:
             # allow the user to pass column names that don't exist or
             # are already excluded from previous steps.
-            exp = [e for e in exp if e in self._data.columns]
+            exp = [e for e in exp if e in data.columns]
 
         if exp is not None:
-            self._data = self._data.drop(exp, axis=1)
+            data = data.drop(exp, axis=1)
 
         if ids is not None:
-            self._data = self._data.loc[~self._data.index.isin(ids)].copy()
+            data = data.loc[~data.index.isin(ids)].copy()
 
-        return self
+        return data
 
     def _calc_mean_std(self) -> float:
         """

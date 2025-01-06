@@ -116,6 +116,17 @@ class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
             protein_id_col=self._protein_id_col,
             metadata=self._metadata)
 
+    def drop(self, exp: Optional[Union[str, list]] = None, ids: Optional[list] = None, omit_missing_cols: bool = True) -> PeptidesDatasetExpCondition:
+        data = self._apply_drop(exp=exp, ids=ids, omit_missing_cols=omit_missing_cols)
+
+        return PeptidesDatasetExpCondition(
+            name=self.name,
+            data=data.reset_index(),
+            id_col=self._id_col,
+            experiment_cols=data.columns.tolist(),
+            protein_id_col=self._protein_id_col,
+            metadata=self._metadata)
+
 
 class PeptidesDataset(TabularDataset):
     """
