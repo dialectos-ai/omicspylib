@@ -803,16 +803,24 @@ class TabularDataset(abc.ABC):
         Int
             Number of values in total
         """
-        dfs = []
-        n_missing = 0
-        n_total = 0
-        for cond in self._conditions:
-            df, n_missing_cond, n_total_cond = cond.missing_values(na_threshold=na_threshold)
-            n_missing += n_missing_cond
-            n_total += n_total_cond
+        data = self.to_table()
+        n_missing_per_exp = data.shape[0] - np.sum(data > na_threshold, axis=0)
 
-            dfs.append(df)
-        return pd.concat(dfs), n_missing, n_total
+        n_missing = n_missing_per_exp.reset_index()
+        n_missing.columns = ['experiment', 'n_missing']
+
+        # total number of missing values across all datasets.
+        n_missing_total = np.sum(n_missing_per_exp)
+        n_total = data.shape[0] * len(data.columns)
+        names_lookup = []
+        for cond in self._conditions:
+            experiments = cond.experiment_names
+            for exp in experiments:
+                names_lookup.append({'experiment': exp, 'condition': cond.name})
+        names_lookup_df = pd.DataFrame(names_lookup)
+        out_df = n_missing.merge(names_lookup_df, on='experiment', how='left')
+
+        return out_df, n_missing_total, n_total
 
     def impute(self: Type[T],
                method: ImputeMethod,
