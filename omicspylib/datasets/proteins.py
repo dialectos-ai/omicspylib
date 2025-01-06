@@ -23,7 +23,8 @@ class ProteinsDatasetExpCondition(TabularExperimentalConditionDataset):
     def filter(self,
                exp: Optional[Union[str, list]] = None,
                min_frequency: Optional[int] = None,
-               na_threshold: float = 0.0) -> ProteinsDatasetExpCondition:
+               na_threshold: float = 0.0,
+               ids: Optional[list] = None) -> ProteinsDatasetExpCondition:
         """
         Filter dataset based on a given set of properties.
 
@@ -37,6 +38,8 @@ class ProteinsDatasetExpCondition(TabularExperimentalConditionDataset):
         na_threshold: float or None, optional
             Values below or equal to this threshold are considered missing.
             It is used in to filter records based on the number of missing values.
+        ids: list, optional
+            If specified, a list of records ids to keep in the dataset.
 
         Returns
         -------
@@ -44,7 +47,36 @@ class ProteinsDatasetExpCondition(TabularExperimentalConditionDataset):
             A new instance of the dataset object, filtered based on the
             user's input.
         """
-        data = self._apply_filter(exp, min_frequency, na_threshold)
+        data = self._apply_filter(exp, min_frequency, na_threshold, ids=ids)
+
+        return ProteinsDatasetExpCondition(
+            name=self.name,
+            data=data.reset_index(),
+            id_col=self._id_col,
+            experiment_cols=data.columns.tolist())
+
+    def drop(self, exp: Optional[Union[str, list]] = None, ids: Optional[list] = None,
+             omit_missing_cols: bool = True) -> ProteinsDatasetExpCondition:
+        """
+        Drop experiments or records from a dataset.
+
+        Parameters
+        ----------
+        exp: list, str, optional
+            List or experiment to keep with. Leave empty to keep all experiments.
+        ids: list, optional
+            If specified, a list of records ids to keep in the dataset.
+        omit_missing_cols: bool, optional
+            By default, specified columns that do not exist in the dataset
+            are omitted. Set to ``False`` to raise exception instead.
+
+        Returns
+        -------
+        ProteinsDatasetExpCondition
+            A new instance of the dataset object, filtered based on the
+            user's input.
+        """
+        data = self._apply_drop(exp=exp, ids=ids, omit_missing_cols=omit_missing_cols)
 
         return ProteinsDatasetExpCondition(
             name=self.name,
