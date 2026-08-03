@@ -3,12 +3,10 @@ Proteins dataset object definition.
 """
 from __future__ import annotations
 
-from typing import Optional, Union
-
 import pandas as pd
 
 from omicspylib.datasets.abc import TabularDataset, TabularExperimentalConditionDataset
-from omicspylib.utils import mq_rm_contaminants, mq_rm_reverse, mq_rm_only_modified
+from omicspylib.utils import mq_rm_contaminants, mq_rm_only_modified, mq_rm_reverse
 
 
 class ProteinsDatasetExpCondition(TabularExperimentalConditionDataset):
@@ -21,10 +19,10 @@ class ProteinsDatasetExpCondition(TabularExperimentalConditionDataset):
     objects under one group.
     """
     def filter(self,
-               exp: Optional[Union[str, list]] = None,
-               min_frequency: Optional[int] = None,
+               exp: str | list | None = None,
+               min_frequency: int | None = None,
                na_threshold: float = 0.0,
-               ids: Optional[list] = None) -> ProteinsDatasetExpCondition:
+               ids: list | None = None) -> ProteinsDatasetExpCondition:
         """
         Filter dataset based on a given set of properties.
 
@@ -55,7 +53,7 @@ class ProteinsDatasetExpCondition(TabularExperimentalConditionDataset):
             id_col=self._id_col,
             experiment_cols=data.columns.tolist())
 
-    def drop(self, exp: Optional[Union[str, list]] = None, ids: Optional[list] = None,
+    def drop(self, exp: str | list | None = None, ids: list | None = None,
              omit_missing_cols: bool = True) -> ProteinsDatasetExpCondition:
         """
         Drop experiments or records from a dataset.

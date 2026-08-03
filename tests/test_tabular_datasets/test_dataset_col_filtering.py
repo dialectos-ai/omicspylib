@@ -1,6 +1,6 @@
 import pytest
 
-from omicspylib import ProteinsDataset, PeptidesDataset
+from omicspylib import PeptidesDataset, ProteinsDataset
 
 
 @pytest.mark.parametrize(

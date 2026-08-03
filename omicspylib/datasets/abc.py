@@ -3,10 +3,11 @@ from __future__ import annotations
 import abc
 import copy
 from functools import reduce
-from typing import List, Optional, Union, Literal, Type, TypeVar, Tuple, Any, Dict
+from typing import Any, Literal, TypeVar
 
 import numpy as np
 import pandas as pd
+from typing_extensions import Self
 
 AxisName = Literal['rows', 'columns']
 NormMethod = Literal['mean']  # future implementation for quantile, median etc
@@ -87,7 +88,7 @@ class TabularExperimentalConditionDataset(abc.ABC):
         return len(self._data.columns)
 
     @property
-    def experiment_names(self) -> List[str]:
+    def experiment_names(self) -> list[str]:
         """
         Get the list of experiment names.
 
@@ -100,7 +101,7 @@ class TabularExperimentalConditionDataset(abc.ABC):
         return self._experiments
 
     @property
-    def record_ids(self) -> List[str]:
+    def record_ids(self) -> list[str]:
         """
         A list of unique protein ids as they are provided by the user.
 
@@ -144,7 +145,7 @@ class TabularExperimentalConditionDataset(abc.ABC):
 
     def min(self,
             na_threshold: float = 0.0,
-            axis: Optional[AxisName] = None) -> Union[float, pd.Series]:
+            axis: AxisName | None = None) -> float | pd.Series:
         """
         Calculate the minimum value of that condition.
         By default, records with quantitative value ⇐ 0.0 will
@@ -168,7 +169,7 @@ class TabularExperimentalConditionDataset(abc.ABC):
 
         return min_value
 
-    def missing_values(self, na_threshold: float = 0.0) -> Tuple[pd.DataFrame, int, int]:
+    def missing_values(self, na_threshold: float = 0.0) -> tuple[pd.DataFrame, int, int]:
         """
         Calculate the number of missing values per experiment.
 
@@ -196,11 +197,11 @@ class TabularExperimentalConditionDataset(abc.ABC):
         })
         return df, int(n_missing_total), int(total_values)
 
-    def log2_transform(self: Type[T]) -> T:
+    def log2_transform(self: type[T]) -> T:
         self._data = np.log2(self._data + 1)  # type: ignore
         return self
 
-    def log2_backtransform(self: Type[T]) -> T:
+    def log2_backtransform(self: type[T]) -> T:
         self._data = 2 ** self._data - 1
         return self
 
@@ -226,11 +227,11 @@ class TabularExperimentalConditionDataset(abc.ABC):
         else:  # column mean
             return pd.DataFrame({'mean': mean})
 
-    def filter(self: Type[T],
-               exp: Optional[Union[str, list]] = None,
-               min_frequency: Optional[int] = None,
+    def filter(self: type[T],
+               exp: str | list | None = None,
+               min_frequency: int | None = None,
                na_threshold: float = 0.0,
-               ids: Optional[list] = None) -> T:
+               ids: list | None = None) -> T:
         raise NotImplementedError
 
     def _apply_filter(self, exp, min_frequency, na_threshold, ids=None) -> pd.DataFrame:
@@ -258,15 +259,15 @@ class TabularExperimentalConditionDataset(abc.ABC):
         else:
             return pd.DataFrame({'frequency': f})
 
-    def drop(self: Type[T],
-             exp: Optional[Union[str, list]] = None,
-             ids: Optional[list] = None,
+    def drop(self: type[T],
+             exp: str | list | None = None,
+             ids: list | None = None,
              omit_missing_cols: bool = True) -> T:
         raise NotImplementedError
 
     def _apply_drop(self,
-                    exp: Optional[Union[str, list]] = None,
-                    ids: Optional[list] = None,
+                    exp: str | list | None = None,
+                    ids: list | None = None,
                     omit_missing_cols: bool = True) -> pd.DataFrame:
         data = self._data.copy()
         if isinstance(exp, str):
@@ -292,10 +293,10 @@ class TabularExperimentalConditionDataset(abc.ABC):
         """
         return self._data.std(axis=1, skipna=True).dropna().mean()
 
-    def impute(self: Type[T],
+    def impute(self: type[T],
                method: ConditionImputeMethod,
                na_threshold: float = 0.0,
-               value: Optional[Union[float, pd.Series]] = None,
+               value: float | pd.Series | None = None,
                shift: float = 0.0,
                random_noise: bool = False) -> T:
         """
@@ -361,8 +362,8 @@ class TabularExperimentalConditionDataset(abc.ABC):
     @staticmethod
     def _fillna(
             row: pd.Series,
-            val: Union[pd.Series, float],
-            std_value: Optional[float] = None) -> pd.Series:
+            val: pd.Series | float,
+            std_value: float | None = None) -> pd.Series:
         """
         Fill nan values of a Pandas data frame row by row.
 
@@ -430,14 +431,14 @@ class TabularExperimentalConditionDataset(abc.ABC):
 
 class TabularDataset(abc.ABC):
     def __init__(self,
-                 conditions: List[TabularExperimentalConditionDataset]) -> None:
+                 conditions: list[TabularExperimentalConditionDataset]) -> None:
         self._conditions = conditions
 
     @classmethod
-    def from_df(cls: Type[T],
+    def from_df(cls,
                 data: pd.DataFrame,
                 id_col: str,
-                conditions: dict[str, list]) -> T:
+                conditions: dict[str, list]) -> Self:
         raise NotImplementedError
 
     @property
@@ -453,7 +454,7 @@ class TabularDataset(abc.ABC):
         return len(self._conditions)
 
     @property
-    def condition_names(self) -> List[str]:
+    def condition_names(self) -> list[str]:
         """
         List experimental condition names.
 
@@ -480,7 +481,7 @@ class TabularDataset(abc.ABC):
             n_exp += condition.n_experiments
         return n_exp
 
-    def experiment_names(self, condition: Optional[str] = None) -> List[str]:
+    def experiment_names(self, condition: str | None = None) -> list[str]:
         """
         Get experiment names from the dataset. If experimental condition
         name is provided, experiment names will be limited to that case.
@@ -528,13 +529,13 @@ class TabularDataset(abc.ABC):
         """
         return self._get_unique_records()
 
-    def _get_unique_records(self) -> List[str]:
+    def _get_unique_records(self) -> list[str]:
         all_records = []
         for condition in self._conditions:
             all_records.extend(condition.record_ids)
-        return sorted(list(set(all_records)))
+        return sorted(set(all_records))
 
-    def describe(self) -> Dict[str, Any]:
+    def describe(self) -> dict[str, Any]:
         """
         Returns basic information about the dataset.
         Includes fields like number of experimental conditions,
@@ -596,7 +597,7 @@ class TabularDataset(abc.ABC):
                   na_threshold: float = 0.0,
                   join_method: MergeHow = 'outer',
                   axis: int = 1,
-                  conditions: Optional[List[str]] = None) -> pd.DataFrame:
+                  conditions: list[str] | None = None) -> pd.DataFrame:
         """
         Calculate the number of experiments within each experimental condition
         with quantitative value above the specified threshold,
@@ -634,10 +635,10 @@ class TabularDataset(abc.ABC):
 
         return pd.concat(tables).transpose()
 
-    def drop(self: Type[T],
-             exp: Optional[Union[str, list]] = None,
-             cond: Optional[Union[str, list]] = None,
-             ids: Optional[list] = None) -> T:
+    def drop(self: type[T],
+             exp: str | list | None = None,
+             cond: str | list | None = None,
+             ids: list | None = None) -> T:
         """
         Drop specified experiment(s) and or condition(s).
 
@@ -672,12 +673,12 @@ class TabularDataset(abc.ABC):
 
         return self.__class__(conditions=filt_conditions)
 
-    def filter(self: Type[T],
-               exp: Optional[Union[str, list]] = None,
-               cond: Optional[list] = None,
-               min_frequency: Optional[int] = None,
+    def filter(self: type[T],
+               exp: str | list | None = None,
+               cond: list | None = None,
+               min_frequency: int | None = None,
                na_threshold: float = 0.0,
-               ids: Optional[list] = None) -> T:
+               ids: list | None = None) -> T:
         """
         Filter the dataset based on a given set of properties.
 
@@ -727,13 +728,13 @@ class TabularDataset(abc.ABC):
 
     @staticmethod
     def _join_list_of_tables(
-            tables: List[pd.DataFrame],
+            tables: list[pd.DataFrame],
             how: MergeHow = 'outer') -> pd.DataFrame:
         return reduce(lambda left, right: pd.merge(
             left, right, left_index=True,
             right_index=True, how=how), tables)
 
-    def log2_transform(self: Type[T]) -> T:
+    def log2_transform(self: type[T]) -> T:
         """
         Perform log2 transformation in all experiments.
 
@@ -745,7 +746,7 @@ class TabularDataset(abc.ABC):
         log2_conditions = [c.log2_transform() for c in conditions_copy]
         return self.__class__(conditions=log2_conditions)
 
-    def log2_backtransform(self: Type[T]) -> T:
+    def log2_backtransform(self: type[T]) -> T:
         """
         Calculate the exponential with base 2.
         Is used to invert log2 transformation and convert values
@@ -782,7 +783,7 @@ class TabularDataset(abc.ABC):
         return self._join_list_of_tables(tables, how=join_method)
 
     def missing_values(self, na_threshold: float = 0.0) -> (
-            Tuple)[pd.DataFrame, int, int]:
+            tuple)[pd.DataFrame, int, int]:
         """
         Returns number of missing values per experiment and condition.
         Missing values are considered the cases that are either missing
@@ -822,10 +823,10 @@ class TabularDataset(abc.ABC):
 
         return out_df, n_missing_total, n_total
 
-    def impute(self: Type[T],
+    def impute(self: type[T],
                method: ImputeMethod,
                na_threshold: float = 0.0,
-               value: Optional[float] = None,
+               value: float | None = None,
                shift: float = 0.0,
                random_noise: bool = False) -> T:
         """
@@ -958,10 +959,10 @@ class TabularDataset(abc.ABC):
             for c in conditions]
         return imputed_conditions
 
-    def normalize(self: Type[T],
+    def normalize(self: type[T],
                   method: NormMethod,
-                  ref_exp: Optional[str] = None,
-                  ref_condition: Optional[str] = None,
+                  ref_exp: str | None = None,
+                  ref_condition: str | None = None,
                   use_common_records: bool = False,
                   na_threshold: float = 0.0) -> T:
         """
@@ -1037,21 +1038,22 @@ class TabularDataset(abc.ABC):
     def _mean_norm_with_shared_records(self, na_threshold, ref_exp):
         exp_conditions_data = copy.deepcopy(self._conditions)
 
-        ref_c = [c for c in exp_conditions_data if ref_exp in c.experiment_names][0]
-        for exp_c in exp_conditions_data:
-            cond_name = exp_c.name
-            exp_names = exp_c.experiment_names
-            for targ_exp in exp_names:
-                if cond_name != ref_c.name and targ_exp != ref_exp:
-                    ref_case = ref_c.filter(exp=ref_exp).to_table()
-                    targ_case = exp_c.filter(exp=targ_exp).to_table()
-                    df = ref_case.merge(targ_case, left_index=True, right_index=True, how='inner')
-                    df[df <= na_threshold] = np.nan
-                    df = df.dropna()
-                    mean_ref = df[ref_exp].mean()
-                    mean_targ = df[targ_exp].mean()
-                    norm_diff = mean_targ - mean_ref
-                    exp_c.shift(targ_exp, norm_diff, na_threshold=na_threshold)
+        ref_c = next((c for c in exp_conditions_data if ref_exp in c.experiment_names), None)
+        if ref_c:
+            for exp_c in exp_conditions_data:
+                cond_name = exp_c.name
+                exp_names = exp_c.experiment_names
+                for targ_exp in exp_names:
+                    if cond_name != ref_c.name and targ_exp != ref_exp:
+                        ref_case = ref_c.filter(exp=ref_exp).to_table()
+                        targ_case = exp_c.filter(exp=targ_exp).to_table()
+                        df = ref_case.merge(targ_case, left_index=True, right_index=True, how='inner')
+                        df[df <= na_threshold] = np.nan
+                        df = df.dropna()
+                        mean_ref = df[ref_exp].mean()
+                        mean_targ = df[targ_exp].mean()
+                        norm_diff = mean_targ - mean_ref
+                        exp_c.shift(targ_exp, norm_diff, na_threshold=na_threshold)
 
         return exp_conditions_data
 

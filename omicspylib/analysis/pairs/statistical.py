@@ -1,8 +1,7 @@
-from typing import Optional
 
 from omicspylib import ProteinsDataset
 from omicspylib.calculations.fold_change import calc_fold_change
-from omicspylib.calculations.ttest import calc_ttest_adj, MULTITEST_METHOD
+from omicspylib.calculations.ttest import MULTITEST_METHOD, calc_ttest_adj
 
 
 class PairwiseComparisonTTestFC:
@@ -21,7 +20,7 @@ class PairwiseComparisonTTestFC:
     def eval(self,
              min_frequency: int = 3,
              na_threshold: float = 0.0,
-             pval_adj_method: Optional[MULTITEST_METHOD] = 'fdr_bh',
+             pval_adj_method: MULTITEST_METHOD | None = 'fdr_bh',
              use_log_transformed: bool = True):
         """
         Perform the pairwise comparison between the two groups, using

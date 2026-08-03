@@ -1,6 +1,6 @@
 import copy
 from dataclasses import dataclass
-from typing import Tuple, Union, Literal, Optional, List
+from typing import Literal
 
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
@@ -41,10 +41,10 @@ class HCHeatmapData:
     filtered_data: pd.DataFrame
     g: 'ClusterGrid'
     heatmap_inputs: pd.DataFrame
-    row_groups: Optional[List[str]] = None
-    col_groups: Optional[List[str]] = None
-    row_silhouette_score: Optional[float] = None
-    col_silhouette_score: Optional[float] = None
+    row_groups: list[str] | None = None
+    col_groups: list[str] | None = None
+    row_silhouette_score: float | None = None
+    col_silhouette_score: float | None = None
 
 
 class HierarchicallyClusteredHeatmap:
@@ -60,8 +60,8 @@ class HierarchicallyClusteredHeatmap:
                  na_threshold: float = 0.0,
                  center_scale: bool = True,
                  linkage_method: LinkageMethod = 'average',
-                 n_row_clusters: Union[int, None] = 12,
-                 n_col_clusters: Union[int, None] = 3):
+                 n_row_clusters: int | None = 12,
+                 n_col_clusters: int | None = 3):
         """
         Initializer method.
 
@@ -122,8 +122,8 @@ class HierarchicallyClusteredHeatmap:
 
     def eval(self,
              data: pd.DataFrame,
-             sorted_cols: Optional[list] = None,
-             figsize: Tuple[int, int] = (10, 14),
+             sorted_cols: list | None = None,
+             figsize: tuple[int, int] = (10, 14),
              title: str = 'Clustering groups') -> HCHeatmapData:
         """
         Perform hierarchical clustering and plot a heatmap with the separated groups.
@@ -340,13 +340,13 @@ class HierarchicallyClusteredHeatmap:
         if row_groups is not None:
             row_patches = [mpatches.Patch(
                 color=tree_cmap(grp_idx),
-                label=f'Grp {grp_idx}') for grp_idx in sorted(list(set(row_groups)))]
+                label=f'Grp {grp_idx}') for grp_idx in sorted(set(row_groups))]
             g.ax_row_dendrogram.legend(
                 handles=row_patches, loc='lower left', title='Row groups')
         if col_groups is not None:
             col_patches = [mpatches.Patch(
                 color=tree_cmap(grp_idx),
-                label=f'Grp {grp_idx}') for grp_idx in sorted(list(set(col_groups)))]
+                label=f'Grp {grp_idx}') for grp_idx in sorted(set(col_groups))]
             g.ax_col_dendrogram.legend(
                 handles=col_patches, loc='lower left', title='Col groups')
 

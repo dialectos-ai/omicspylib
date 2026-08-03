@@ -4,15 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = 'omicspylib'
-dynamic = [
-    'version'
-]
+version = '0.1.1'
 description = 'A python library for omics data analysis'
 readme = 'README.md'
 authors = [
-    { name = 'Kostas Tsolis', email='kostas.tsolis@dialectos.ai'}
+    { name = 'Kostas Tsolis', email = 'kostas.tsolis@dialectos.ai' }
 ]
-license = { file = 'LICENSE'}
+license = { file = 'LICENSE' }
 requires-python = '>=3.10'
 dependencies = [
     "numpy>=1.26.0",
@@ -42,4 +40,13 @@ dev = [
     "nbsphinx",
     "types-scipy-sparse",
     "types-requests",
+    "pyright>=1.1.411",
+    "pandas-stubs~=2.3.3",
+    "scipy-stubs>=1.15.3.0",
 ]
+
+
+[tool.pyright]
+# Replace '.venv' with the name of your virtual environment folder
+venvPath = "."
+venv = ".venv"

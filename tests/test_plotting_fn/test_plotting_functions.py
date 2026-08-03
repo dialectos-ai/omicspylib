@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from omicspylib.plots import plot_density, plot_missing_values, plot_volcano, plot_venn2
+from omicspylib.plots import plot_density, plot_missing_values, plot_venn2, plot_volcano
 
 
 def test_intensity_plotting_as_density(proteins_dataset):

@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import copy
-from typing import Optional, Union, Literal
+from typing import Literal
 
 import numpy as np
 import pandas as pd
 
 from omicspylib import ProteinsDataset
-from omicspylib.datasets.abc import TabularExperimentalConditionDataset, TabularDataset
+from omicspylib.datasets.abc import TabularDataset, TabularExperimentalConditionDataset
 
 ProteinsAggMethod = Literal['sum', 'counts']
 
@@ -28,8 +28,8 @@ class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
                  data: pd.DataFrame,
                  id_col: str,
                  experiment_cols: list,
-                 protein_id_col: Optional[str] = None,
-                 metadata: Optional[dict] = None) -> None:
+                 protein_id_col: str | None = None,
+                 metadata: dict | None = None) -> None:
         """
         Initializes the object.
 
@@ -82,11 +82,11 @@ class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
         return self._protein_id_col
 
     def filter(self,
-               exp: Optional[Union[str, list]] = None,
-               min_frequency: Optional[int] = None,
+               exp: str | list | None = None,
+               min_frequency: int | None = None,
                na_threshold: float = 0.0,
-               ids: Optional[list] = None,
-               protein_ids: Optional[list] = None) -> PeptidesDatasetExpCondition:
+               ids: list | None = None,
+               protein_ids: list | None = None) -> PeptidesDatasetExpCondition:
         """
         Filter dataset based on a given set of properties.
 
@@ -143,9 +143,9 @@ class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
         return data
 
     def drop(self,
-             exp: Optional[Union[str, list]] = None,
-             ids: Optional[list] = None,
-             protein_ids: Optional[list] = None,
+             exp: str | list | None = None,
+             ids: list | None = None,
+             protein_ids: list | None = None,
              omit_missing_cols: bool = True) -> PeptidesDatasetExpCondition:
         """
         Drop experiments or records from a dataset.
@@ -183,9 +183,9 @@ class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
             metadata=self._metadata)
 
     def _apply_drop(self,
-                    exp: Optional[Union[str, list]] = None,
-                    ids: Optional[list] = None,
-                    protein_ids: Optional[list] = None,
+                    exp: str | list | None = None,
+                    ids: list | None = None,
+                    protein_ids: list | None = None,
                     omit_missing_cols: bool = True) -> pd.DataFrame:
         data = self._data.copy()
         if isinstance(exp, str):
@@ -249,7 +249,7 @@ class PeptidesDataset(TabularDataset):
                 data: pd.DataFrame,
                 id_col: str,
                 conditions: dict[str, list],
-                protein_id_col: Optional[str] = None) -> PeptidesDataset:
+                protein_id_col: str | None = None) -> PeptidesDataset:
         """
         Creates a :class:`~omicspylib.datasets.peptides.PeptidesDataset`
         from a Pandas data frame. You might load your data using the
@@ -354,14 +354,14 @@ class PeptidesDataset(TabularDataset):
         if names_lookup is not None:
             # since column names are passed in the conditions argument,
             # update the conditions' configuration accordingly.
-            for _, val in cond_conf.items():
+            for val in cond_conf.values():
                 for i, v in enumerate(val):
                     if v in names_lookup:
                         val[i] = names_lookup[v]
             aggregate_df = aggregate_df.rename(columns=names_lookup)
         elif add_prefix is not None:
             prefixed_names = {}
-            for _, val in cond_conf.items():
+            for val in cond_conf.values():
                 for i, v in enumerate(val):
                     val[i] = add_prefix + v
                     prefixed_names[v] = val[i]
@@ -427,12 +427,12 @@ class PeptidesDataset(TabularDataset):
         return self.__class__(conditions=self._conditions)
 
     def filter(self,
-               exp: Optional[Union[str, list]] = None,
-               cond: Optional[list] = None,
-               min_frequency: Optional[int] = None,
+               exp: str | list | None = None,
+               cond: list | None = None,
+               min_frequency: int | None = None,
                na_threshold: float = 0.0,
-               ids: Optional[list] = None,
-               protein_ids: Optional[list] = None) -> PeptidesDataset:
+               ids: list | None = None,
+               protein_ids: list | None = None) -> PeptidesDataset:
         """
         Filter the dataset based on a given set of properties.
 
@@ -486,10 +486,10 @@ class PeptidesDataset(TabularDataset):
         return self.__class__(conditions=exp_conditions)
 
     def drop(self,
-             exp: Optional[Union[str, list]] = None,
-             cond: Optional[Union[str, list]] = None,
-             ids: Optional[list] = None,
-             protein_ids: Optional[list] = None) -> PeptidesDataset:
+             exp: str | list | None = None,
+             cond: str | list | None = None,
+             ids: list | None = None,
+             protein_ids: list | None = None) -> PeptidesDataset:
         """
         Drop specified experiment(s) and or condition(s).
 

@@ -1,9 +1,8 @@
 import pandas as pd
-from omicspylib.datasets.peptides import PeptidesDataset
 
 import omicspylib as opl
-
 from omicspylib import ProteinsDataset
+from omicspylib.datasets.peptides import PeptidesDataset
 
 
 def test_protein_dataset_concatenation():

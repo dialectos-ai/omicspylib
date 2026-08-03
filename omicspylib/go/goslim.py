@@ -1,10 +1,9 @@
 import time
-from typing import List
 
 import requests
 
 
-def go_to_goslim(from_ids: List[str], to_ids: List[str],
+def go_to_goslim(from_ids: list[str], to_ids: list[str],
                  relations: str ='is_a,part_of,occurs_in,regulates',
                  batch_size: int = 100, delay_time: float = 0.1) -> dict:
     """

@@ -2,14 +2,12 @@
 from __future__ import annotations
 
 import copy
-from typing import Union, List
 
 from omicspylib.datasets.peptides import PeptidesDataset
 from omicspylib.datasets.proteins import ProteinsDataset
 
 
-def concat(obj: List[Union[ProteinsDataset, PeptidesDataset]]) -> (
-        Union)[ProteinsDataset, PeptidesDataset]:
+def concat(obj: list[ProteinsDataset | PeptidesDataset]) -> ProteinsDataset | PeptidesDataset:
     """
     Concatenate experimental conditions from multiple datasets, into one dataset.
 

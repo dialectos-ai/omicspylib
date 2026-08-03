@@ -1,6 +1,6 @@
 import pytest
 
-from omicspylib import ProteinsDataset, PeptidesDataset
+from omicspylib import PeptidesDataset, ProteinsDataset
 
 
 def test_protein_dataset_filter_on_conditions(
