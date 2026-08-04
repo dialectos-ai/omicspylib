@@ -9,8 +9,8 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'omicspylib'
-copyright = '2024, Dialectos.ai'
-author = 'Dialectos.ai'
+copyright = '2024, Dialectos.AI'
+author = 'Dialectos.AI'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -22,8 +22,18 @@ extensions = [
     'nbsphinx',
 ]
 
+# Prefix section labels with the document path to avoid duplicate label warnings
+autosectionlabel_prefix_document = True
+autosectionlabel_maxdepth = 2  # Optional: limit prefix depth if needed
+
+
 templates_path = ['_templates']
-exclude_patterns = []
+exclude_patterns = [
+    '_build',
+    'build',
+    '**.ipynb_checkpoints',
+    '.doctrees',
+]
 
 
 # -- Options for HTML output -------------------------------------------------

@@ -1,7 +1,8 @@
+.. currentmodule:: omicspylib.go
+
 GO-terms
 ========
 
 GO-slims
 --------
-.. automethod:: omicspylib.go.goslim.go_to_goslim
-
+.. automethod:: goslim.go_to_goslim

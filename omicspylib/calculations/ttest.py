@@ -1,11 +1,11 @@
-from typing import Literal, Optional
+from typing import Literal
 
 import numpy as np
 import pandas as pd
 from scipy.stats import ttest_ind
 from statsmodels.stats.multitest import multipletests
 
-from omicspylib import ProteinsDataset
+from omicspylib.datasets.proteins import ProteinsDataset
 
 MULTITEST_METHOD = Literal[
     'bonferroni',
@@ -26,7 +26,7 @@ def calc_ttest_adj(
         condition_a: str,
         condition_b: str,
         na_threshold: float = 0.0,
-        pval_adj_method: Optional[MULTITEST_METHOD] = 'fdr_bh') -> pd.DataFrame:
+        pval_adj_method: MULTITEST_METHOD | None = 'fdr_bh') -> pd.DataFrame:
     """
     Calculate t-test and correct p-values for multiple-hypothesis testing error.
 
@@ -65,8 +65,9 @@ def calc_ttest_adj(
 
     out_data = {'p-value': p_val, 't-statistic': t_stat}
     if pval_adj_method is not None:
-        reject, adjusted_p_values, _, _ = multipletests(
+        _, adjusted_p_values, _, _ = multipletests(
             p_val, method=pval_adj_method, is_sorted=False)
-        out_data['adj-p-value'] = adjusted_p_values
+        if adjusted_p_values is not None:
+            out_data['adj-p-value'] = adjusted_p_values
 
     return pd.DataFrame(out_data, index=df.index)

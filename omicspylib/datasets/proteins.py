@@ -1,30 +1,34 @@
 """
 Proteins dataset object definition.
 """
+
 from __future__ import annotations
 
-from typing import Optional, Union
+from collections.abc import Sequence
 
 import pandas as pd
 
 from omicspylib.datasets.abc import TabularDataset, TabularExperimentalConditionDataset
-from omicspylib.utils import mq_rm_contaminants, mq_rm_reverse, mq_rm_only_modified
+from omicspylib.utils import mq_rm_contaminants, mq_rm_only_modified, mq_rm_reverse
 
 
 class ProteinsDatasetExpCondition(TabularExperimentalConditionDataset):
     """
-    Proteins dataset for a specific experimental condition.
+    Protein dataset for a specific experimental condition.
     Includes all experiments (runs) for that case.
 
     Normally, you don't have to interact with this object.
     ``ProteinsDataset`` wraps multiple ``ProteinsDatasetExpCondition``
     objects under one group.
     """
-    def filter(self,
-               exp: Optional[Union[str, list]] = None,
-               min_frequency: Optional[int] = None,
-               na_threshold: float = 0.0,
-               ids: Optional[list] = None) -> ProteinsDatasetExpCondition:
+
+    def filter(
+        self,
+        exp: str | list | None = None,
+        min_frequency: int | None = None,
+        na_threshold: float = 0.0,
+        ids: list | None = None,
+    ) -> ProteinsDatasetExpCondition:
         """
         Filter dataset based on a given set of properties.
 
@@ -53,10 +57,16 @@ class ProteinsDatasetExpCondition(TabularExperimentalConditionDataset):
             name=self.name,
             data=data.reset_index(),
             id_col=self._id_col,
-            experiment_cols=data.columns.tolist())
+            experiment_cols=data.columns.tolist(),
+        )
 
-    def drop(self, exp: Optional[Union[str, list]] = None, ids: Optional[list] = None,
-             omit_missing_cols: bool = True) -> ProteinsDatasetExpCondition:
+    def drop(
+        self,
+        exp: str | list | None = None,
+        ids: list | None = None,
+        omit_missing_cols: bool = True,
+        **kwargs
+    ) -> ProteinsDatasetExpCondition:
         """
         Drop experiments or records from a dataset.
 
@@ -68,7 +78,7 @@ class ProteinsDatasetExpCondition(TabularExperimentalConditionDataset):
             If specified, a list of records ids to keep in the dataset.
         omit_missing_cols: bool, optional
             By default, specified columns that do not exist in the dataset
-            are omitted. Set to ``False`` to raise exception instead.
+            are omitted. Set to ``False`` to raise the exception instead.
 
         Returns
         -------
@@ -82,32 +92,35 @@ class ProteinsDatasetExpCondition(TabularExperimentalConditionDataset):
             name=self.name,
             data=data.reset_index(),
             id_col=self._id_col,
-            experiment_cols=data.columns.tolist())
+            experiment_cols=data.columns.tolist(),
+        )
 
 
 class ProteinsDataset(TabularDataset):
     """
-    A proteins dataset object.
+    A protein sequence dataset object.
     It contains multiple experimental conditions with one
     or more experiments per condition.
     """
 
-    def __init__(self, conditions: list[ProteinsDatasetExpCondition]) -> None:
+    _conditions: list[ProteinsDatasetExpCondition]
+
+    def __init__(self, conditions: Sequence[ProteinsDatasetExpCondition]) -> None:
         """
-        Proteins dataset object constractor. This object wraps multiple experiments
+        Protein dataset object constractor. This object wraps multiple experiments
         under sets of experimental conditions.
 
         Parameters
         ----------
         conditions
         """
-        super().__init__(conditions=conditions)
+        super().__init__(conditions=list(conditions))
+        self._conditions = list(conditions)
 
     @classmethod
-    def from_df(cls,
-                data: pd.DataFrame,
-                id_col: str,
-                conditions: dict[str, list]) -> ProteinsDataset:
+    def from_df(
+        cls, data: pd.DataFrame, id_col: str, conditions: dict[str, list]
+    ) -> ProteinsDataset:
         """
         Initialize a ``ProteinsDataset`` from a pandas dataframe.
 
@@ -132,18 +145,22 @@ class ProteinsDataset(TabularDataset):
                 name=condition_name,
                 data=data.copy(),
                 id_col=id_col,
-                experiment_cols=condition_experiments)
+                experiment_cols=condition_experiments,
+            )
             exp_conditions.append(exp_condition_dataset)
         return cls(conditions=exp_conditions)
 
     @classmethod
-    def from_maxquant(cls, data: str | pd.DataFrame,
-                      conditions: dict[str, list],
-                      rm_reverse: bool = True,
-                      rm_contaminants: bool = True,
-                      rm_only_modified: bool = True,
-                      id_col: str = 'Majority protein IDs',
-                      rename_id_col: str | None = 'protein_id') -> ProteinsDataset:
+    def from_maxquant(
+        cls,
+        data: str | pd.DataFrame,
+        conditions: dict[str, list],
+        rm_reverse: bool = True,
+        rm_contaminants: bool = True,
+        rm_only_modified: bool = True,
+        id_col: str = "Majority protein IDs",
+        rename_id_col: str | None = "protein_id",
+    ) -> ProteinsDataset:
         """
         Create a ProteinsDataset object from MaxQuant proteinGroups.txt file.
 
@@ -170,7 +187,7 @@ class ProteinsDataset(TabularDataset):
             The assembled ProteinsDataset object.
         """
         if isinstance(data, str):
-            data = pd.read_csv(data, sep='\t')
+            data = pd.read_csv(data, sep="\t")
 
         if rename_id_col is not None:
             data.rename(columns={id_col: rename_id_col}, inplace=True)
@@ -185,7 +202,9 @@ class ProteinsDataset(TabularDataset):
 
         return cls.from_df(data, id_col, conditions)
 
-    def append(self, new_obj: ProteinsDataset, skip_duplicates: bool = False) -> ProteinsDataset:
+    def append(
+        self, new_obj: ProteinsDataset, skip_duplicates: bool = False
+    ) -> ProteinsDataset:
         """
         Append another experimental condition in the same dataset.
 
@@ -211,23 +230,24 @@ class ProteinsDataset(TabularDataset):
         """
         if not self.__class__ == new_obj.__class__:
             raise ValueError(
-                f'The provided object should be of type {self.__class__}. '
-                f'Received object of type {new_obj.__class__} instead.f')
+                f"The provided object should be of type {self.__class__}. "
+                f"Received object of type {new_obj.__class__} instead.f"
+            )
         id_col = self._conditions[0].id_col
 
         if not id_col == new_obj._conditions[0].id_col:
             raise ValueError(
-                f'Cannot join, because there is a missmatch between the '
-                f'id_col name between the datasets. All datasets should '
-                f'have an id_col == {id_col}.'
+                f"Cannot join, because there is a missmatch between the "
+                f"id_col name between the datasets. All datasets should "
+                f"have an id_col == {id_col}."
             )
 
         for new_cond in new_obj._conditions:
             if new_cond.name in self.condition_names and not skip_duplicates:
                 raise ValueError(
-                    f'Experimental condition {new_cond} already exists in '
-                    f'the current dataset. Either remove it or select to '
-                    f'`skip_duplicates`.'
+                    f"Experimental condition {new_cond} already exists in "
+                    f"the current dataset. Either remove it or select to "
+                    f"`skip_duplicates`."
                 )
         self._conditions.extend(new_obj._conditions)
 

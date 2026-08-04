@@ -1,6 +1,6 @@
 import copy
 from dataclasses import dataclass
-from typing import Tuple, Union, Literal, Optional, List
+from typing import Literal
 
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
@@ -11,8 +11,10 @@ import seaborn as sns
 from seaborn.matrix import ClusterGrid
 from sklearn.metrics import silhouette_score
 
-LinkageMethod = Literal['single', 'complete', 'average', 'weighted', 'centroid',  'median', 'ward']
-FillNAMethod = Literal['min', 'mean', 'median', 'drop']
+LinkageMethod = Literal[
+    "single", "complete", "average", "weighted", "centroid", "median", "ward"
+]
+FillNAMethod = Literal["min", "mean", "median", "drop"]
 
 
 @dataclass
@@ -38,13 +40,14 @@ class HCHeatmapData:
     col_silhouette_score: float or None
         Silhouette score for columns, if applicable and if it can be calculated.
     """
+
     filtered_data: pd.DataFrame
-    g: 'ClusterGrid'
+    g: "ClusterGrid"
     heatmap_inputs: pd.DataFrame
-    row_groups: Optional[List[str]] = None
-    col_groups: Optional[List[str]] = None
-    row_silhouette_score: Optional[float] = None
-    col_silhouette_score: Optional[float] = None
+    row_groups: list[int] | None = None
+    col_groups: list[int] | None = None
+    row_silhouette_score: float | None = None
+    col_silhouette_score: float | None = None
 
 
 class HierarchicallyClusteredHeatmap:
@@ -52,16 +55,19 @@ class HierarchicallyClusteredHeatmap:
     Given a tabular dataset performs hierarchical clustering
     plotted on a heatmap of the data.
     """
-    def __init__(self,
-                 log_transform: bool = True,
-                 fillna_method: FillNAMethod = 'min',
-                 na_shift_value: float = 0.2,
-                 min_frequency: int = 1,
-                 na_threshold: float = 0.0,
-                 center_scale: bool = True,
-                 linkage_method: LinkageMethod = 'average',
-                 n_row_clusters: Union[int, None] = 12,
-                 n_col_clusters: Union[int, None] = 3):
+
+    def __init__(
+        self,
+        log_transform: bool = True,
+        fillna_method: FillNAMethod = "min",
+        na_shift_value: float = 0.2,
+        min_frequency: int = 1,
+        na_threshold: float = 0.0,
+        center_scale: bool = True,
+        linkage_method: LinkageMethod = "average",
+        n_row_clusters: int | None = 12,
+        n_col_clusters: int | None = 3,
+    ):
         """
         Initializer method.
 
@@ -106,7 +112,7 @@ class HierarchicallyClusteredHeatmap:
         self._min_frequency = min_frequency
         self._na_threshold = na_threshold
         self._center_scale = center_scale
-        self._linkage_method = linkage_method
+        self._linkage_method: LinkageMethod = linkage_method
         if n_row_clusters == 0:
             self._n_row_clusters = None
         else:
@@ -117,14 +123,18 @@ class HierarchicallyClusteredHeatmap:
             self._n_col_clusters = n_col_clusters
 
         if self._n_col_clusters is None and self._n_row_clusters is None:
-            raise ValueError('Both number of clusters for rows and columns are None. '
-                             'At least one should be provided.')
+            raise ValueError(
+                "Both number of clusters for rows and columns are None. "
+                "At least one should be provided."
+            )
 
-    def eval(self,
-             data: pd.DataFrame,
-             sorted_cols: Optional[list] = None,
-             figsize: Tuple[int, int] = (10, 14),
-             title: str = 'Clustering groups') -> HCHeatmapData:
+    def eval(
+        self,
+        data: pd.DataFrame,
+        sorted_cols: list | None = None,
+        figsize: tuple[int, int] = (10, 14),
+        title: str = "Clustering groups",
+    ) -> HCHeatmapData:
         """
         Perform hierarchical clustering and plot a heatmap with the separated groups.
 
@@ -172,8 +182,9 @@ class HierarchicallyClusteredHeatmap:
         if self._center_scale:
             heatmap_inputs = self._apply_center_scale(heatmap_inputs)
 
-        col_groups, col_linkage, row_groups, row_linkage = \
+        col_groups, col_linkage, row_groups, row_linkage = (
             self._calculate_linkage_and_groups(heatmap_inputs)
+        )
 
         g = self._create_heatmap(
             data=heatmap_inputs,
@@ -182,7 +193,8 @@ class HierarchicallyClusteredHeatmap:
             row_linkage=row_linkage,
             row_groups=row_groups,
             figsize=figsize,
-            title=title)
+            title=title,
+        )
 
         try:
             silhouette_avg_rows = float(silhouette_score(heatmap_inputs, row_groups))
@@ -201,10 +213,14 @@ class HierarchicallyClusteredHeatmap:
             col_groups=col_groups,
             heatmap_inputs=heatmap_inputs,
             row_silhouette_score=silhouette_avg_rows,
-            col_silhouette_score=silhouette_avg_cols)
+            col_silhouette_score=silhouette_avg_cols,
+        )
 
-
-    def _calculate_linkage_and_groups(self, data: pd.DataFrame):
+    def _calculate_linkage_and_groups(
+        self, data: pd.DataFrame
+    ) -> tuple[
+        list[int] | None, np.ndarray | None, list[int] | None, np.ndarray | None
+    ]:
         # calculate linkage and cut the tree
         row_linkage = None
         row_groups = None
@@ -212,20 +228,20 @@ class HierarchicallyClusteredHeatmap:
         col_groups = None
 
         if self._n_row_clusters is not None:
-            row_linkage = scipy.cluster \
-                .hierarchy.linkage(
-                scipy.spatial.distance
-                .pdist(data.values),
-                method=self._linkage_method)
-            row_trees = scipy.cluster.hierarchy \
-                .cut_tree(row_linkage, n_clusters=self._n_row_clusters)
+            row_linkage = scipy.cluster.hierarchy.linkage(
+                scipy.spatial.distance.pdist(data.values), method=self._linkage_method
+            )
+            row_trees = scipy.cluster.hierarchy.cut_tree(
+                row_linkage, n_clusters=[self._n_row_clusters]
+            )
             row_groups = [int(t) for t in row_trees.reshape(-1)]
         if self._n_col_clusters is not None:
             col_linkage = scipy.cluster.hierarchy.linkage(
-                scipy.spatial.distance.pdist(data.values.T),
-                method=self._linkage_method)
-            col_trees = scipy.cluster.hierarchy \
-                .cut_tree(col_linkage, n_clusters=self._n_col_clusters)
+                scipy.spatial.distance.pdist(data.values.T), method=self._linkage_method
+            )
+            col_trees = scipy.cluster.hierarchy.cut_tree(
+                col_linkage, n_clusters=[self._n_col_clusters]
+            )
             col_groups = [int(i) for i in col_trees.reshape(-1)]
         return col_groups, col_linkage, row_groups, row_linkage
 
@@ -245,11 +261,11 @@ class HierarchicallyClusteredHeatmap:
         center and scale, so that values are ready for plotting.
         """
         fill_na_value = 0
-        if self._fillna_method == 'min':
+        if self._fillna_method == "min":
             fill_na_value = data.min().min() - self._na_shift_value
-        elif self._fillna_method == 'mean':
+        elif self._fillna_method == "mean":
             fill_na_value = data.mean().mean() - self._na_shift_value
-        elif self._fillna_method == 'median':
+        elif self._fillna_method == "median":
             fill_na_value = data.median().median() - self._na_shift_value
 
         return data.fillna(fill_na_value)
@@ -288,25 +304,27 @@ class HierarchicallyClusteredHeatmap:
 
         if self._min_frequency > 1:
             n_cols = data.shape[1] - 1
-            non_nan_freq = n_cols - data.isna().sum(axis=1).values
+            non_nan_freq = n_cols - data.isna().sum(axis=1)
             keep_rows = non_nan_freq >= self._min_frequency
             data = data.loc[keep_rows, :].copy()
 
-        if self._fillna_method == 'drop':
+        if self._fillna_method == "drop":
             data = data.dropna()
 
         return data
 
-    def _create_heatmap(self,
-                        data,
-                        row_linkage,
-                        row_groups,
-                        col_linkage,
-                        col_groups,
-                        title: str = '',
-                        **clustermap_kwargs):
+    def _create_heatmap(
+        self,
+        data,
+        row_linkage,
+        row_groups,
+        col_linkage,
+        col_groups,
+        title: str = "",
+        **clustermap_kwargs,
+    ):
         # base setup
-        tree_cmap = plt.get_cmap('tab20')
+        tree_cmap = plt.get_cmap("tab20")
 
         if row_linkage is not None:
             row_grp_colors = [tree_cmap(grp_idx) for grp_idx in row_groups]
@@ -324,34 +342,40 @@ class HierarchicallyClusteredHeatmap:
             plot_col_cluster = False
 
         # plot heatmap using pre-calculated tree colors
-        g = sns.clustermap(data,
-                           row_linkage=row_linkage,
-                           row_cluster=plot_row_cluster,
-                           col_linkage=col_linkage,
-                           col_cluster=plot_col_cluster,
-                           row_colors=row_grp_colors,
-                           col_colors=col_grp_colors,
-                           method=self._linkage_method,
-                           cmap="vlag",
-                           # cbar_pos=(0, 2, 0.01, 0.1),  # tuple of (left, bottom, width, height)
-                           **clustermap_kwargs)
+        g = sns.clustermap(
+            data,
+            row_linkage=row_linkage,
+            row_cluster=plot_row_cluster,
+            col_linkage=col_linkage,
+            col_cluster=plot_col_cluster,
+            row_colors=row_grp_colors,
+            col_colors=col_grp_colors,
+            method=self._linkage_method,
+            cmap="vlag",
+            # cbar_pos=(0, 2, 0.01, 0.1),  # tuple of (left, bottom, width, height)
+            **clustermap_kwargs,
+        )
 
         # configure legend
         if row_groups is not None:
-            row_patches = [mpatches.Patch(
-                color=tree_cmap(grp_idx),
-                label=f'Grp {grp_idx}') for grp_idx in sorted(list(set(row_groups)))]
+            row_patches = [
+                mpatches.Patch(color=tree_cmap(grp_idx), label=f"Grp {grp_idx}")
+                for grp_idx in sorted(set(row_groups))
+            ]
             g.ax_row_dendrogram.legend(
-                handles=row_patches, loc='lower left', title='Row groups')
+                handles=row_patches, loc="lower left", title="Row groups"
+            )
         if col_groups is not None:
-            col_patches = [mpatches.Patch(
-                color=tree_cmap(grp_idx),
-                label=f'Grp {grp_idx}') for grp_idx in sorted(list(set(col_groups)))]
+            col_patches = [
+                mpatches.Patch(color=tree_cmap(grp_idx), label=f"Grp {grp_idx}")
+                for grp_idx in sorted(set(col_groups))
+            ]
             g.ax_col_dendrogram.legend(
-                handles=col_patches, loc='lower left', title='Col groups')
-
-        g.ax_cbar.set_aspect(2)  # decrease width of colorbar
-        g.fig.suptitle(title)
+                handles=col_patches, loc="lower left", title="Col groups"
+            )
+        if g.ax_cbar is not None:
+            g.ax_cbar.set_aspect(2)  # decrease width of colorbar
+        g.figure.suptitle(title)
         plt.tight_layout()
 
         return g

@@ -1,11 +1,11 @@
 """
 Volcano plot for the comparison of two groups.
 """
-from typing import Optional
 
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
+from matplotlib.axes import Axes
 
 _MINUS_LOG10_PVAL_COL = 'mlog10-pval'
 _LOG2_FC_COL = 'log2_fc'
@@ -22,12 +22,12 @@ def plot_volcano(
         color_b: str = 'red',
         pval_threshold: float = 0.05,
         fold_change_threshold: float = 2.0,
-        xmax: Optional[float] = None,
-        ymax: Optional[float] = None,
-        xlabel: Optional[str] = None,
+        xmax: float| None = None,
+        ymax: float | None = None,
+        xlabel: str | None = None,
         ylabel: str = 't-test P-value (-log10)',
-        title: Optional[str] = None,
-        ax: Optional[plt.Axes] = None) -> plt.Axes:
+        title: str | None = None,
+        ax: Axes | None  = None) -> Axes:
     """
     Create a volcano plot, by plotting on the x-axis the fold change
     (in a log2 scale) and on the y-axis the p-value (-log10 transformed).
@@ -84,8 +84,8 @@ def plot_volcano(
 
     Returns
     -------
-    plt.Axes
-        The plt.Axes object where the plot is drawn.
+    Axes
+        A Matplotlib Axes object where the plot is drawn.
     """
     data = data.copy()
 
