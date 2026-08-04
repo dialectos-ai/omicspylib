@@ -2,48 +2,49 @@ from __future__ import annotations
 
 import abc
 import copy
+from collections.abc import Sequence
 from functools import reduce
-from typing import Any, Literal, TypeVar
+from typing import Any, Literal, TypeVar, cast
 
 import numpy as np
 import pandas as pd
 from typing_extensions import Self
 
-AxisName = Literal['rows', 'columns']
-NormMethod = Literal['mean']  # future implementation for quantile, median etc
-MergeHow = Literal['left', 'right', 'inner', 'outer', 'cross']
+AxisName = Literal["rows", "columns"]
+NormMethod = Literal["mean"]  # future implementation for quantile, median etc
+MergeHow = Literal["left", "right", "inner", "outer", "cross"]
 ConditionImputeMethod = Literal[
-    'fixed',
-    'fixed row',
-    'row min',
-    'row mean',
-    'row median'
+    "fixed", "fixed row", "row min", "row mean", "row median"
 ]
 ImputeMethod = Literal[
-    'fixed',
-    'global min',
-    'global mean',
-    'global median',
-    'global row min',
-    'global row median',
-    'global row mean',
-    'group row min',
-    'group row mean',
-    'group row median'
+    "fixed",
+    "global min",
+    "global mean",
+    "global median",
+    "global row min",
+    "global row median",
+    "global row mean",
+    "group row min",
+    "group row mean",
+    "group row median",
 ]
 
-T = TypeVar('T', bound='TabularDataset')
+T = TypeVar("T", bound="TabularDataset")
 
 
 class TabularExperimentalConditionDataset(abc.ABC):
-    def __init__(self,
-                 name: str,
-                 data: pd.DataFrame,
-                 id_col: str,
-                 experiment_cols: list,
-                 **kwargs) -> None:
+    def __init__(
+        self,
+        name: str,
+        data: pd.DataFrame,
+        id_col: str,
+        experiment_cols: list,
+        **kwargs,
+    ) -> None:
         self._name = name
-        self._data = data[[id_col] + experiment_cols].copy().set_index(id_col)
+        self._data: pd.DataFrame = (
+            data[[id_col] + experiment_cols].copy().set_index(id_col)
+        )
         self._id_col = id_col
         self._metadata = {}
 
@@ -136,16 +137,16 @@ class TabularExperimentalConditionDataset(abc.ABC):
             and number of records per experiment.
         """
         return {
-            'name': self._name,
-            'n_experiments': self.n_experiments,
-            'n_records': len(self.record_ids),
-            'experiment_names': self._data.columns.tolist(),
-            'n_records_per_experiment': np.sum(self._data.values > 0, axis=0).tolist()
+            "name": self._name,
+            "n_experiments": self.n_experiments,
+            "n_records": len(self.record_ids),
+            "experiment_names": self._data.columns.tolist(),
+            "n_records_per_experiment": np.sum(self._data.values > 0, axis=0).tolist(),
         }
 
-    def min(self,
-            na_threshold: float = 0.0,
-            axis: AxisName | None = None) -> float | pd.Series:
+    def min(
+        self, na_threshold: float = 0.0, axis: AxisName | None = None
+    ) -> float | pd.Series:
         """
         Calculate the minimum value of that condition.
         By default, records with quantitative value ⇐ 0.0 will
@@ -162,14 +163,16 @@ class TabularExperimentalConditionDataset(abc.ABC):
         df[df <= na_threshold] = np.nan
         if axis is None:
             min_value = np.nanmin(df.values.flatten())
-        elif axis == 'rows':
+        elif axis == "rows":
             min_value = df.min(axis=0)
         else:  # axis = columns
             min_value = df.min(axis=1)
 
         return min_value
 
-    def missing_values(self, na_threshold: float = 0.0) -> tuple[pd.DataFrame, int, int]:
+    def missing_values(
+        self, na_threshold: float = 0.0
+    ) -> tuple[pd.DataFrame, int, int]:
         """
         Calculate the number of missing values per experiment.
 
@@ -187,32 +190,36 @@ class TabularExperimentalConditionDataset(abc.ABC):
         Int
             Number of total values of that condition.
         """
-        n_missing_per_exp = self._data.shape[0] - np.sum(self._data > na_threshold, axis=0)
+        n_missing_per_exp = self._data.shape[0] - np.sum(
+            self._data > na_threshold, axis=0
+        )
         n_missing_total = np.sum(n_missing_per_exp)
         total_values = self._data.shape[0] * self._data.shape[1]
-        df = pd.DataFrame({
-            'experiment': self._data.columns,
-            'n_missing': n_missing_per_exp.tolist(),
-            'condition': self._name
-        })
+        df = pd.DataFrame(
+            {
+                "experiment": self._data.columns,
+                "n_missing": n_missing_per_exp.tolist(),
+                "condition": self._name,
+            }
+        )
         return df, int(n_missing_total), int(total_values)
 
-    def log2_transform(self: type[T]) -> T:
+    def log2_transform(self) -> Self:
         self._data = np.log2(self._data + 1)  # type: ignore
         return self
 
-    def log2_backtransform(self: type[T]) -> T:
-        self._data = 2 ** self._data - 1
+    def log2_backtransform(self) -> Self:
+        self._data = 2**self._data - 1
         return self
 
-    def mean(self, na_threshold: float = 0.0, axis: int = 1) -> pd.DataFrame:
+    def mean(self, na_threshold: float = 0.0, axis: Literal[0, 1] = 1) -> pd.DataFrame:
         """
 
         Parameters
         ----------
         na_threshold
         axis: int
-            1 for row by row and 0 for column by column.
+            Axis to perform the operation. Use 1 for row by row and 0 for column by column.
 
         Returns
         -------
@@ -223,21 +230,23 @@ class TabularExperimentalConditionDataset(abc.ABC):
         data[~mask] = np.nan
         mean = data.sum(axis=axis) / mask.sum(axis=axis)
         if axis == 1:  # row mean
-            return pd.DataFrame({f'mean_{self.name}': mean})
+            return pd.DataFrame({f"mean_{self.name}": mean})
         else:  # column mean
-            return pd.DataFrame({'mean': mean})
+            return pd.DataFrame({"mean": mean})
 
-    def filter(self: type[T],
-               exp: str | list | None = None,
-               min_frequency: int | None = None,
-               na_threshold: float = 0.0,
-               ids: list | None = None) -> T:
+    def filter(
+        self,
+        exp: str | list | None = None,
+        min_frequency: int | None = None,
+        na_threshold: float = 0.0,
+        ids: list | None = None,
+    ) -> Self:
         raise NotImplementedError
 
     def _apply_filter(self, exp, min_frequency, na_threshold, ids=None) -> pd.DataFrame:
         data = self._data.copy()
         if min_frequency is not None:
-            valid_rows = np.sum(data > na_threshold, axis=1) >= min_frequency
+            valid_rows = (data > na_threshold).sum(axis=1) >= min_frequency
             data = data.loc[valid_rows, :].copy()
         if isinstance(exp, str):
             exp = [exp]
@@ -246,29 +255,35 @@ class TabularExperimentalConditionDataset(abc.ABC):
             # conditions. So when you work on each condition separately,
             # some names are no longer valid.
             local_exp = [ex for ex in exp if ex in data.columns]
-            data = data[local_exp].copy()
+            data = data.loc[:, local_exp].copy()
         if ids is not None:
             data = data.loc[data.index.isin(ids)].copy()
 
-        return data
+        return cast(pd.DataFrame, data)
 
     def frequency(self, na_threshold: float = 0.0, axis: int = 1) -> pd.DataFrame:
         f = np.sum(self._data > na_threshold, axis=axis)
         if axis == 1:
-            return pd.DataFrame({f'frequency_{self.name}': f})
+            return pd.DataFrame({f"frequency_{self.name}": f})
         else:
-            return pd.DataFrame({'frequency': f})
+            return pd.DataFrame({"frequency": f})
 
-    def drop(self: type[T],
-             exp: str | list | None = None,
-             ids: list | None = None,
-             omit_missing_cols: bool = True) -> T:
+    def drop(
+        self,
+        exp: str | list | None = None,
+        ids: list | None = None,
+        omit_missing_cols: bool = True,
+        **kwargs,
+    ) -> Self:
         raise NotImplementedError
 
-    def _apply_drop(self,
-                    exp: str | list | None = None,
-                    ids: list | None = None,
-                    omit_missing_cols: bool = True) -> pd.DataFrame:
+    def _apply_drop(
+        self,
+        exp: str | list | None = None,
+        ids: list | None = None,
+        omit_missing_cols: bool = True,
+        **kwargs,
+    ) -> pd.DataFrame:
         data = self._data.copy()
         if isinstance(exp, str):
             exp = [exp]
@@ -293,12 +308,14 @@ class TabularExperimentalConditionDataset(abc.ABC):
         """
         return self._data.std(axis=1, skipna=True).dropna().mean()
 
-    def impute(self: type[T],
-               method: ConditionImputeMethod,
-               na_threshold: float = 0.0,
-               value: float | pd.Series | None = None,
-               shift: float = 0.0,
-               random_noise: bool = False) -> T:
+    def impute(
+        self,
+        method: ConditionImputeMethod,
+        na_threshold: float = 0.0,
+        value: float | pd.Series | None = None,
+        shift: float = 0.0,
+        random_noise: bool = False,
+    ) -> Self:
         """
         TBD ...
 
@@ -321,39 +338,44 @@ class TabularExperimentalConditionDataset(abc.ABC):
         else:
             rand_noise_std = None
 
-        if method == 'fixed':
+        if method == "fixed":
             if value is None:
                 raise ValueError(
                     f"To impute missing values with a fixed value,"
                     f" you also need to specify the target fixed value,"
-                    f" using the ``value`` argument. Received ``{value}``.")
+                    f" using the ``value`` argument. Received ``{value}``."
+                )
             self._data = self._data.apply(
-                lambda row: self._fillna(row, value, std_value=rand_noise_std),
-                axis=1)
-        elif method == 'fixed row':
+                lambda row: self._fillna(row, value, std_value=rand_noise_std), axis=1
+            )
+        elif method == "fixed row":
             if value is None:
                 raise ValueError(
                     f"To impute missing values with a fixed row value,"
                     f" you also need to specify the target fixed value array,"
-                    f" using the ``value`` argument. Received ``{value}``.")
+                    f" using the ``value`` argument. Received ``{value}``."
+                )
             self._data = self._data.apply(
-                lambda row: self._fillna(row, value, std_value=rand_noise_std),
-                axis=1)
-        elif method == 'row min':
+                lambda row: self._fillna(row, value, std_value=rand_noise_std), axis=1
+            )
+        elif method == "row min":
             impute_values = self._data.min(axis=1) - shift
             self._data = self._data.apply(
                 lambda row: self._fillna(row, impute_values, std_value=rand_noise_std),
-                axis=1)
-        elif method == 'row median':
+                axis=1,
+            )
+        elif method == "row median":
             impute_values = self._data.median(axis=1, skipna=True) - shift
             self._data = self._data.apply(
                 lambda row: self._fillna(row, impute_values, std_value=rand_noise_std),
-                axis=1)
-        elif method == 'row mean':
+                axis=1,
+            )
+        elif method == "row mean":
             impute_values = self._data.mean(axis=1, skipna=True) - shift
             self._data = self._data.apply(
                 lambda row: self._fillna(row, impute_values, std_value=rand_noise_std),
-                axis=1)
+                axis=1,
+            )
         else:
             raise ValueError(f"Method {method} not implemented")
 
@@ -361,9 +383,8 @@ class TabularExperimentalConditionDataset(abc.ABC):
 
     @staticmethod
     def _fillna(
-            row: pd.Series,
-            val: pd.Series | float,
-            std_value: float | None = None) -> pd.Series:
+        row: pd.Series, val: pd.Series | float, std_value: float | None = None
+    ) -> pd.Series:
         """
         Fill nan values of a Pandas data frame row by row.
 
@@ -430,15 +451,15 @@ class TabularExperimentalConditionDataset(abc.ABC):
 
 
 class TabularDataset(abc.ABC):
-    def __init__(self,
-                 conditions: list[TabularExperimentalConditionDataset]) -> None:
+    def __init__(
+        self, conditions: Sequence[TabularExperimentalConditionDataset]
+    ) -> None:
         self._conditions = conditions
 
     @classmethod
-    def from_df(cls,
-                data: pd.DataFrame,
-                id_col: str,
-                conditions: dict[str, list]) -> Self:
+    def from_df(
+        cls, data: pd.DataFrame, id_col: str, conditions: dict[str, list]
+    ) -> Self:
         raise NotImplementedError
 
     @property
@@ -548,16 +569,18 @@ class TabularDataset(abc.ABC):
             Dataset statistics.
         """
         return {
-            'n_conditions_total': self.n_conditions,
-            'n_records_total': self.n_records,
-            'n_experiments_total': self.n_experiments,
-            'statistics_per_condition': [c.describe() for c in self._conditions]
+            "n_conditions_total": self.n_conditions,
+            "n_records_total": self.n_records,
+            "n_experiments_total": self.n_experiments,
+            "statistics_per_condition": [c.describe() for c in self._conditions],
         }
 
-    def mean(self,
-             na_threshold: float = 0.0,
-             join_method: MergeHow = 'inner',
-             axis: int = 1) -> pd.DataFrame:
+    def mean(
+        self,
+        na_threshold: float = 0.0,
+        join_method: MergeHow = "inner",
+        axis: Literal[0, 1] = 1,
+    ) -> pd.DataFrame:
         """
         Calculate the average value for each record within each
         experimental condition and return a merged data frame for
@@ -587,17 +610,21 @@ class TabularDataset(abc.ABC):
         """
         assert axis in [0, 1]
 
-        tables = [c.mean(na_threshold=na_threshold, axis=axis) for c in self._conditions]
+        tables = [
+            c.mean(na_threshold=na_threshold, axis=axis) for c in self._conditions
+        ]
         if axis == 1:  # row mean
             return self._join_list_of_tables(tables, how=join_method)
 
         return pd.concat(tables).transpose()
 
-    def frequency(self,
-                  na_threshold: float = 0.0,
-                  join_method: MergeHow = 'outer',
-                  axis: int = 1,
-                  conditions: list[str] | None = None) -> pd.DataFrame:
+    def frequency(
+        self,
+        na_threshold: float = 0.0,
+        join_method: MergeHow = "outer",
+        axis: int = 1,
+        conditions: list[str] | None = None,
+    ) -> pd.DataFrame:
         """
         Calculate the number of experiments within each experimental condition
         with quantitative value above the specified threshold,
@@ -624,21 +651,28 @@ class TabularDataset(abc.ABC):
             A Pandas data frame containing the average value for each condition.
         """
         if conditions:
-            tables = [c.frequency(na_threshold=na_threshold, axis=axis)
-                      for c in self._conditions if c.name in conditions]
+            tables = [
+                c.frequency(na_threshold=na_threshold, axis=axis)
+                for c in self._conditions
+                if c.name in conditions
+            ]
         else:
-            tables = [c.frequency(na_threshold=na_threshold, axis=axis)
-                      for c in self._conditions]
+            tables = [
+                c.frequency(na_threshold=na_threshold, axis=axis)
+                for c in self._conditions
+            ]
 
         if axis == 1:
             return self._join_list_of_tables(tables, how=join_method)
 
         return pd.concat(tables).transpose()
 
-    def drop(self: type[T],
-             exp: str | list | None = None,
-             cond: str | list | None = None,
-             ids: list | None = None) -> T:
+    def drop(
+        self,
+        exp: str | list | None = None,
+        cond: str | list | None = None,
+        ids: list | None = None,
+    ) -> Self:
         """
         Drop specified experiment(s) and or condition(s).
 
@@ -653,7 +687,7 @@ class TabularDataset(abc.ABC):
 
         Returns
         -------
-        Type[T]
+        Self
             An object of the same instance type without
             the specified experiment(s) and/or condition(s).
         """
@@ -673,12 +707,14 @@ class TabularDataset(abc.ABC):
 
         return self.__class__(conditions=filt_conditions)
 
-    def filter(self: type[T],
-               exp: str | list | None = None,
-               cond: list | None = None,
-               min_frequency: int | None = None,
-               na_threshold: float = 0.0,
-               ids: list | None = None) -> T:
+    def filter(
+        self,
+        exp: str | list | None = None,
+        cond: list | None = None,
+        min_frequency: int | None = None,
+        na_threshold: float = 0.0,
+        ids: list | None = None,
+    ) -> Self:
         """
         Filter the dataset based on a given set of properties.
 
@@ -705,7 +741,7 @@ class TabularDataset(abc.ABC):
             A new instance of the dataset object, filtered based on the
             user's input.
         """
-        exp_conditions = self._conditions.copy()
+        exp_conditions = list(self._conditions).copy()
         if isinstance(exp, str):
             exp = [exp]
         if isinstance(cond, str):
@@ -719,22 +755,29 @@ class TabularDataset(abc.ABC):
         filt_ids = ids is not None
         if filt_min_f or filt_na_th or filt_ids:
             exp_conditions = [
-                c.filter(exp=exp,
-                         min_frequency=min_frequency,
-                         na_threshold=na_threshold,
-                         ids=ids) for c in exp_conditions]
+                c.filter(
+                    exp=exp,
+                    min_frequency=min_frequency,
+                    na_threshold=na_threshold,
+                    ids=ids,
+                )
+                for c in exp_conditions
+            ]
 
         return self.__class__(conditions=exp_conditions)
 
     @staticmethod
     def _join_list_of_tables(
-            tables: list[pd.DataFrame],
-            how: MergeHow = 'outer') -> pd.DataFrame:
-        return reduce(lambda left, right: pd.merge(
-            left, right, left_index=True,
-            right_index=True, how=how), tables)
+        tables: list[pd.DataFrame], how: MergeHow = "outer"
+    ) -> pd.DataFrame:
+        return reduce(
+            lambda left, right: pd.merge(
+                left, right, left_index=True, right_index=True, how=how
+            ),
+            tables,
+        )
 
-    def log2_transform(self: type[T]) -> T:
+    def log2_transform(self) -> Self:
         """
         Perform log2 transformation in all experiments.
 
@@ -746,7 +789,7 @@ class TabularDataset(abc.ABC):
         log2_conditions = [c.log2_transform() for c in conditions_copy]
         return self.__class__(conditions=log2_conditions)
 
-    def log2_backtransform(self: type[T]) -> T:
+    def log2_backtransform(self) -> Self:
         """
         Calculate the exponential with base 2.
         Is used to invert log2 transformation and convert values
@@ -760,7 +803,7 @@ class TabularDataset(abc.ABC):
         bt_conditions = [c.log2_backtransform() for c in conditions_copy]
         return self.__class__(conditions=bt_conditions)
 
-    def to_table(self, join_method: MergeHow = 'outer') -> pd.DataFrame:
+    def to_table(self, join_method: MergeHow = "outer") -> pd.DataFrame:
         """
         Merge individual experimental conditions to one table.
         You might use this method to extract a Pandas data frame from
@@ -782,8 +825,9 @@ class TabularDataset(abc.ABC):
         tables = [c.to_table() for c in self._conditions]
         return self._join_list_of_tables(tables, how=join_method)
 
-    def missing_values(self, na_threshold: float = 0.0) -> (
-            tuple)[pd.DataFrame, int, int]:
+    def missing_values(
+        self, na_threshold: float = 0.0
+    ) -> (tuple)[pd.DataFrame, int, int]:
         """
         Returns number of missing values per experiment and condition.
         Missing values are considered the cases that are either missing
@@ -808,7 +852,7 @@ class TabularDataset(abc.ABC):
         n_missing_per_exp = data.shape[0] - np.sum(data > na_threshold, axis=0)
 
         n_missing = n_missing_per_exp.reset_index()
-        n_missing.columns = ['experiment', 'n_missing']
+        n_missing.columns = ["experiment", "n_missing"]
 
         # total number of missing values across all datasets.
         n_missing_total = np.sum(n_missing_per_exp)
@@ -817,18 +861,20 @@ class TabularDataset(abc.ABC):
         for cond in self._conditions:
             experiments = cond.experiment_names
             for exp in experiments:
-                names_lookup.append({'experiment': exp, 'condition': cond.name})
+                names_lookup.append({"experiment": exp, "condition": cond.name})
         names_lookup_df = pd.DataFrame(names_lookup)
-        out_df = n_missing.merge(names_lookup_df, on='experiment', how='left')
+        out_df = n_missing.merge(names_lookup_df, on="experiment", how="left")
 
         return out_df, n_missing_total, n_total
 
-    def impute(self: type[T],
-               method: ImputeMethod,
-               na_threshold: float = 0.0,
-               value: float | None = None,
-               shift: float = 0.0,
-               random_noise: bool = False) -> T:
+    def impute(
+        self,
+        method: ImputeMethod,
+        na_threshold: float = 0.0,
+        value: float | None = None,
+        shift: float = 0.0,
+        random_noise: bool = False,
+    ) -> Self:
         """
         Impute missing values with any of the specified methods.
         Note that missing value imputation my introduce artifacts in
@@ -855,7 +901,7 @@ class TabularDataset(abc.ABC):
             Values below or equal to this threshold are considered missing.
         value: float, optional
             If ``fixed`` method is specified, you also need to set that value here.
-        shift: float, optional
+        shift: float
             If ``global|group-min`` method is specified, you can also decrease
             that value by a fixed step.
         random_noise: bool, optional
@@ -868,103 +914,174 @@ class TabularDataset(abc.ABC):
             After imputation, you can back_transform to the original scale.
         """
         imputed_conditions = copy.deepcopy(self._conditions)
-        if method == 'fixed':
+        if method == "fixed":
             imputed_conditions = self._intra_group_imputation(
-                imputed_conditions, 'fixed', na_threshold, value,
-                random_noise=random_noise)
-        elif method == 'global min':
+                imputed_conditions,
+                "fixed",
+                na_threshold,
+                value,
+                random_noise=random_noise,
+            )
+        elif method == "global min":
             imputed_conditions = self._impute_by_global_value(
-                imputed_conditions, 'min', na_threshold, shift,
-                random_noise=random_noise)
-        elif method == 'global mean':
+                imputed_conditions,
+                "min",
+                na_threshold,
+                shift,
+                random_noise=random_noise,
+            )
+        elif method == "global mean":
             imputed_conditions = self._impute_by_global_value(
-                imputed_conditions, 'mean', na_threshold, shift,
-                random_noise=random_noise)
-        elif method == 'global median':
+                imputed_conditions,
+                "mean",
+                na_threshold,
+                shift,
+                random_noise=random_noise,
+            )
+        elif method == "global median":
             imputed_conditions = self._impute_by_global_value(
-                imputed_conditions, 'median', na_threshold, shift, random_noise=random_noise)
-        elif method == 'global row min':
+                imputed_conditions,
+                "median",
+                na_threshold,
+                shift,
+                random_noise=random_noise,
+            )
+        elif method == "global row min":
             imputed_conditions = self._impute_by_global_row_value(
-                imputed_conditions, 'min', na_threshold, shift, random_noise=random_noise)
-        elif method == 'global row mean':
+                imputed_conditions,
+                "min",
+                na_threshold,
+                shift,
+                random_noise=random_noise,
+            )
+        elif method == "global row mean":
             imputed_conditions = self._impute_by_global_row_value(
-                imputed_conditions, 'mean', na_threshold, shift, random_noise=random_noise)
-        elif method == 'global row median':
+                imputed_conditions,
+                "mean",
+                na_threshold,
+                shift,
+                random_noise=random_noise,
+            )
+        elif method == "global row median":
             imputed_conditions = self._impute_by_global_row_value(
-                imputed_conditions, 'median', na_threshold, shift, random_noise=random_noise)
-        elif method == 'group row min':
+                imputed_conditions,
+                "median",
+                na_threshold,
+                shift,
+                random_noise=random_noise,
+            )
+        elif method == "group row min":
             imputed_conditions = self._intra_group_imputation(
-                imputed_conditions, 'row min', na_threshold, value, shift, random_noise=random_noise)
-        elif method == 'group row mean':
+                imputed_conditions,
+                "row min",
+                na_threshold,
+                value,
+                shift,
+                random_noise=random_noise,
+            )
+        elif method == "group row mean":
             imputed_conditions = self._intra_group_imputation(
-                imputed_conditions, 'row mean', na_threshold, value, shift, random_noise=random_noise)
-        elif method == 'group row median':
+                imputed_conditions,
+                "row mean",
+                na_threshold,
+                value,
+                shift,
+                random_noise=random_noise,
+            )
+        elif method == "group row median":
             imputed_conditions = self._intra_group_imputation(
-                imputed_conditions, 'row median', na_threshold, value, shift, random_noise=random_noise)
+                imputed_conditions,
+                "row median",
+                na_threshold,
+                value,
+                shift,
+                random_noise=random_noise,
+            )
 
         return self.__class__(conditions=imputed_conditions)
 
-    def _impute_by_global_row_value(self, imputed_conditions,
-                                    value_type, na_threshold, shift, random_noise):
+    def _impute_by_global_row_value(
+        self, imputed_conditions, value_type, na_threshold, shift, random_noise
+    ):
         df = self.to_table()
         df[df <= na_threshold] = np.nan
-        if value_type == 'min':
+        if value_type == "min":
             values_series = df.min(axis=1, skipna=True)
-        elif value_type == 'mean':
+        elif value_type == "mean":
             values_series = df.mean(axis=1, skipna=True)
-        elif value_type == 'median':
+        elif value_type == "median":
             values_series = df.median(axis=1, skipna=True)
         else:
-            raise ValueError(f'Value type {value_type} not supported.')
+            raise ValueError(f"Value type {value_type} not supported.")
 
         imputed_conditions = [
-            c.impute(method='fixed row',
-                     na_threshold=na_threshold,
-                     value=values_series - shift,
-                     random_noise=random_noise)
-            for c in imputed_conditions]
+            c.impute(
+                method="fixed row",
+                na_threshold=na_threshold,
+                value=values_series - shift,
+                random_noise=random_noise,
+            )
+            for c in imputed_conditions
+        ]
         return imputed_conditions
 
-    def _impute_by_global_value(self, imputed_conditions, value_type,
-                                na_threshold, shift, random_noise: bool = False):
+    def _impute_by_global_value(
+        self,
+        imputed_conditions,
+        value_type,
+        na_threshold,
+        shift,
+        random_noise: bool = False,
+    ):
         df = self.to_table()
         df[df <= na_threshold] = np.nan
         all_values = df.values.flatten()
-        if value_type == 'min':
+        if value_type == "min":
             targ_value = np.nanmin(all_values)
-        elif value_type == 'mean':
+        elif value_type == "mean":
             targ_value = np.nanmean(all_values)
-        elif value_type == 'median':
+        elif value_type == "median":
             targ_value = np.nanmedian(all_values)
         else:
-            raise ValueError(f'Value type {value_type} not supported.')
+            raise ValueError(f"Value type {value_type} not supported.")
 
         return self._intra_group_imputation(
             conditions=imputed_conditions,
-            method='fixed',
+            method="fixed",
             na_threshold=na_threshold,
             value=targ_value - shift,
-            random_noise=random_noise)
+            random_noise=random_noise,
+        )
 
     @staticmethod
     def _intra_group_imputation(
-            conditions,
-            method,
-            na_threshold,
-            value,
-            shift: float = 0.0,
-            random_noise: bool = False) -> list:
+        conditions,
+        method,
+        na_threshold,
+        value,
+        shift: float = 0.0,
+        random_noise: bool = False,
+    ) -> list:
         imputed_conditions = [
-            c.impute(method=method, na_threshold=na_threshold, value=value, shift=shift, random_noise=random_noise)
-            for c in conditions]
+            c.impute(
+                method=method,
+                na_threshold=na_threshold,
+                value=value,
+                shift=shift,
+                random_noise=random_noise,
+            )
+            for c in conditions
+        ]
         return imputed_conditions
 
-    def normalize(self: type[T],
-                  method: NormMethod,
-                  ref_exp: str | None = None,
-                  ref_condition: str | None = None,
-                  use_common_records: bool = False,
-                  na_threshold: float = 0.0) -> T:
+    def normalize(
+        self,
+        method: NormMethod,
+        ref_exp: str | None = None,
+        ref_condition: str | None = None,
+        use_common_records: bool = False,
+        na_threshold: float = 0.0,
+    ) -> Self:
         """
         Normalize the dataset.
         Any required transformations must be done before calling the
@@ -981,10 +1098,10 @@ class TabularDataset(abc.ABC):
             2. Calculate mean experiment intensity and the difference from reference.
             3. Shift each experiment's intensity by the difference with reference.
         - mean without a use of common records with ref exp.:
-            - Like above, but reference experiment is defined by the user.
+            - Like above, but the reference experiment is defined by the user.
         - Mean with common records without a ref exp.:
             1. Find experiment with the most records and consider reference.
-            2. Perform pairwise comparison of each experiment with the reference where:
+            2. Perform a pairwise comparison of each experiment with the reference where:
                i.
                Filter on common records.
                Ii.
@@ -1024,21 +1141,24 @@ class TabularDataset(abc.ABC):
         ref_exp = self._select_norm_ref(na_threshold, ref_condition, ref_exp)
 
         # step 2 - calculate difference
-        if method == 'mean' and use_common_records:
+        if method == "mean" and use_common_records:
             exp_conditions = self._mean_norm_with_shared_records(na_threshold, ref_exp)
-        elif method == 'mean' and not use_common_records:
+        elif method == "mean" and not use_common_records:
             exp_conditions = self._base_mean_normalization(na_threshold, ref_exp)
         else:
             raise NotImplementedError(
-                f'Normalization method {method} with the specified '
-                f'arguments is not implemented.')
+                f"Normalization method {method} with the specified "
+                f"arguments is not implemented."
+            )
 
         return self.__class__(conditions=exp_conditions)
 
     def _mean_norm_with_shared_records(self, na_threshold, ref_exp):
         exp_conditions_data = copy.deepcopy(self._conditions)
 
-        ref_c = next((c for c in exp_conditions_data if ref_exp in c.experiment_names), None)
+        ref_c = next(
+            (c for c in exp_conditions_data if ref_exp in c.experiment_names), None
+        )
         if ref_c:
             for exp_c in exp_conditions_data:
                 cond_name = exp_c.name
@@ -1047,7 +1167,9 @@ class TabularDataset(abc.ABC):
                     if cond_name != ref_c.name and targ_exp != ref_exp:
                         ref_case = ref_c.filter(exp=ref_exp).to_table()
                         targ_case = exp_c.filter(exp=targ_exp).to_table()
-                        df = ref_case.merge(targ_case, left_index=True, right_index=True, how='inner')
+                        df = ref_case.merge(
+                            targ_case, left_index=True, right_index=True, how="inner"
+                        )
                         df[df <= na_threshold] = np.nan
                         df = df.dropna()
                         mean_ref = df[ref_exp].mean()
@@ -1071,19 +1193,23 @@ class TabularDataset(abc.ABC):
         return exp_conditions_data
 
     def _select_norm_ref(self, na_threshold, ref_condition, ref_exp) -> str:
-        """Select reference experiment for normalization step."""
+        """Select a reference experiment for the normalization step."""
         if ref_exp is not None:
-            assert ref_exp in self.experiment_names(), \
-                f'Reference experiment {ref_exp} not found.'
+            assert ref_exp in self.experiment_names(), (
+                f"Reference experiment {ref_exp} not found."
+            )
         elif ref_condition is not None:
-            assert ref_condition in self.condition_names, \
-                f'Reference condition {ref_condition} not found.'
+            assert ref_condition in self.condition_names, (
+                f"Reference condition {ref_condition} not found."
+            )
             n_entries_per_exp = self.frequency(
-                na_threshold=na_threshold, axis=0, conditions=[ref_condition]) \
-                .transpose()
-            ref_exp = n_entries_per_exp['frequency'].idxmax()
+                na_threshold=na_threshold, axis=0, conditions=[ref_condition]
+            ).transpose()
+            ref_exp = n_entries_per_exp["frequency"].idxmax()
         else:
             n_entries_per_exp = self.frequency(
-                na_threshold=na_threshold, axis=0).transpose()
-            ref_exp = n_entries_per_exp['frequency'].idxmax()
-        return ref_exp
+                na_threshold=na_threshold, axis=0
+            ).transpose()
+            ref_exp = n_entries_per_exp["frequency"].idxmax()
+
+        return str(ref_exp)

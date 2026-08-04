@@ -1,7 +1,7 @@
 """
 Venn diagram plots.
 """
-from typing import Any, cast
+from typing import cast
 
 import pandas as pd
 from matplotlib import pyplot as plt

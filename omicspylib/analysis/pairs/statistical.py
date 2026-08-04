@@ -1,7 +1,7 @@
 
-from omicspylib import ProteinsDataset
 from omicspylib.calculations.fold_change import calc_fold_change
 from omicspylib.calculations.ttest import MULTITEST_METHOD, calc_ttest_adj
+from omicspylib.datasets.proteins import ProteinsDataset
 
 
 class PairwiseComparisonTTestFC:

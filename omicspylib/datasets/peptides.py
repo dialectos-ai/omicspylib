@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 import copy
-from typing import Literal
+import warnings
+from typing import Literal, cast
 
-import numpy as np
 import pandas as pd
 
-from omicspylib import ProteinsDataset
 from omicspylib.datasets.abc import TabularDataset, TabularExperimentalConditionDataset
+from omicspylib.datasets.proteins import ProteinsDataset
 
-ProteinsAggMethod = Literal['sum', 'counts']
+ProteinsAggMethod = Literal["sum", "counts"]
 
 
 class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
@@ -23,13 +23,15 @@ class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
     objects under one group.
     """
 
-    def __init__(self,
-                 name: str,
-                 data: pd.DataFrame,
-                 id_col: str,
-                 experiment_cols: list,
-                 protein_id_col: str | None = None,
-                 metadata: dict | None = None) -> None:
+    def __init__(
+        self,
+        name: str,
+        data: pd.DataFrame,
+        id_col: str,
+        experiment_cols: list,
+        protein_id_col: str | None = None,
+        metadata: dict | None = None,
+    ) -> None:
         """
         Initializes the object.
 
@@ -57,36 +59,39 @@ class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
             You might need to specify this name to be able to
             convert a :class:`~omicspylib.datasets.peptides.PeptidesDataset`
             to a :class:`~omicspylib.datasets.proteins.ProteinsDataset`.
-            If
-            it is not provided, there is no information about doing that conversion.
+            If it is not provided, there is no information about doing that conversion.
         metadata: dict
             Optional metadata.
         """
-        super().__init__(name=name, data=data, id_col=id_col, experiment_cols=experiment_cols)
+        super().__init__(
+            name=name, data=data, id_col=id_col, experiment_cols=experiment_cols
+        )
         # todo - this in not a clean implementation of initializing the object and passing metadata - think of another solution
         self._protein_id_col = protein_id_col
         if metadata is None:
-            self._metadata = {
-                'peptide_to_protein': {}
-            }
+            self._metadata = {"peptide_to_protein": {}}
             if protein_id_col is not None:
-                records = data[[id_col, protein_id_col]].to_dict(orient='records')
+                records = data[[id_col, protein_id_col]].to_dict(orient="records")
                 for rec in records:
-                    self._metadata['peptide_to_protein'][rec[id_col]] = rec[protein_id_col]
+                    self._metadata["peptide_to_protein"][rec[id_col]] = rec[
+                        protein_id_col
+                    ]
         else:
             self._metadata = copy.deepcopy(metadata)
 
     @property
-    def protein_id_col(self) -> str:
-        """Returns the column name of the proteins id column."""
+    def protein_id_col(self) -> str | None:
+        """Returns the column name of the protein id column, if available."""
         return self._protein_id_col
 
-    def filter(self,
-               exp: str | list | None = None,
-               min_frequency: int | None = None,
-               na_threshold: float = 0.0,
-               ids: list | None = None,
-               protein_ids: list | None = None) -> PeptidesDatasetExpCondition:
+    def filter(
+        self,
+        exp: str | list | None = None,
+        min_frequency: int | None = None,
+        na_threshold: float = 0.0,
+        ids: list | None = None,
+        protein_ids: list | None = None,
+    ) -> PeptidesDatasetExpCondition:
         """
         Filter dataset based on a given set of properties.
 
@@ -112,7 +117,9 @@ class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
             A new instance of the dataset object, filtered based on the
             user's input.
         """
-        data = self._apply_filter(exp, min_frequency, na_threshold, ids=ids, protein_ids=protein_ids)
+        data = self._apply_filter(
+            exp, min_frequency, na_threshold, ids=ids, protein_ids=protein_ids
+        )
 
         return PeptidesDatasetExpCondition(
             name=self.name,
@@ -120,12 +127,15 @@ class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
             id_col=self._id_col,
             experiment_cols=data.columns.tolist(),
             protein_id_col=self._protein_id_col,
-            metadata=self._metadata)
+            metadata=self._metadata,
+        )
 
-    def _apply_filter(self, exp, min_frequency, na_threshold, ids=None, protein_ids=None) -> pd.DataFrame:
+    def _apply_filter(
+        self, exp, min_frequency, na_threshold, ids=None, protein_ids=None
+    ) -> pd.DataFrame:
         data = self._data.copy()
         if min_frequency is not None:
-            valid_rows = np.sum(data > na_threshold, axis=1) >= min_frequency
+            valid_rows = (data > na_threshold).sum(axis=1) >= min_frequency
             data = data.loc[valid_rows, :].copy()
         if isinstance(exp, str):
             exp = [exp]
@@ -133,20 +143,24 @@ class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
             # You might filter by providing names across experimental
             # conditions. So when you work on each condition separately,
             # some names are no longer valid.
-            local_exp = [ex for ex in exp if ex in data.columns]
-            data = data[local_exp].copy()
+            local_exp: list[str] = [ex for ex in exp if ex in data.columns]
+            data = data.loc[:, local_exp].copy()
         if ids is not None:
             data = data.loc[data.index.isin(ids)].copy()
         if protein_ids is not None:
-            data = self._drop_or_filter_on_protein_ids(data, protein_ids, action='filter')
+            data = self._drop_or_filter_on_protein_ids(
+                data, protein_ids, action="filter"
+            )
 
-        return data
+        return cast(pd.DataFrame, data)
 
-    def drop(self,
-             exp: str | list | None = None,
-             ids: list | None = None,
-             protein_ids: list | None = None,
-             omit_missing_cols: bool = True) -> PeptidesDatasetExpCondition:
+    def drop(
+        self,
+        exp: str | list | None = None,
+        ids: list | None = None,
+        omit_missing_cols: bool = True,
+        **kwargs,
+    ) -> PeptidesDatasetExpCondition:
         """
         Drop experiments or records from a dataset.
 
@@ -157,12 +171,14 @@ class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
             Leave empty to keep all experiments.
         ids: list, optional
             If specified, a list of records ids to keep in the dataset.
-        protein_ids: list, optional
-            If specified, a list of protein ids from which the records will
-            be dropped from the dataset.
-        omit_missing_cols: bool, optional
+
+        omit_missing_cols: bool, optional,
             By default, specified columns that do not exist in the dataset
-            are omitted. Set to ``False`` to raise exception instead.
+            are omitted. Set to ``False`` to raise the exception instead.
+        **kwargs:
+            protein_ids: list, optional
+                If specified, a list of protein ids from which the records will
+                be dropped from the dataset.
 
         Returns
         -------
@@ -170,9 +186,14 @@ class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
             A new instance of the dataset object, filtered based on the
             user's input.
         """
-        data = self._apply_drop(exp=exp, ids=ids,
-                                protein_ids=protein_ids,
-                                omit_missing_cols=omit_missing_cols)
+        protein_ids: list | None = kwargs.get("protein_ids")
+
+        data = self._apply_drop(
+            exp=exp,
+            ids=ids,
+            protein_ids=protein_ids,
+            omit_missing_cols=omit_missing_cols,
+        )
 
         return PeptidesDatasetExpCondition(
             name=self.name,
@@ -180,14 +201,18 @@ class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
             id_col=self._id_col,
             experiment_cols=data.columns.tolist(),
             protein_id_col=self._protein_id_col,
-            metadata=self._metadata)
+            metadata=self._metadata,
+        )
 
-    def _apply_drop(self,
-                    exp: str | list | None = None,
-                    ids: list | None = None,
-                    protein_ids: list | None = None,
-                    omit_missing_cols: bool = True) -> pd.DataFrame:
-        data = self._data.copy()
+    def _apply_drop(
+        self,
+        exp: str | list | None = None,
+        ids: list | None = None,
+        omit_missing_cols: bool = True,
+        **kwargs,
+    ) -> pd.DataFrame:
+        protein_ids = kwargs.get("protein_ids")
+        data = cast(pd.DataFrame, self._data.copy())
         if isinstance(exp, str):
             exp = [exp]
 
@@ -203,17 +228,19 @@ class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
             data = data.loc[~data.index.isin(ids)].copy()
 
         if protein_ids is not None:
-            data = self._drop_or_filter_on_protein_ids(data, protein_ids, action='drop')
+            data = self._drop_or_filter_on_protein_ids(data, protein_ids, action="drop")
 
         return data
 
-    def _drop_or_filter_on_protein_ids(self, data, protein_ids, action: Literal['drop', 'filter']):
-        assert action in ['drop', 'filter']
+    def _drop_or_filter_on_protein_ids(
+        self, data, protein_ids, action: Literal["drop", "filter"]
+    ) -> pd.DataFrame:
+        assert action in ["drop", "filter"]
 
         # step 1 - make the reverse lookup but save peptide ids in an array
         prot2pept = {}
-        for pept_id, prot_id in self._metadata['peptide_to_protein'].items():
-            if action == 'drop':
+        for pept_id, prot_id in self._metadata["peptide_to_protein"].items():
+            if action == "drop":
                 condition = prot_id not in protein_ids
             else:
                 condition = prot_id in protein_ids
@@ -234,22 +261,27 @@ class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
 
 class PeptidesDataset(TabularDataset):
     """
-    A peptides dataset object.
+    A peptide dataset object.
     It contains multiple experimental conditions with one
     or more experiments per condition.
     """
 
+    _conditions: list[PeptidesDatasetExpCondition]
+
     @property
-    def protein_id_col(self) -> str:
+    def protein_id_col(self) -> str | None:
         """Get protein ID column."""
-        return self._conditions[0].protein_id_col
+        first_condition = self._conditions[0]
+        return first_condition.protein_id_col
 
     @classmethod
-    def from_df(cls,
-                data: pd.DataFrame,
-                id_col: str,
-                conditions: dict[str, list],
-                protein_id_col: str | None = None) -> PeptidesDataset:
+    def from_df(
+        cls,
+        data: pd.DataFrame,
+        id_col: str,
+        conditions: dict[str, list],
+        protein_id_col: str | None = None,
+    ) -> PeptidesDataset:
         """
         Creates a :class:`~omicspylib.datasets.peptides.PeptidesDataset`
         from a Pandas data frame. You might load your data using the
@@ -283,13 +315,17 @@ class PeptidesDataset(TabularDataset):
                 data=data.copy(),
                 id_col=id_col,
                 experiment_cols=condition_experiments,
-                protein_id_col=protein_id_col)
+                protein_id_col=protein_id_col,
+            )
             exp_conditions.append(exp_condition_dataset)
         return cls(conditions=exp_conditions)
 
-    def to_proteins(self, agg_method: ProteinsAggMethod = 'sum',
-                    names_lookup: dict | None = None,
-                    add_prefix: str | None = None) -> ProteinsDataset:
+    def to_proteins(
+        self,
+        agg_method: ProteinsAggMethod = "sum",
+        names_lookup: dict | None = None,
+        add_prefix: str | None = None,
+    ) -> ProteinsDataset | None:
         """
         Aggregate peptides dataset into Proteins dataset.
 
@@ -328,7 +364,17 @@ class PeptidesDataset(TabularDataset):
             A :class:`~omicspylib.datasets.proteins.ProteinsDataset`
             derived from the specific instance.
         """
-        assert agg_method in ['sum', 'counts']
+        if self.protein_id_col is None:
+            warnings.warn(
+                "No protein ID column is declared during the Peptides dataset initialization."
+                "Do not have the necessary information to aggregate into proteins. "
+                "Returning None.",
+                UserWarning,
+                stacklevel=2,
+            )
+            return None
+
+        assert agg_method in ["sum", "counts"]
         cond_conf = {}
 
         # since each experimental condition might have a fraction of the total records
@@ -339,13 +385,15 @@ class PeptidesDataset(TabularDataset):
             record = {condition.name: condition.experiment_names}
             cond_conf.update(record)
             metadata = condition.metadata
-            pept2proteins.update(metadata['peptide_to_protein'])
+            pept2proteins.update(metadata["peptide_to_protein"])
 
         protein_id_col = self._conditions[0].protein_id_col
 
         data = self.to_table()
-        data[protein_id_col] = [pept2proteins.get(i, '<unk>') for i in data.index.tolist()]
-        if agg_method == 'counts':
+        data[protein_id_col] = [
+            pept2proteins.get(i, "<unk>") for i in data.index.tolist()
+        ]
+        if agg_method == "counts":
             numeric_cols = [c for c in data.columns if c != protein_id_col]
             data[numeric_cols] = (data[numeric_cols] > 0).astype(int)
 
@@ -368,9 +416,13 @@ class PeptidesDataset(TabularDataset):
             aggregate_df = aggregate_df.rename(columns=prefixed_names)
 
         # cond_conf is updated in place to match the new names
-        return ProteinsDataset.from_df(data=aggregate_df, id_col=self.protein_id_col, conditions=cond_conf)
+        return ProteinsDataset.from_df(
+            data=aggregate_df, id_col=self.protein_id_col, conditions=cond_conf
+        )
 
-    def append(self, new_obj: PeptidesDataset, skip_duplicates: bool = False) -> PeptidesDataset:
+    def append(
+        self, new_obj: PeptidesDataset, skip_duplicates: bool = False
+    ) -> PeptidesDataset:
         """
         Append another experimental condition in the same dataset.
 
@@ -397,42 +449,45 @@ class PeptidesDataset(TabularDataset):
         """
         if not self.__class__ == new_obj.__class__:
             raise ValueError(
-                f'The provided object should be of type {self.__class__}. '
-                f'Received object of type {new_obj.__class__} instead.f')
+                f"The provided object should be of type {self.__class__}. "
+                f"Received object of type {new_obj.__class__} instead.f"
+            )
         id_col = self._conditions[0].id_col
         protein_id_col = self._conditions[0].protein_id_col
 
         if not id_col == new_obj._conditions[0].id_col:
             raise ValueError(
-                f'Cannot join, because there is a missmatch between the '
-                f'id_col name between the datasets. All datasets should '
-                f'have an id_col == {id_col}.'
+                f"Cannot join, because there is a missmatch between the "
+                f"id_col name between the datasets. All datasets should "
+                f"have an id_col == {id_col}."
             )
         if not protein_id_col == new_obj._conditions[0].protein_id_col:
             raise ValueError(
-                f'Cannot join, because there is a missmatch between the '
-                f'protein_id_col name between the datasets. All datasets should '
-                f'have a protein_id_col == {protein_id_col}.'
+                f"Cannot join, because there is a missmatch between the "
+                f"protein_id_col name between the datasets. All datasets should "
+                f"have a protein_id_col == {protein_id_col}."
             )
 
         for new_cond in new_obj._conditions:
             if new_cond.name in self.condition_names and not skip_duplicates:
                 raise ValueError(
-                    f'Experimental condition {new_cond} already exists in '
-                    f'the current dataset. Either remove it or select to '
-                    f'`skip_duplicates`.'
+                    f"Experimental condition {new_cond} already exists in "
+                    f"the current dataset. Either remove it or select to "
+                    f"`skip_duplicates`."
                 )
         self._conditions.extend(new_obj._conditions)
 
         return self.__class__(conditions=self._conditions)
 
-    def filter(self,
-               exp: str | list | None = None,
-               cond: list | None = None,
-               min_frequency: int | None = None,
-               na_threshold: float = 0.0,
-               ids: list | None = None,
-               protein_ids: list | None = None) -> PeptidesDataset:
+    def filter(
+        self,
+        exp: str | list | None = None,
+        cond: list | None = None,
+        min_frequency: int | None = None,
+        na_threshold: float = 0.0,
+        ids: list | None = None,
+        protein_ids: list | None = None,
+    ) -> PeptidesDataset:
         """
         Filter the dataset based on a given set of properties.
 
@@ -477,19 +532,25 @@ class PeptidesDataset(TabularDataset):
 
         if filt_min_f or filt_na_th or filt_ids:
             exp_conditions = [
-                c.filter(exp=exp,
-                         min_frequency=min_frequency,
-                         na_threshold=na_threshold,
-                         ids=ids,
-                         protein_ids=protein_ids) for c in exp_conditions]
+                c.filter(
+                    exp=exp,
+                    min_frequency=min_frequency,
+                    na_threshold=na_threshold,
+                    ids=ids,
+                    protein_ids=protein_ids,
+                )
+                for c in exp_conditions
+            ]
 
         return self.__class__(conditions=exp_conditions)
 
-    def drop(self,
-             exp: str | list | None = None,
-             cond: str | list | None = None,
-             ids: list | None = None,
-             protein_ids: list | None = None) -> PeptidesDataset:
+    def drop(
+        self,
+        exp: str | list | None = None,
+        cond: str | list | None = None,
+        ids: list | None = None,
+        protein_ids: list | None = None,
+    ) -> PeptidesDataset:
         """
         Drop specified experiment(s) and or condition(s).
 

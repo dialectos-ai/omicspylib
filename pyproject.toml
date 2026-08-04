@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = 'omicspylib'
-version = '0.1.1'
+version = '0.2.0'
 description = 'A python library for omics data analysis'
 readme = 'README.md'
 authors = [
@@ -21,7 +21,8 @@ dependencies = [
     "matplotlib-venn>=0.11.1",
     "seaborn>=0.11.1",
     "scikit-learn>=1.0.0",
-    "requests>=2.0.0"
+    "requests>=2.0.0",
+    "typing-extensions>=4.16.0",
 ]
 
 [project.urls]

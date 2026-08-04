@@ -5,7 +5,7 @@ import pandas as pd
 from scipy.stats import ttest_ind
 from statsmodels.stats.multitest import multipletests
 
-from omicspylib import ProteinsDataset
+from omicspylib.datasets.proteins import ProteinsDataset
 
 MULTITEST_METHOD = Literal[
     'bonferroni',
@@ -67,6 +67,7 @@ def calc_ttest_adj(
     if pval_adj_method is not None:
         _, adjusted_p_values, _, _ = multipletests(
             p_val, method=pval_adj_method, is_sorted=False)
-        out_data['adj-p-value'] = adjusted_p_values
+        if adjusted_p_values is not None:
+            out_data['adj-p-value'] = adjusted_p_values
 
     return pd.DataFrame(out_data, index=df.index)
