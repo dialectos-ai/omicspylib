@@ -1,7 +1,7 @@
 """Test proteins dataset plotting functions."""
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from matplotlib.axes import Axes
 
 from omicspylib.plots import plot_density, plot_missing_values, plot_venn2, plot_volcano
 
@@ -11,7 +11,7 @@ def test_intensity_plotting_as_density(proteins_dataset):
     ax = plot_density(proteins_dataset, log_transform=True)
 
     # assertion
-    assert isinstance(ax, plt.Axes)
+    assert isinstance(ax, Axes)
 
 
 def test_missing_values_plotting_fn(proteins_dataset):
@@ -19,7 +19,7 @@ def test_missing_values_plotting_fn(proteins_dataset):
     ax = plot_missing_values(proteins_dataset)
 
     # assertion
-    assert isinstance(ax, plt.Axes)
+    assert isinstance(ax, Axes)
 
 
 def test_volcano_plotting_fn():
@@ -33,7 +33,7 @@ def test_volcano_plotting_fn():
                       condition_a='a', condition_b='b')
 
     # assertion
-    assert isinstance(ax, plt.Axes)
+    assert isinstance(ax, Axes)
 
 
 def test_plot_venn2():
@@ -50,4 +50,4 @@ def test_plot_venn2():
     ax = plot_venn2(df, condition_a='c1', condition_b='c2')
 
     # assert
-    assert isinstance(ax, plt.Axes)
+    assert isinstance(ax, Axes)

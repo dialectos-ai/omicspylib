@@ -102,7 +102,9 @@ def test_filter_peptides_dataset_based_on_protein_id(
     filtered_dset = peptides_dataset.filter(protein_ids=target_ids)
 
     # assertion
-    prot_ids = filtered_dset.to_proteins().to_table().index.tolist()
+    proteins_dset = filtered_dset.to_proteins()
+    assert proteins_dset is not None
+    prot_ids = proteins_dset.to_table().index.tolist()
     for tid in target_ids:
         assert tid in prot_ids
     assert len(prot_ids) == len(target_ids)
@@ -121,7 +123,9 @@ def test_drop_peptides_dataset_records_based_on_protein_id(
     filtered_dset = peptides_dataset.drop(protein_ids=target_ids)
 
     # assertion
-    prot_ids = filtered_dset.to_proteins().to_table().index.tolist()
+    proteins_dset = filtered_dset.to_proteins()
+    assert proteins_dset is not None
+    prot_ids = proteins_dset.to_table().index.tolist()
     for tid in target_ids:
         assert tid not in prot_ids
 
