@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from omicspylib import ProteinsDataset
+from omicspylib.datasets.proteins import ProteinsDataset
 
 
 class PairwiseUniqueEntryComparison:

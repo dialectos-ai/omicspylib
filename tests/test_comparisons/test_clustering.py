@@ -36,7 +36,9 @@ def test_clustering_filtering_on_missing_values(
 
     # assertion
     assert result.filtered_data.shape[0] == n_rows
+    assert result.row_groups is not None
     assert len(result.row_groups) == n_rows
+    assert result.col_groups is not None
     assert len(result.col_groups) == data_in.shape[1]
 
 
@@ -61,8 +63,10 @@ def test_row_col_clustering_options(
     if n_row_clusters is None or n_row_clusters == 0:
         assert result.row_groups is None
     else:
+        assert result.row_groups is not None
         assert len(list(set(result.row_groups))) == n_row_clusters
     if n_col_clusters is None or n_col_clusters == 0:
         assert result.col_groups is None
     else:
+        assert result.col_groups is not None
         assert len(list(set(result.col_groups))) == n_col_clusters

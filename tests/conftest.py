@@ -1,8 +1,12 @@
 """Fixtures shared across tests"""
+import matplotlib
+
+matplotlib.use('Agg')
+
 import pandas as pd
 import pytest
 
-from omicspylib import ProteinsDataset, PeptidesDataset
+from omicspylib import PeptidesDataset, ProteinsDataset
 
 
 @pytest.fixture

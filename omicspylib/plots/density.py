@@ -1,12 +1,11 @@
 """
 Plot dataset values as in a density plot.
 """
-from typing import Optional
-
-import numpy as np
 
 import matplotlib.pyplot as plt
+import numpy as np
 import seaborn as sns  # type: ignore
+from matplotlib.axes import Axes
 
 from omicspylib import ProteinsDataset
 
@@ -19,7 +18,7 @@ def plot_density(
         ylabel: str = 'Density',
         title: str = 'Distribution of values across experiments',
         hide_legend: bool = False,
-        ax: Optional[plt.Axes] = None) -> plt.Axes:
+        ax: Axes | None = None) -> Axes:
     """
     Generic function for creating a density plot over quantitative
     values of a dataset. It returns a matplotlib axes object that you can
@@ -41,15 +40,15 @@ def plot_density(
     title: str
         Plot title.
     hide_legend: bool
-        If set to ``True``, legend will be removed.
-    ax: plt.Axes | None
+        If set to ``True``, the legend will be removed.
+    ax: Axes | None
         You can provide a plt.Axes object to create a plot
         on that. Otherwise, a new object will be created and returned.
 
     Returns
     -------
-    plt.Axes
-        A matplotlib axes object.
+    Axes
+        A matplotlib Axes object.
     """
     tabular_dataset = dataset.to_table()
     long_data = tabular_dataset.melt()
@@ -65,6 +64,8 @@ def plot_density(
     ax.set_ylabel(ylabel)
 
     if hide_legend:
-        ax.get_legend().remove()
+        legend = ax.get_legend()
+        if legend is not None:
+            legend.remove()
 
     return ax
