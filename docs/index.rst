@@ -3,9 +3,24 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to omicspylib's documentation!
-======================================
-A python library for omics data analysis.
+OmicsPyLib's documentation!
+===========================
+Welcome to the documentation for **OmicsPyLib**, a Python
+library designed for omics data analysis, focusing primarily
+on **proteomics data**.
+
+As an evolving tool, OmicsPyLib provides a set of utility
+functions that simplify complex analytical workflows. These
+tools are designed to assist researchers with key tasks such as:
+- Differential Analysis
+- Visualization
+- Exploration
+- Annotation
+
+Our goal is to offer a simplified interface that allows
+researchers to explore and analyze their data effectively,
+ensuring full access to the technical details throughout
+the analysis process.
 
 Contents
 --------

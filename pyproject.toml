@@ -23,6 +23,7 @@ dependencies = [
     "scikit-learn>=1.0.0",
     "requests>=2.0.0",
     "typing-extensions>=4.16.0",
+    "ipykernel>=7.3.0",
 ]
 
 [project.urls]
@@ -44,6 +45,7 @@ dev = [
     "pyright>=1.1.411",
     "pandas-stubs~=2.3.3",
     "scipy-stubs>=1.15.3.0",
+    "pydata-sphinx-theme>=0.19.0",
 ]
 
 
