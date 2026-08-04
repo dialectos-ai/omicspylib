@@ -6,7 +6,7 @@ from omicspylib import go_to_goslim
 
 
 @pytest.mark.skipif(
-    not os.getenv('RUN_EMBL_API_CALLS', False),
+    os.getenv('RUN_EMBL_API_CALLS', 'False').lower() not in ('true', '1'),
     reason='Set RUN_EMBL_API_CALLS env variable to True to run.')
 def test_go_to_goslim():
     # setup
