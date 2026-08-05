@@ -1081,6 +1081,7 @@ class TabularDataset(abc.ABC):
         ref_condition: str | None = None,
         use_common_records: bool = False,
         na_threshold: float = 0.0,
+        trim_fraction: float = 0.0
     ) -> Self:
         """
         Normalize the dataset.
@@ -1133,6 +1134,12 @@ class TabularDataset(abc.ABC):
             reference, will be considered for normalization.
         na_threshold: float
             Values below or equal to this threshold are considered missing.
+        trim_fraction: float
+            When normalizing to the mean using shared peptides, you can use
+            a trimmed mean approach to and discard a certain percentage of edge
+            cases brom from the top and bottom ends. For example, if ``trim_fraction``
+            is set to ``0.1``, a total of 10% of the edge cases will be discarded
+            (5% from each edge).
 
         Returns
         -------
@@ -1142,7 +1149,7 @@ class TabularDataset(abc.ABC):
 
         # step 2 - calculate difference
         if method == "mean" and use_common_records:
-            exp_conditions = self._mean_norm_with_shared_records(na_threshold, ref_exp)
+            exp_conditions = self._mean_norm_with_shared_records(na_threshold, ref_exp, trim_fraction=trim_fraction)
         elif method == "mean" and not use_common_records:
             exp_conditions = self._base_mean_normalization(na_threshold, ref_exp)
         else:
@@ -1153,7 +1160,9 @@ class TabularDataset(abc.ABC):
 
         return self.__class__(conditions=exp_conditions)
 
-    def _mean_norm_with_shared_records(self, na_threshold, ref_exp):
+    def _mean_norm_with_shared_records(
+        self, na_threshold: float, ref_exp: str, trim_fraction: float = 0.0
+    ):
         exp_conditions_data = copy.deepcopy(self._conditions)
 
         ref_c = next(
@@ -1172,6 +1181,13 @@ class TabularDataset(abc.ABC):
                         )
                         df[df <= na_threshold] = np.nan
                         df = df.dropna()
+
+                        if trim_fraction > 0.0 and len(df) > 0:
+                            df = df.sort_values(by=ref_exp)
+                            k = int(len(df) * (trim_fraction / 2))
+                            if k > 0 and 2 * k < len(df):
+                                df = df.iloc[k:-k]
+
                         mean_ref = df[ref_exp].mean()
                         mean_targ = df[targ_exp].mean()
                         norm_diff = mean_targ - mean_ref
