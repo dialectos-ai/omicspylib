@@ -829,7 +829,7 @@ class TabularDataset(abc.ABC):
         self, na_threshold: float = 0.0
     ) -> (tuple)[pd.DataFrame, int, int]:
         """
-        Returns number of missing values per experiment and condition.
+        Returns the number of missing values per experiment and condition.
         Missing values are considered the cases that are either missing
         or are below the specified threshold.
 
