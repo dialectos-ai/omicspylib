@@ -44,7 +44,7 @@ class TabularExperimentalConditionDataset(abc.ABC):
     ) -> None:
         self._name = name
         self._data: pd.DataFrame = (
-            data[[id_col] + experiment_cols].copy().set_index(id_col)
+            data[[id_col, *experiment_cols]].copy().set_index(id_col)
         )
         self._id_col = id_col
         self._metadata = {}
@@ -235,6 +235,7 @@ class TabularExperimentalConditionDataset(abc.ABC):
         else:  # column mean
             return pd.DataFrame({"mean": mean})
 
+    @abc.abstractmethod
     def filter(
         self,
         exp: str | list | None = None,
@@ -269,6 +270,7 @@ class TabularExperimentalConditionDataset(abc.ABC):
         else:
             return pd.DataFrame({"frequency": f})
 
+    @abc.abstractmethod
     def drop(
         self,
         exp: str | list | None = None,
@@ -458,6 +460,7 @@ class TabularDataset(abc.ABC):
         self._conditions = conditions
 
     @classmethod
+    @abc.abstractmethod
     def from_df(
         cls, data: pd.DataFrame, id_col: str, conditions: dict[str, list]
     ) -> Self:
@@ -1275,7 +1278,7 @@ class TabularDataset(abc.ABC):
         shift_values = mean_diff.values.reshape(-1)
         exp_conditions_data = copy.deepcopy(self._conditions)
         for condition in exp_conditions_data:
-            for exp, shift_value in zip(exp_names, shift_values):
+            for exp, shift_value in zip(exp_names, shift_values, strict=True):
                 if exp in condition.experiment_names and shift_value != 0:
                     condition.shift(exp, value=shift_value, na_threshold=na_threshold)
         return exp_conditions_data

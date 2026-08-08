@@ -51,6 +51,10 @@ build-backend = "uv_build"
 [tool.uv.build-backend]
 module-root = "."
 
+
+[tool.ruff]
+line-length = 120
+
 [tool.pyright]
 # Replace '.venv' with the name of your virtual environment folder
 venvPath = "."
@@ -58,5 +62,20 @@ venv = ".venv"
 
 [tool.ruff.lint]
 select = [
-    "ANN2", # Missing return type annotations (ANN201-ANN206)
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "F",     # Pyflakes
+    "I",     # isort (import sorting)
+    "B",     # flake8-bugbear (catches common bugs)
+    "C4",    # flake8-comprehensions (helps write better list/dict comprehensions)
+    "UP",    # pyupgrade (enforces modern Python syntax)
+    "ANN2",  # Missing return type annotations
+    "RUF",   # Ruff-specific rules]
 ]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

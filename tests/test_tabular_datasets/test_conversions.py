@@ -1,6 +1,6 @@
 import numpy as np
 
-from omicspylib import ProteinsDataset, PeptidesDataset
+from omicspylib import PeptidesDataset, ProteinsDataset
 
 
 def test_peptides_to_proteins_dataset_conversion(

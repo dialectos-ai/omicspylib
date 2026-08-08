@@ -1,5 +1,5 @@
 """Test protein dataset creation flow."""
-from typing import Callable
+from collections.abc import Callable
 
 import pandas as pd
 import pytest

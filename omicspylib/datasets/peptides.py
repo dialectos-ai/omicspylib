@@ -66,7 +66,8 @@ class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
         super().__init__(
             name=name, data=data, id_col=id_col, experiment_cols=experiment_cols
         )
-        # todo - this in not a clean implementation of initializing the object and passing metadata - think of another solution
+        # todo - this in not a clean implementation of initializing the object and
+        #  passing metadata - think of another solution
         self._protein_id_col = protein_id_col
         if metadata is None:
             self._metadata = {"peptide_to_protein": {}}
@@ -252,7 +253,7 @@ class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
 
         # step 2 - collect target peptide ids
         targ_pept_ids = []
-        for prot_id, pept_ids in prot2pept.items():
+        for _, pept_ids in prot2pept.items():
             targ_pept_ids.extend(pept_ids)
 
         # step 3 - do the filtering
@@ -346,7 +347,8 @@ class PeptidesDataset(TabularDataset):
         agg_method: str
             One of ``sum``, ``counts``:
 
-                * ``sum``: e.g., calculate protein intensity as the sum of individual peptide intensities.
+                * ``sum``: e.g., calculate protein intensity as the sum
+                  of individual peptide intensities.
                 * ``counts``: e.g., calculate peptide counts per protein.
         names_lookup: dict, optional
             A lookup dictionary used for renaming the column names of the returned dataset.
@@ -355,7 +357,7 @@ class PeptidesDataset(TabularDataset):
             Note that the names should match exactly.
         add_prefix: str, optional
             Use ``add_prefix`` instead of ``names_lookup`` for simple name prefixing.
-            NOTE: there will be no seperator between prefix and existing column name.
+            NOTE: there will be no seperator between the prefix and the existing column name.
             You need to provide it (e.g., intensity_ or pept_counts_).
 
         Returns
