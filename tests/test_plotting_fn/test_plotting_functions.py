@@ -12,7 +12,7 @@ from omicspylib.plots.frequency_barplot import plot_record_frequency
 
 def test_intensity_plotting_as_density(proteins_dataset: ProteinsDataset) -> None:
     # action
-    ax = plot_density(proteins_dataset, log_transform=True)
+    ax = plot_density(proteins_dataset, log_transform=True, color_by_group=True)
 
     # assertion
     assert isinstance(ax, Axes)
