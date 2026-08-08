@@ -55,3 +55,8 @@ module-root = "."
 # Replace '.venv' with the name of your virtual environment folder
 venvPath = "."
 venv = ".venv"
+
+[tool.ruff.lint]
+select = [
+    "ANN2", # Missing return type annotations (ANN201-ANN206)
+]

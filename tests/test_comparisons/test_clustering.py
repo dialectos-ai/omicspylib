@@ -1,10 +1,11 @@
 import pytest
 from seaborn.matrix import ClusterGrid
 
+from omicspylib import ProteinsDataset
 from omicspylib.analysis.clusters import HierarchicallyClusteredHeatmap
 
 
-def test_clustering_success_case(proteins_dataset):
+def test_clustering_success_case(proteins_dataset: ProteinsDataset) -> None:
     # setup
     comparison = HierarchicallyClusteredHeatmap()
     data_in = proteins_dataset.to_table()
@@ -18,17 +19,21 @@ def test_clustering_success_case(proteins_dataset):
     assert isinstance(result.row_groups, list)
     assert isinstance(result.col_groups, list)
 
-@pytest.mark.parametrize("fillna_method,min_frequency,n_rows", [
-    ('min', 0, 100),
-    ('min', 5, 97),
-    ('drop', 0, 2)
-])
+
+@pytest.mark.parametrize(
+    "fillna_method,min_frequency,n_rows",
+    [("min", 0, 100), ("min", 5, 97), ("drop", 0, 2)],
+)
 def test_clustering_filtering_on_missing_values(
-        proteins_dataset, fillna_method, min_frequency, n_rows):
+    proteins_dataset: ProteinsDataset,
+    fillna_method,
+    min_frequency,
+    n_rows,
+) -> None:
     # setup
     clustering = HierarchicallyClusteredHeatmap(
-        fillna_method=fillna_method,
-        min_frequency=min_frequency)
+        fillna_method=fillna_method, min_frequency=min_frequency
+    )
     data_in = proteins_dataset.to_table()
 
     # action
@@ -42,18 +47,18 @@ def test_clustering_filtering_on_missing_values(
     assert len(result.col_groups) == data_in.shape[1]
 
 
-@pytest.mark.parametrize("n_row_clusters,n_col_clusters", [
-    (12, 3),
-    (12, None),
-    (12, 0),
-    (None, 3),
-    (0, 3)
-])
+@pytest.mark.parametrize(
+    "n_row_clusters,n_col_clusters", [(12, 3), (12, None), (12, 0), (None, 3), (0, 3)]
+)
 def test_row_col_clustering_options(
-        proteins_dataset, n_row_clusters, n_col_clusters):
+    proteins_dataset: ProteinsDataset,
+    n_row_clusters: int | None,
+    n_col_clusters: int | None,
+) -> None:
     # setup
-    clustering = HierarchicallyClusteredHeatmap(n_row_clusters=n_row_clusters,
-        n_col_clusters=n_col_clusters)
+    clustering = HierarchicallyClusteredHeatmap(
+        n_row_clusters=n_row_clusters, n_col_clusters=n_col_clusters
+    )
     data_in = proteins_dataset.to_table()
 
     # action

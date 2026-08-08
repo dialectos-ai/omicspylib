@@ -1,14 +1,17 @@
 """Test protein dataset transformations."""
+
 import numpy as np
 import pandas as pd
 
 from omicspylib import ProteinsDataset
 
 
-def test_proteins_dataset_conversion_to_table(proteins_dataset: ProteinsDataset):
+def test_proteins_dataset_conversion_to_table(
+    proteins_dataset: ProteinsDataset,
+) -> None:
     """
     For various tasks you need to merge all conditions
-    of a proteins dataset back to one table. Test that.
+    of a protein dataset back to one table. Test that.
     """
     # action
     table = proteins_dataset.to_table()
@@ -19,7 +22,7 @@ def test_proteins_dataset_conversion_to_table(proteins_dataset: ProteinsDataset)
     assert table.shape[1] == proteins_dataset.n_experiments
 
 
-def test_log2_transformation(proteins_dataset: ProteinsDataset):
+def test_log2_transformation(proteins_dataset: ProteinsDataset) -> None:
     # action
     log2_dset = proteins_dataset.log2_transform().to_table()
 
@@ -30,7 +33,7 @@ def test_log2_transformation(proteins_dataset: ProteinsDataset):
     assert np.isclose(mean_log2_int, 25, 10)
 
 
-def test_log2_back_transformation(proteins_dataset: ProteinsDataset):
+def test_log2_back_transformation(proteins_dataset: ProteinsDataset) -> None:
     # setup
     log2_dset = proteins_dataset.log2_transform()
 

@@ -44,7 +44,7 @@ def test_missing_value_imputation_with_group_mean(
         targ_cols,
         targ_values,
         a_tol,
-        kwargs):
+        kwargs) -> None:
     # setup
     dsets = {
         'proteins': proteins_dataset,

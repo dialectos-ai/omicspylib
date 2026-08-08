@@ -5,7 +5,7 @@ from omicspylib import ProteinsDataset
 from omicspylib.datasets.peptides import PeptidesDataset
 
 
-def test_protein_dataset_concatenation():
+def test_protein_dataset_concatenation() -> None:
     """
     You can have to datasets with different experimental conditions.
     Text that you can join them in one object.
@@ -36,7 +36,7 @@ def test_protein_dataset_concatenation():
         assert exp_cond in conditions
 
 
-def test_peptide_dataset_concatenation():
+def test_peptide_dataset_concatenation() -> None:
     """
     You can have to datasets with different experimental conditions.
     Text that you can join them in one object.

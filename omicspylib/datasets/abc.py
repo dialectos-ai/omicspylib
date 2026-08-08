@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import abc
 import copy
+import warnings
 from collections.abc import Sequence
 from functools import reduce
 from typing import Any, Literal, TypeVar, cast
@@ -504,7 +505,7 @@ class TabularDataset(abc.ABC):
 
     def experiment_names(self, condition: str | None = None) -> list[str]:
         """
-        Get experiment names from the dataset. If experimental condition
+        Get experiment names from the dataset. If an experimental condition
         name is provided, experiment names will be limited to that case.
 
         Parameters
@@ -541,7 +542,8 @@ class TabularDataset(abc.ABC):
     def unique_records(self) -> list:
         """
         Returns a list of unique entry ids across
-        all experimental conditions.
+        all experimental conditions (e.g. unique
+        protein accession numbers etc.).
 
         Returns
         -------
@@ -666,6 +668,60 @@ class TabularDataset(abc.ABC):
             return self._join_list_of_tables(tables, how=join_method)
 
         return pd.concat(tables).transpose()
+
+    def record_counts(
+        self,
+        na_threshold: float = 0.0,
+        value_type: Literal["missing", "present"] = "present",
+    ) -> tuple[pd.DataFrame, int, int]:
+        """
+        Calculate the number of records per experiment that are missing
+        or are above a given value threshold.
+
+        Parameters
+        ----------
+        na_threshold : float
+            Values below or equal to this threshold are considered missing,
+            or above that threshold are considered present.
+        value_type: str
+            Either "missing" or "present" to calculate the number of missing
+            values or valid records per experiment.
+
+
+        Returns
+        -------
+        pd.DataFrame
+            A Pandas data frame with the number of missing cases per
+            experiment and condition.
+        Int
+            Number of missing values.
+        Int
+            Number of values in total
+
+        """
+        data = self.to_table()
+        if value_type == "missing":
+            n_counts_per_exp = data.shape[0] - np.sum(data > na_threshold, axis=0)
+        elif value_type == "present":
+            n_counts_per_exp = np.sum(data > na_threshold, axis=0)
+        else:
+            raise ValueError("type must be either 'missing' or 'present'")  # pyright: ignore
+
+        n_counts_df = n_counts_per_exp.reset_index()
+        n_counts_df.columns = ["experiment", "n_counts"]
+
+        # total number of missing values across all datasets.
+        n_counts_total = np.sum(n_counts_per_exp)
+        n_total = data.shape[0] * len(data.columns)
+        names_lookup = []
+        for cond in self._conditions:
+            experiments = cond.experiment_names
+            for exp in experiments:
+                names_lookup.append({"experiment": exp, "condition": cond.name})
+        names_lookup_df = pd.DataFrame(names_lookup)
+        out_df = n_counts_df.merge(names_lookup_df, on="experiment", how="left")
+
+        return out_df, n_counts_total, n_total
 
     def drop(
         self,
@@ -827,8 +883,13 @@ class TabularDataset(abc.ABC):
 
     def missing_values(
         self, na_threshold: float = 0.0
-    ) -> (tuple)[pd.DataFrame, int, int]:
+    ) -> tuple[pd.DataFrame, int, int]:
         """
+        .. deprecated:: 0.2.1
+            `missing_values` is deprecated and will be removed in a future release.
+            Use `record_counts(value_type="missing")` instead. NOTE that the `n_missing`
+            column is renamed to `n_counts`.
+
         Returns the number of missing values per experiment and condition.
         Missing values are considered the cases that are either missing
         or are below the specified threshold.
@@ -848,6 +909,13 @@ class TabularDataset(abc.ABC):
         Int
             Number of values in total
         """
+        warnings.warn(
+            "missing_values is deprecated and will be removed in a future release."
+            " Use record_counts(value_type='missing') instead. NOTE that the `n_missing` column"
+            "is renamed to `n_counts`.",
+            category=DeprecationWarning,
+            stacklevel=2,
+        )
         data = self.to_table()
         n_missing_per_exp = data.shape[0] - np.sum(data > na_threshold, axis=0)
 
@@ -1002,7 +1070,7 @@ class TabularDataset(abc.ABC):
 
     def _impute_by_global_row_value(
         self, imputed_conditions, value_type, na_threshold, shift, random_noise
-    ):
+    ) -> list[TabularExperimentalConditionDataset]:
         df = self.to_table()
         df[df <= na_threshold] = np.nan
         if value_type == "min":
@@ -1032,7 +1100,7 @@ class TabularDataset(abc.ABC):
         na_threshold,
         shift,
         random_noise: bool = False,
-    ):
+    ) -> list[TabularExperimentalConditionDataset]:
         df = self.to_table()
         df[df <= na_threshold] = np.nan
         all_values = df.values.flatten()
@@ -1061,7 +1129,7 @@ class TabularDataset(abc.ABC):
         value,
         shift: float = 0.0,
         random_noise: bool = False,
-    ) -> list:
+    ) -> list[TabularExperimentalConditionDataset]:
         imputed_conditions = [
             c.impute(
                 method=method,
@@ -1081,7 +1149,7 @@ class TabularDataset(abc.ABC):
         ref_condition: str | None = None,
         use_common_records: bool = False,
         na_threshold: float = 0.0,
-        trim_fraction: float = 0.0
+        trim_fraction: float = 0.0,
     ) -> Self:
         """
         Normalize the dataset.
@@ -1149,7 +1217,9 @@ class TabularDataset(abc.ABC):
 
         # step 2 - calculate difference
         if method == "mean" and use_common_records:
-            exp_conditions = self._mean_norm_with_shared_records(na_threshold, ref_exp, trim_fraction=trim_fraction)
+            exp_conditions = self._mean_norm_with_shared_records(
+                na_threshold, ref_exp, trim_fraction=trim_fraction
+            )
         elif method == "mean" and not use_common_records:
             exp_conditions = self._base_mean_normalization(na_threshold, ref_exp)
         else:
@@ -1162,7 +1232,7 @@ class TabularDataset(abc.ABC):
 
     def _mean_norm_with_shared_records(
         self, na_threshold: float, ref_exp: str, trim_fraction: float = 0.0
-    ):
+    ) -> Sequence[TabularExperimentalConditionDataset]:
         exp_conditions_data = copy.deepcopy(self._conditions)
 
         ref_c = next(
@@ -1195,7 +1265,9 @@ class TabularDataset(abc.ABC):
 
         return exp_conditions_data
 
-    def _base_mean_normalization(self, na_threshold, ref_exp):
+    def _base_mean_normalization(
+        self, na_threshold, ref_exp
+    ) -> Sequence[TabularExperimentalConditionDataset]:
         mean_before = self.mean(na_threshold=na_threshold, axis=0)
         ref_mean = mean_before[ref_exp].values[0]
         mean_diff = mean_before - ref_mean
