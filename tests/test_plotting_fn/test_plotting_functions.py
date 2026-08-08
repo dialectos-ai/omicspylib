@@ -2,12 +2,29 @@
 
 import numpy as np
 import pandas as pd
-from matplotlib import pyplot as plt
+import pytest
 from matplotlib.axes import Axes
 
 from omicspylib.datasets.proteins import ProteinsDataset
 from omicspylib.plots import plot_density, plot_missing_values, plot_venn2, plot_volcano
 from omicspylib.plots.frequency_barplot import plot_record_frequency
+from omicspylib.plots.records import plot_record_across_experiments
+
+
+@pytest.mark.parametrize("plot_type", ["jitter", "bar"])
+def test_plot_record_across_experiments(
+    proteins_dataset: ProteinsDataset, plot_type: str
+) -> None:
+    # action
+    ax = plot_record_across_experiments(
+        proteins_dataset,
+        plot_type=plot_type,  # type: ignore[arg-type]
+        record_id="p0",
+        log_transform=True,
+    )
+
+    # assertion
+    assert isinstance(ax, Axes)
 
 
 def test_intensity_plotting_as_density(proteins_dataset: ProteinsDataset) -> None:
@@ -24,7 +41,6 @@ def test_missing_values_plotting_fn(proteins_dataset: ProteinsDataset) -> None:
 
     # assertion
     assert isinstance(ax, Axes)
-    plt.savefig("test_missing_values_plotting_fn.png")
 
 
 def test_record_frequency_plotting_fn(proteins_dataset: ProteinsDataset) -> None:
@@ -35,7 +51,6 @@ def test_record_frequency_plotting_fn(proteins_dataset: ProteinsDataset) -> None
 
     # assertion
     assert isinstance(ax, Axes)
-    plt.savefig("test_record_frequency_plotting_fn.png")
 
 
 def test_volcano_plotting_fn() -> None:
