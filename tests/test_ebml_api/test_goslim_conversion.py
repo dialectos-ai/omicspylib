@@ -8,7 +8,7 @@ from omicspylib import go_to_goslim
 @pytest.mark.skipif(
     os.getenv('RUN_EMBL_API_CALLS', 'False').lower() not in ('true', '1'),
     reason='Set RUN_EMBL_API_CALLS env variable to True to run.')
-def test_go_to_goslim():
+def test_go_to_goslim() -> None:
     # setup
     from_ids = ['GO:0000922', 'GO:0035253']
     to_ids = ['GO:0005929', 'GO:0005856']

@@ -1,3 +1,4 @@
+import pandas as pd
 
 from omicspylib.calculations.fold_change import calc_fold_change
 from omicspylib.calculations.ttest import MULTITEST_METHOD, calc_ttest_adj
@@ -12,7 +13,7 @@ class PairwiseComparisonTTestFC:
     def __init__(self,
                  dataset: ProteinsDataset,
                  condition_a: str,
-                 condition_b: str):
+                 condition_b: str) -> None:
         self._raw_dataset = dataset
         self._condition_a = condition_a
         self._condition_b = condition_b
@@ -21,7 +22,7 @@ class PairwiseComparisonTTestFC:
              min_frequency: int = 3,
              na_threshold: float = 0.0,
              pval_adj_method: MULTITEST_METHOD | None = 'fdr_bh',
-             use_log_transformed: bool = True):
+             use_log_transformed: bool = True) -> pd.DataFrame:
         """
         Perform the pairwise comparison between the two groups, using
         a t-test and a fold change rule. By default, quantitative values

@@ -1,7 +1,8 @@
 """Fixtures shared across tests"""
+
 import matplotlib
 
-matplotlib.use('Agg')
+matplotlib.use("Agg")
 
 import pandas as pd
 import pytest
@@ -10,33 +11,33 @@ from omicspylib import PeptidesDataset, ProteinsDataset
 
 
 @pytest.fixture
-def proteins_dataset():
+def proteins_dataset() -> ProteinsDataset:
     """Create a basic proteins dataset object."""
-    data_df = pd.read_csv('tests/data/protein_dataset.tsv', sep='\t')
+    data_df = pd.read_csv("tests/data/protein_dataset.tsv", sep="\t")
     config = {
-        'id_col': 'protein_id',
-        'conditions': {
-            'c1': ['c1_rep1', 'c1_rep2', 'c1_rep3', 'c1_rep4', 'c1_rep5'],
-            'c2': ['c2_rep1', 'c2_rep2', 'c2_rep3', 'c2_rep4', 'c2_rep5'],
-            'c3': ['c3_rep1', 'c3_rep2', 'c3_rep3', 'c3_rep4', 'c3_rep5'],
-        }
+        "id_col": "protein_id",
+        "conditions": {
+            "c1": ["c1_rep1", "c1_rep2", "c1_rep3", "c1_rep4", "c1_rep5"],
+            "c2": ["c2_rep1", "c2_rep2", "c2_rep3", "c2_rep4", "c2_rep5"],
+            "c3": ["c3_rep1", "c3_rep2", "c3_rep3", "c3_rep4", "c3_rep5"],
+        },
     }
 
     return ProteinsDataset.from_df(data_df, **config)
 
 
 @pytest.fixture
-def peptides_dataset():
+def peptides_dataset() -> PeptidesDataset:
     """Create a basic peptides dataset object for testing."""
-    data_df = pd.read_csv('tests/data/peptides_dataset.tsv', sep='\t')
+    data_df = pd.read_csv("tests/data/peptides_dataset.tsv", sep="\t")
     config = {
-        'id_col': 'peptide_id',
-        'conditions': {
-            'c1': ['c1_rep1', 'c1_rep2', 'c1_rep3', 'c1_rep4', 'c1_rep5'],
-            'c2': ['c2_rep1', 'c2_rep2', 'c2_rep3', 'c2_rep4', 'c2_rep5'],
-            'c3': ['c3_rep1', 'c3_rep2', 'c3_rep3', 'c3_rep4', 'c3_rep5'],
+        "id_col": "peptide_id",
+        "conditions": {
+            "c1": ["c1_rep1", "c1_rep2", "c1_rep3", "c1_rep4", "c1_rep5"],
+            "c2": ["c2_rep1", "c2_rep2", "c2_rep3", "c2_rep4", "c2_rep5"],
+            "c3": ["c3_rep1", "c3_rep2", "c3_rep3", "c3_rep4", "c3_rep5"],
         },
-        'protein_id_col': 'protein_id',
+        "protein_id_col": "protein_id",
     }
 
     return PeptidesDataset.from_df(data_df, **config)

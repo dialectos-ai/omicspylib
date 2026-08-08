@@ -18,5 +18,6 @@ dataset conversion and normalization to differential analysis and visualization.
 
     notebooks/peptide-level-normalization-across-experiments
     notebooks/peptides-to-proteins-dataset-conversion
-    notebooks/proteins-dataset-pairwise-comparison
+    notebooks/proteins-dataset-statistical-based-pairwise-comparison
+    notebooks/proteins-dataset-frequency-based-pairwise-comparison
     notebooks/hierrarchically-clustered-heatmap

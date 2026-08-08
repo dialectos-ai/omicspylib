@@ -1,9 +1,11 @@
 import numpy as np
 
-from omicspylib import ProteinsDataset
+from omicspylib import PeptidesDataset, ProteinsDataset
 
 
-def test_peptides_to_proteins_dataset_conversion(peptides_dataset):
+def test_peptides_to_proteins_dataset_conversion(
+    peptides_dataset: PeptidesDataset,
+) -> None:
     """
     Validate that from a PeptidesDataset you can jump to
     a ProteinsDataset.
@@ -17,23 +19,26 @@ def test_peptides_to_proteins_dataset_conversion(peptides_dataset):
     assert np.all(np.asarray(row) > 40)
 
 
-def test_calc_peptide_counts(peptides_dataset):
+def test_calc_peptide_counts(peptides_dataset: PeptidesDataset) -> None:
     """
     When converting peptides to proteins,
     you should have the option to calculate also peptide counts,
     in addition to total protein intensity. Test that.
     """
     # action
-    pept_counts = peptides_dataset.to_proteins(agg_method='counts')
+    pept_counts = peptides_dataset.to_proteins(agg_method="counts")
 
     # assertion
+    assert isinstance(pept_counts, ProteinsDataset)
     data_df = pept_counts.to_table()
     raw_row_vals = data_df.iloc[0].values
     int_row_vals = raw_row_vals.astype(int)
-    assert np.all(np.isclose(raw_row_vals - int_row_vals, 0, atol=0.001))
+    assert np.all(np.isclose(raw_row_vals - int_row_vals, 0, atol=0.001))  # pyright: ignore
 
 
-def test_column_renaming_while_converting_peptides_to_proteins(peptides_dataset):
+def test_column_renaming_while_converting_peptides_to_proteins(
+    peptides_dataset: PeptidesDataset,
+) -> None:
     """
     You can convert a peptides' dataset to a proteins' dataset. However, the type
     of the values might change (e.g., you calculate peptide counts from a peptide
@@ -43,29 +48,36 @@ def test_column_renaming_while_converting_peptides_to_proteins(peptides_dataset)
     """
     # setup
     original_cols = peptides_dataset.to_table().columns.tolist()
-    prefix = 'Counts: '
-    new_names = {c: f'{prefix}{c}' for c in original_cols}
+    prefix = "Counts: "
+    new_names = {c: f"{prefix}{c}" for c in original_cols}
 
     # action
-    pept_counts = peptides_dataset.to_proteins(agg_method='counts', names_lookup=new_names)
+    pept_counts = peptides_dataset.to_proteins(
+        agg_method="counts", names_lookup=new_names
+    )
 
     # assertion
+    assert isinstance(pept_counts, ProteinsDataset)
     data_df = pept_counts.to_table()
     for col in data_df.columns:
         assert col.startswith(prefix)
 
-def test_column_renaming_while_converting_peptides_to_proteins_using_prefix(peptides_dataset):
+
+def test_column_renaming_while_converting_peptides_to_proteins_using_prefix(
+    peptides_dataset: PeptidesDataset,
+) -> None:
     """
-    During this conversion, you might want to add a prefix, so that you
+    During this conversion, you might want to add a prefix so that you
     avoid naming conflicts during dataset joining later on.
     """
     # setup
-    prefix = 'n_peptides_'
+    prefix = "n_peptides_"
 
     # action
-    pept_counts = peptides_dataset.to_proteins(agg_method='counts', add_prefix=prefix)
+    pept_counts = peptides_dataset.to_proteins(agg_method="counts", add_prefix=prefix)
 
     # assertion
+    assert isinstance(pept_counts, ProteinsDataset)
     data_df = pept_counts.to_table()
     for col in data_df.columns:
         assert col.startswith(prefix)

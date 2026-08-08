@@ -1,4 +1,6 @@
-"""Test proteins dataset creation flow."""
+"""Test protein dataset creation flow."""
+from collections.abc import Callable
+
 import pandas as pd
 import pytest
 
@@ -8,7 +10,7 @@ from omicspylib import PeptidesDataset, ProteinsDataset
 @pytest.mark.parametrize(
     "fp,obj_constructor,config,n_conditions,n_exp,n_records",
     [
-        # proteins dataset example
+        # protein dataset example
         (
             'tests/data/protein_dataset.tsv',
              ProteinsDataset.from_df,
@@ -22,7 +24,7 @@ from omicspylib import PeptidesDataset, ProteinsDataset
             },
             3, 15, 100,
         ),
-        # peptides dataset
+        # peptide dataset
         (
             'tests/data/peptides_dataset.tsv',
             PeptidesDataset.from_df,
@@ -39,7 +41,13 @@ from omicspylib import PeptidesDataset, ProteinsDataset
         )
     ]
 )
-def test_protein_dataset_creation_from_df(fp, obj_constructor, config, n_conditions, n_exp, n_records):
+def test_protein_dataset_creation_from_df(
+        fp: str,
+        obj_constructor: Callable,
+        config: dict,
+        n_conditions: int,
+        n_exp: int,
+        n_records: int) -> None:
     """
     Basic protein dataset constractor. Test that
     created object has expected attributes.
@@ -72,7 +80,11 @@ def test_protein_dataset_creation_from_df(fp, obj_constructor, config, n_conditi
         (True, True, True, 87),  # rm all irrelevant
     ]
 )
-def test_protein_dataset_creation_from_mq_output(rm_contaminants, rm_reverse, rm_modified, n_rows):
+def test_protein_dataset_creation_from_mq_output(
+        rm_contaminants: bool,
+        rm_reverse: bool,
+        rm_modified: bool,
+        n_rows: int) -> None:
     """
     You can create a dataset object directly from proteinGroups.txt file from
     MaxQuant. This is a wrapper around the `ProteinsDataset.from_df` method.
@@ -111,7 +123,9 @@ def test_protein_dataset_creation_from_mq_output(rm_contaminants, rm_reverse, rm
     assert dset_from_df.n_records == n_rows
 
 
-def test_protein_and_peptides_dataset_stats(proteins_dataset, peptides_dataset):
+def test_protein_and_peptides_dataset_stats(
+        proteins_dataset: ProteinsDataset,
+        peptides_dataset: PeptidesDataset) -> None:
     """
     You should be able to extract basic statistics from your dataset
     as a dict, so that you can evaluate and manage the flow programmatically.

@@ -3,7 +3,7 @@ import pandas as pd
 from omicspylib.calculations import calc_fold_change
 
 
-def test_fold_change_calculation():
+def test_fold_change_calculation() -> None:
     """
     Given a data frame and two column names, calculate the fold
     change and return the expected output.
