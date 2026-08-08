@@ -55,4 +55,5 @@ autoclass_content = 'class'  # Options: 'class', 'init', 'both'
 # 'both': Use both the class's and the __init__ method's docstring.
 # 'init': Use the __init__ method's docstring, ignore the class docstring.
 
-
+# Always execute notebooks during doc build
+nbsphinx_execute = 'always'

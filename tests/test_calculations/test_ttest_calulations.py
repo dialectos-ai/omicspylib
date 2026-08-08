@@ -5,17 +5,22 @@ from omicspylib.calculations.ttest import calc_ttest_adj
 
 
 @pytest.mark.parametrize(
-    "padj_method, exp_cols, skipped_cols", [
-        ('fdr_bh', ['p-value', 't-statistic', 'adj-p-value'], []),
-        (None, ['p-value', 't-statistic'], ['adj-p-value']),
-    ]
+    "padj_method, exp_cols, skipped_cols",
+    [
+        ("fdr_bh", ["p-value", "t-statistic", "adj-p-value"], []),
+        (None, ["p-value", "t-statistic"], ["adj-p-value"]),
+    ],
 )
-def test_ttest_calculations(proteins_dataset: ProteinsDataset, padj_method, exp_cols, skipped_cols):
+def test_ttest_calculations(
+    proteins_dataset: ProteinsDataset, padj_method, exp_cols, skipped_cols
+) -> None:
     # setup
-    dataset = proteins_dataset.filter(cond=['c1', 'c2'])
+    dataset = proteins_dataset.filter(cond=["c1", "c2"])
 
     # action
-    ttest_out = calc_ttest_adj(dataset, condition_a='c1', condition_b='c2', pval_adj_method=padj_method)
+    ttest_out = calc_ttest_adj(
+        dataset, condition_a="c1", condition_b="c2", pval_adj_method=padj_method
+    )
 
     # assertion
     for col in exp_cols:

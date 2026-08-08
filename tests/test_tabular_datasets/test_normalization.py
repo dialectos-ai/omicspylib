@@ -7,7 +7,7 @@ from omicspylib import PeptidesDataset
 from omicspylib.datasets.abc import NormMethod
 
 
-def test_trimmed_mean_normalization_explicit():
+def test_trimmed_mean_normalization_explicit() -> None:
     # Setup controlled dataset with extreme outliers
     data = {
         "peptide_id": [f"p{i}" for i in range(10)],
@@ -62,7 +62,7 @@ def test_trimmed_mean_normalization_explicit():
 
 
 @pytest.mark.parametrize("trim_fraction", [0.0, 0.1, 0.2])
-def test_normalization_with_trim_fraction_param(trim_fraction):
+def test_normalization_with_trim_fraction_param(trim_fraction) -> None:
     data_df = pd.read_csv("tests/data/peptides_dataset.tsv", sep="\t")
     config = {
         "id_col": "peptide_id",
@@ -95,7 +95,7 @@ def test_normalization_with_trim_fraction_param(trim_fraction):
 )
 def test_normalization_method(
     method: NormMethod, ref_exp, ref_condition, use_common_records, atol
-):
+) -> None:
     # setup
     data_df = pd.read_csv("tests/data/peptides_dataset.tsv", sep="\t")
     config = {

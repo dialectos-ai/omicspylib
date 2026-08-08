@@ -67,7 +67,7 @@ class HierarchicallyClusteredHeatmap:
         linkage_method: LinkageMethod = "average",
         n_row_clusters: int | None = 12,
         n_col_clusters: int | None = 3,
-    ):
+    ) -> None:
         """
         Initializer method.
 
@@ -245,17 +245,17 @@ class HierarchicallyClusteredHeatmap:
             col_groups = [int(i) for i in col_trees.reshape(-1)]
         return col_groups, col_linkage, row_groups, row_linkage
 
-    def _transform(self, data):
+    def _transform(self, data: pd.DataFrame) -> pd.DataFrame:
         """
         Log transform protein intensities, impute missing values,
         center and scale, so that values are ready for plotting.
         """
         data = data.copy()
         if self._log_transform:
-            data = np.log10(data + 1)
+            data = np.log10(data + 1) # pyright: ignore
         return data
 
-    def _fillna(self, data):
+    def _fillna(self, data) -> pd.DataFrame:
         """
         Log transform protein intensities, impute missing values,
         center and scale, so that values are ready for plotting.
@@ -271,7 +271,7 @@ class HierarchicallyClusteredHeatmap:
         return data.fillna(fill_na_value)
 
     @staticmethod
-    def _apply_center_scale(data):
+    def _apply_center_scale(data) -> pd.DataFrame:
         """
         Log transform protein intensities, impute missing values,
         center and scale, so that values are ready for plotting.
@@ -322,7 +322,7 @@ class HierarchicallyClusteredHeatmap:
         col_groups,
         title: str = "",
         **clustermap_kwargs,
-    ):
+    ) -> ClusterGrid:
         # base setup
         tree_cmap = plt.get_cmap("tab20")
 

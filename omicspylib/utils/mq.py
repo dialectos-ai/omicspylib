@@ -35,12 +35,16 @@ def mq_rm_reverse(data: pd.DataFrame) -> pd.DataFrame:
         return filtered_data
     elif len(found_cols) > 1:
         warnings.warn(
-            "Both 'Reverse' and 'Decoy' columns are found. Please consider manual filtering of the dataset"
+            "Both 'Reverse' and 'Decoy' columns are found. "
+            "Please consider manual filtering of the dataset",
+            stacklevel=2
         )
         return data
     else:
         warnings.warn(
-            "Neither 'Reverse' nor 'Decoy' columns are found. Please consider manual filtering of the dataset"
+            "Neither 'Reverse' nor 'Decoy' columns are found. "
+            "Please consider manual filtering of the dataset",
+            stacklevel=2
         )
         return data
 

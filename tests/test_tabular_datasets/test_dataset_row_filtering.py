@@ -5,7 +5,7 @@ from omicspylib import PeptidesDataset, ProteinsDataset
 
 def test_protein_dataset_filter_on_conditions(
         proteins_dataset: ProteinsDataset,
-        peptides_dataset: PeptidesDataset):
+        peptides_dataset: PeptidesDataset) -> None:
     """
     Test that you can filter in/out certain experimental
     conditions from a given dataset.
@@ -36,7 +36,7 @@ def test_protein_dataset_filter_on_conditions(
 def test_filtering_of_rows_with_low_within_group_frequency(
         proteins_dataset: ProteinsDataset,
         peptides_dataset: PeptidesDataset,
-        dset_name,conditions,min_f,n_before,n_after):
+        dset_name,conditions,min_f,n_before,n_after) -> None:
     """
     For certain cases, you might want to drop cases with low ids
     across experimental conditions. Test that you can filter them out.
@@ -67,7 +67,7 @@ def test_filtering_of_rows_with_low_within_group_frequency(
 def test_filter_dataset_based_on_primary_id(
         proteins_dataset: ProteinsDataset,
         peptides_dataset: PeptidesDataset,
-        dset_name, target_ids):
+        dset_name, target_ids) -> None:
     """
     Test that you can keep in a dataset only the target ids.
     """
@@ -90,7 +90,7 @@ def test_filter_dataset_based_on_primary_id(
 
 
 def test_filter_peptides_dataset_based_on_protein_id(
-        peptides_dataset: PeptidesDataset,):
+        peptides_dataset: PeptidesDataset) -> None:
     """
     Test that you can indirectly filter peptide records,
     based on the associated protein id.
@@ -111,7 +111,7 @@ def test_filter_peptides_dataset_based_on_protein_id(
 
 
 def test_drop_peptides_dataset_records_based_on_protein_id(
-        peptides_dataset: PeptidesDataset,):
+        peptides_dataset: PeptidesDataset) -> None:
     """
     Test that you can indirectly filter peptide records,
     based on the associated protein id.
@@ -140,7 +140,7 @@ def test_drop_peptides_dataset_records_based_on_protein_id(
 def test_you_can_drop_specific_records_from_the_dataset_based_on_their_id(
         proteins_dataset: ProteinsDataset,
         peptides_dataset: PeptidesDataset,
-        dset_name, target_ids):
+        dset_name, target_ids) -> None:
     """
     Test that you can keep in a dataset only the target ids.
     """

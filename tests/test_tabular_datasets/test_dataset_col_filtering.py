@@ -19,9 +19,12 @@ from omicspylib import PeptidesDataset, ProteinsDataset
 )
 def test_exp_dropping_in_dataset(
         proteins_dataset: ProteinsDataset,
-        peptides_dataset: PeptidesDataset, dset_name, drop_exp, drop_cond):
+        peptides_dataset: PeptidesDataset,
+        dset_name: str,
+        drop_exp: str | list[str] | None,
+        drop_cond: str | list[str] | None) -> None:
     """
-    Test that you can drop specific experiment(s) from a dataset.
+    Test that you can drop a specific experiment (s) from a dataset.
     """
     # action
     dsets = {
@@ -40,6 +43,7 @@ def test_exp_dropping_in_dataset(
         if isinstance(drop_exp, str):
             drop_exp = [drop_exp]
 
+        assert drop_exp is not None
         for exp in drop_exp:
             assert exp in exp_before
             assert exp not in exp_after
