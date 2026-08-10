@@ -1,6 +1,6 @@
 [project]
 name = 'omicspylib'
-version = '0.2.1'
+version = '0.2.2'
 description = 'A python library for omics data analysis'
 readme = 'README.md'
 authors = [
