@@ -21,6 +21,8 @@ def test_plot_record_across_experiments(
         plot_type=plot_type,  # type: ignore[arg-type]
         record_id="p0",
         log_transform=True,
+        show_experiment_names=True,
+        text_annotation_size=6
     )
 
     # assertion

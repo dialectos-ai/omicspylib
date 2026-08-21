@@ -18,6 +18,7 @@ def plot_record_across_experiments(
     ylabel: str | None = None,
     title: str | None = None,
     ax: Axes | None = None,
+    **kwargs,
 ) -> Axes:
     """
     Plot values for a specific record across experiments as either a jitter plot
@@ -25,7 +26,7 @@ def plot_record_across_experiments(
 
     Parameters
     ----------
-    dataset : ProteinsDataset
+    dataset : TabularDataset
         Dataset object containing quantitative values and experiment conditions.
     plot_type : Literal["jitter", "bar"]
         Type of plot to generate: "jitter" (boxplot + stripplot grouped by condition)
@@ -33,7 +34,7 @@ def plot_record_across_experiments(
     record_id : str
         ID of the record (protein/gene) to plot.
     log_transform : bool, default=False
-        If True, transforms values to log2 scale.
+        If True, transforms values to a log2 scale.
     xlabel : str | None, default=None
         Label for the x-axis. If None, defaults to "Condition" for jitter and "Experiment" for bar.
     ylabel : str | None, default=None
@@ -42,12 +43,26 @@ def plot_record_across_experiments(
         Title of the plot. If None, defaults to "Record: {record_id}".
     ax : Axes | None, default=None
         Matplotlib Axes object to draw on. If None, a new figure and axes are created.
+    **kwargs : dict, optional
+        Additional keyword arguments:
 
+        * show_experiment_name : bool, default=False
+            If True, displays experiment names on the jitter plot.
+        * text_annotation_size : float, default=5
+            Font size for text annotations on jitter plot points.
+        * text_rotation : float, default=0
+            Rotation angle in degrees for text annotations.
+        * text_round_digits : int | None, default=None
+            If specified, rounds numeric text annotations to this number of decimal places.
     Returns
     -------
     Axes
         Matplotlib Axes object containing the plot.
     """
+    text_annotation_size = kwargs.get("text_annotation_size", 6)
+    text_rotation = kwargs.get("text_rotation", 0)
+    text_round_digits = kwargs.get("text_round_digits", None)
+
     tabular_df = dataset.to_table()
     if record_id not in tabular_df.index:
         raise ValueError(f"Record ID '{record_id}' not found in dataset.")
@@ -108,6 +123,20 @@ def plot_record_across_experiments(
             linewidth=1,
             ax=ax,
         )
+        if kwargs.get("show_experiment_names", False):
+            points = np.vstack(
+                [coll.get_offsets() for coll in ax.collections if np.asarray(coll.get_offsets()).size > 0]
+            )
+            padding = 0.1
+            for (x, y), (_, row) in zip(points, plot_df.iterrows(), strict=True):
+                ax.text(
+                    x + padding,
+                    y,
+                    row["experiment"],
+                    va="center",
+                    ha="left",
+                    fontsize=text_annotation_size,
+                )
         ax.set_xlabel(xlabel if xlabel is not None else "Condition")
 
     elif plot_type == "bar":
@@ -116,11 +145,22 @@ def plot_record_across_experiments(
 
         ax.set_xticks(ax.get_xticks())
         ax.set_xticklabels(plot_df["experiment"], rotation=45, ha="right")
-        ax.bar_label(bars)
+        ax.bar_label(bars, fontsize=text_annotation_size)
         ax.set_xlabel(xlabel if xlabel is not None else "Experiment")
 
     else:
         raise ValueError(f"Invalid plot_type '{plot_type}'. Must be 'jitter' or 'bar'.")
+
+    # Apply rotation and rounding formatting to all text annotations
+    for txt in ax.texts:
+        if text_rotation != 0:
+            txt.set_rotation(text_rotation)
+        if text_round_digits is not None:
+            try:
+                val = float(txt.get_text())
+                txt.set_text(f"{val:.{text_round_digits}f}")
+            except ValueError:
+                pass
 
     ax.set_title(title if title is not None else f"Record: {record_id}", fontweight="bold")
     ax.set_ylabel(ylabel if ylabel is not None else default_ylabel)
