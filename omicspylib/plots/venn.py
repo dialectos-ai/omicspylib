@@ -8,37 +8,42 @@ from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib_venn import venn2  # type: ignore
 
+from omicspylib.docs.definition import doc
 
-# pylint: disable=too-many-arguments
+
+@doc()
 def plot_venn2(data: pd.DataFrame,
                condition_a: str,
                condition_b: str,
-               color_a: str = 'blue',
-               color_b: str = 'red',
-               title: str = 'Venn Diagram',
+               color_a: str = "blue",
+               color_b: str = "red",
+               title: str = "Venn Diagram",
                ax: Axes | None = None) -> Axes:
     """
     Venn diagram between two groups.
 
     Parameters
     ----------
-    data
-    condition_a
-    condition_b
-    color_a
-    color_b
-    title
-    ax
+    data : pd.DataFrame
+        DataFrame containing a 'frequency_class' column that categorizes records
+        as belonging to condition_a, condition_b, or both ('common').
+    condition_a : str
+        Name/label of the first condition.
+    condition_b : str
+        Name/label of the second condition.
+    color_a : str, default='blue'
+        Color of the circle corresponding to condition_a.
+    color_b : str, default='red'
+        Color of the circle corresponding to condition_b.
+    {title}
+    {ax}
 
-    Returns
-    -------
-    Axes
-        Matplotlib's Axes object.
+    {returns_ax}
     """
     # extract frequencies
-    f_counts = data[['frequency_class']]\
+    f_counts = data[["frequency_class"]]\
         .reset_index()\
-        .groupby('frequency_class')\
+        .groupby("frequency_class")\
         .count()
     counts_col = f_counts.columns.tolist()[-1]
     grp1_idx = [i for i in f_counts.index if i.endswith(condition_a)]

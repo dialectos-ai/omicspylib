@@ -9,18 +9,24 @@ from matplotlib.axes import Axes
 from matplotlib.lines import Line2D
 
 from omicspylib import ProteinsDataset
+from omicspylib.docs.definition import doc
+from omicspylib.plots.utils import apply_xtick_formatting
 
 
-# pylint: disable=too-many-arguments
+@doc(
+    "text_xlabel_rotation", "text_xlabel_ha", "text_xlabel_va"
+)
 def plot_density(
         dataset: ProteinsDataset,
         log_transform: bool = False,
-        xlabel: str = 'Quantitative value',
-        ylabel: str = 'Density',
-        title: str = 'Distribution of values across experiments',
+        xlabel: str = "Quantitative value",
+        ylabel: str = "Density",
+        title: str = "Distribution of values across experiments",
         hide_legend: bool = False,
         color_by_group: bool = True,
-        ax: Axes | None = None) -> Axes:
+        ax: Axes | None = None,
+        **kwargs
+) -> Axes:
     """
     Generic function for creating a density plot over quantitative
     values of a dataset. It returns a matplotlib axes object that you can
@@ -31,28 +37,24 @@ def plot_density(
 
     Parameters
     ----------
-    dataset: ProteinsDataset
-        A proteins dataset object.
-    log_transform: bool
+    {dataset}
+    log_transform: bool, default=False
         If specified, values will be transformed to log2.
+        By default, raw values are plotted.
     xlabel: str
         X axis label.
     ylabel: str
         Y axis label.
     title: str
         Plot title.
-    hide_legend: bool
+    hide_legend: bool, default=False
         If set to ``True``, the legend will be removed.
-    color_by_group: bool
+    color_by_group: bool, default=True
         If True, experiments belonging to the same condition group will share the same color.
-    ax: Axes | None
-        You can provide a plt.Axes object to create a plot
-        on that. Otherwise, a new object will be created and returned.
+    {ax}
+    {kwargs_doc}
 
-    Returns
-    -------
-    Axes
-        A matplotlib Axes object.
+    {returns_ax}
     """
     tabular_dataset = dataset.to_table()
     long_data = tabular_dataset.melt()
@@ -89,5 +91,13 @@ def plot_density(
     ax.set_title(title)
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
+
+    apply_xtick_formatting(
+        ax,
+        rotation=kwargs.get("text_xlabel_rotation"),
+        ha=kwargs.get("text_xlabel_ha"),
+        va=kwargs.get("text_xlabel_va"),
+        default_rotation=0
+    )
 
     return ax

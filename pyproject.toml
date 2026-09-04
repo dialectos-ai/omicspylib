@@ -71,7 +71,13 @@ select = [
     "UP",    # pyupgrade (enforces modern Python syntax)
     "ANN2",  # Missing return type annotations
     "RUF",   # Ruff-specific rules]
+    "Q",  # Enables flake8-quotes
 ]
+
+[tool.ruff.lint.flake8-quotes]
+inline-quotes = "double"
+docstring-quotes = "double"
+multiline-quotes = "double"
 
 [tool.ruff.lint.isort]
 combine-as-imports = true

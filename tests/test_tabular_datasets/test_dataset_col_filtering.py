@@ -6,14 +6,14 @@ from omicspylib import PeptidesDataset, ProteinsDataset
 @pytest.mark.parametrize(
     "dset_name,drop_exp,drop_cond",
     [
-        ('proteins', 'c1_rep1', None),
-        ('proteins', ['c1_rep1', 'c2_rep2'], None),
-        ('proteins', None, 'c1'),
-        ('proteins', None, ['c1', 'c2']),
-        ('peptides', 'c1_rep1', None),
-        ('peptides', ['c1_rep1', 'c2_rep2'], None),
-        ('peptides', None, 'c1'),
-        ('peptides', None, ['c1', 'c2']),
+        ("proteins", "c1_rep1", None),
+        ("proteins", ["c1_rep1", "c2_rep2"], None),
+        ("proteins", None, "c1"),
+        ("proteins", None, ["c1", "c2"]),
+        ("peptides", "c1_rep1", None),
+        ("peptides", ["c1_rep1", "c2_rep2"], None),
+        ("peptides", None, "c1"),
+        ("peptides", None, ["c1", "c2"]),
     ]
 
 )
@@ -28,8 +28,8 @@ def test_exp_dropping_in_dataset(
     """
     # action
     dsets = {
-        'proteins': proteins_dataset,
-        'peptides': peptides_dataset
+        "proteins": proteins_dataset,
+        "peptides": peptides_dataset
     }
     dataset = dsets[dset_name]
 

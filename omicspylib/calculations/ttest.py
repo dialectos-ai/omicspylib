@@ -8,16 +8,16 @@ from statsmodels.stats.multitest import multipletests
 from omicspylib.datasets.proteins import ProteinsDataset
 
 MULTITEST_METHOD = Literal[
-    'bonferroni',
-    'sidak',
-    'holm-sidak',
-    'holm',
-    'simes-hochberg',
-    'hommel',
-    'fdr_bh',
-    'fdr_by',
-    'fdr_tsbh',
-    'fdr_tsbky',
+    "bonferroni",
+    "sidak",
+    "holm-sidak",
+    "holm",
+    "simes-hochberg",
+    "hommel",
+    "fdr_bh",
+    "fdr_by",
+    "fdr_tsbh",
+    "fdr_tsbky",
 ]
 
 
@@ -26,7 +26,7 @@ def calc_ttest_adj(
         condition_a: str,
         condition_b: str,
         na_threshold: float = 0.0,
-        pval_adj_method: MULTITEST_METHOD | None = 'fdr_bh') -> pd.DataFrame:
+        pval_adj_method: MULTITEST_METHOD | None = "fdr_bh") -> pd.DataFrame:
     """
     Calculate t-test and correct p-values for multiple-hypothesis testing error.
 
@@ -52,7 +52,7 @@ def calc_ttest_adj(
         and optionally adjusted p-values. Row indices remain as they
         were provided.
     """
-    df = data.to_table(join_method='inner')
+    df = data.to_table(join_method="inner")
     mask = df > na_threshold
     df[~mask] = np.nan
     a_cols = data.experiment_names(condition_a)
@@ -61,13 +61,13 @@ def calc_ttest_adj(
     m2 = df[b_cols].values
 
     # I assume that you removed cases with low frequency before
-    t_stat, p_val = ttest_ind(m1, m2, axis=1, nan_policy='omit')
+    t_stat, p_val = ttest_ind(m1, m2, axis=1, nan_policy="omit")
 
-    out_data = {'p-value': p_val, 't-statistic': t_stat}
+    out_data = {"p-value": p_val, "t-statistic": t_stat}
     if pval_adj_method is not None:
         _, adjusted_p_values, _, _ = multipletests(
             p_val, method=pval_adj_method, is_sorted=False)
         if adjusted_p_values is not None:
-            out_data['adj-p-value'] = adjusted_p_values
+            out_data["adj-p-value"] = adjusted_p_values
 
     return pd.DataFrame(out_data, index=df.index)

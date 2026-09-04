@@ -9,13 +9,13 @@ def test_fold_change_calculation() -> None:
     change and return the expected output.
     """
     # setup
-    data = {'A': [1, 2, 3, 4, 5],
-            'B': [6, 7, 8, 9, 10]}
+    data = {"A": [1, 2, 3, 4, 5],
+            "B": [6, 7, 8, 9, 10]}
     df = pd.DataFrame(data)
-    column1 = 'A'
-    column2 = 'B'
-    exp_fc_col = 'fold change'
-    exp_log2_fc_col = 'log2 fold change'
+    column1 = "A"
+    column2 = "B"
+    exp_fc_col = "fold change"
+    exp_log2_fc_col = "log2 fold change"
 
     # action
     fc_out = calc_fold_change(df, column1, column2)

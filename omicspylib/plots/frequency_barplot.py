@@ -7,6 +7,8 @@ from matplotlib.axes import Axes
 
 from omicspylib import ProteinsDataset
 from omicspylib.datasets.abc import TabularDataset
+from omicspylib.docs.definition import doc
+from omicspylib.plots.utils import apply_text_annotation_formatting, apply_xtick_formatting
 
 
 def _plot_barplot(
@@ -17,6 +19,7 @@ def _plot_barplot(
     xlabel: str = "",
     ylabel: str = "",
     ax: Axes | None = None,
+    **kwargs
 ) -> Axes:
     """
     Draw a colored barplot with annotations.
@@ -37,6 +40,7 @@ def _plot_barplot(
         Label for the y-axis.
     ax: Axes | None
         Matplotlib Axes object to plot on. If None, a new figure and axes are created.
+    {kwargs_doc}
 
     Returns
     -------
@@ -48,6 +52,13 @@ def _plot_barplot(
         raise ValueError(
             "x_values, y_values and group labels should be of the same size"
         )
+
+    text_annotation_size = kwargs.get("text_annotation_size", None)
+    text_annotation_rotation = kwargs.get("text_annotation_rotation", 0)
+    text_annotation_round_digits = kwargs.get("text_annotation_round_digits", None)
+    text_xlabel_rotation = kwargs.get("text_xlabel_rotation", 45)
+    text_xlabel_ha = kwargs.get("text_xlabel_ha", None)
+    text_xlabel_va = kwargs.get("text_xlabel_va", None)
 
     # setup colors
     unique_categories = list(set(group))
@@ -66,14 +77,44 @@ def _plot_barplot(
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
     ax.set_xticks(ax.get_xticks())
-    ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha="right")
-    ax.bar_label(bar_container)
+    ax.set_xticklabels(x_values)
+
+    apply_xtick_formatting(
+        ax,
+        rotation=text_xlabel_rotation,
+        ha=text_xlabel_ha,
+        va=text_xlabel_va,
+        default_rotation=45,
+    )
+
+    bar_label_kwargs = {}
+    if text_annotation_size is not None:
+        bar_label_kwargs["fontsize"] = text_annotation_size
+    if text_annotation_rotation != 0:
+        bar_label_kwargs["rotation"] = text_annotation_rotation
+
+    ax.bar_label(bar_container, **bar_label_kwargs)
+
+    apply_text_annotation_formatting(
+        ax,
+        rotation=text_annotation_rotation,
+        round_digits=text_annotation_round_digits,
+    )
+
     plt.tight_layout()
 
     return ax
 
 
 # pylint: disable=too-many-arguments
+@doc(
+    "text_annotation_size",
+    "text_annotation_rotation",
+    "text_annotation_round_digits",
+    "text_xlabel_rotation",
+    "text_xlabel_ha",
+    "text_xlabel_va",
+)
 def plot_missing_values(
     dataset: TabularDataset,
     xlabel: str = "Experiment",
@@ -81,6 +122,7 @@ def plot_missing_values(
     title: str = "Missing values over experiments",
     min_threshold: float = 0,
     ax: Axes | None = None,
+    **kwargs
 ) -> Axes:
     """
     Plot the number of missing values per experiment of the dataset.
@@ -90,23 +132,18 @@ def plot_missing_values(
 
     Parameters
     ----------
-    dataset: TabularDataset
-        Dataset under discussion.
-    xlabel: str, optional
+    {dataset}
+    xlabel: str
         X-axis label.
-    ylabel: str, optional
+    ylabel: str
         Y-axis label.
-    title: str, optional
+    title: str
         Title of the plot.
-    min_threshold: float, optional
-        Values below that threshold will be considered as missing values.
-    ax: plt.Axes, optional
-        If an existing axes object is provided, the plot will be drawn on it.
+    {min_threshold}
+    {ax}
+    {kwargs_doc}
 
-    Returns
-    -------
-    ax: plt.Axes
-        A matplotlib axes object containing the plot.
+    {returns_ax}
     """
     df, n_missing, n_total = dataset.record_counts(
         na_threshold=min_threshold,
@@ -122,9 +159,17 @@ def plot_missing_values(
         xlabel=xlabel,
         ylabel=ylabel,
         ax=ax,
+        **kwargs
     )
 
 
+@doc(
+    "text_annotation_size",
+    "text_annotation_rotation",
+    "text_xlabel_rotation",
+    "text_xlabel_ha",
+    "text_xlabel_va",
+)
 def plot_record_frequency(
     dataset: ProteinsDataset,
     xlabel: str = "Experiment",
@@ -132,7 +177,25 @@ def plot_record_frequency(
     title: str = "Missing records over experiments",
     min_threshold: float = 0,
     ax: Axes | None = None,
+    **kwargs
 ) -> Axes:
+    """Plot record counts.
+
+    Parameters
+    ----------
+    {dataset}
+    xlabel: str
+        X-axis label.
+    ylabel: str
+        Y-axis label.
+    title: str
+        Title of the plot.
+    {min_threshold}
+    {ax}
+    {kwargs_doc}
+
+    {returns_ax}
+    """
     df, n_pressent, n_total = dataset.record_counts(
         na_threshold=min_threshold,
         value_type="present"
@@ -147,4 +210,5 @@ def plot_record_frequency(
         xlabel=xlabel,
         ylabel=ylabel,
         ax=ax,
+        **kwargs
     )
