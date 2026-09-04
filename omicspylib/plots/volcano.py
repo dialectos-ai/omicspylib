@@ -7,12 +7,15 @@ import pandas as pd
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
 
+from omicspylib.docs.definition import doc
+
 _MINUS_LOG10_PVAL_COL = "mlog10-pval"
 _LOG2_FC_COL = "log2_fc"
 _X_EXPANSION_FACTOR = 1.1
 
 
 # pylint: disable=too-many-arguments,too-many-locals
+@doc()
 def plot_volcano(
     data: pd.DataFrame,
     pval_col: str,
@@ -73,21 +76,12 @@ def plot_volcano(
         If ``ymax`` is provided, it will be used to set the y limit.
         Otherwise, it will be calculated based on the provided data.
         Note that it corresponds to transformed p-values.
-    xlabel: str
-        If provided will replace the default x-label.
-    ylabel: str
-        If provided will replace the default y-label.
-    title: str
-        If provided will replace the default title.
-    ax: plt.Axes or None
-        If a matplotlib axes object is provided, the plot will be drawn
-        on it. Otherwise, a new plt.Axes object is created and returned
-        to the user.
+    {xlabel}
+    {ylabel}
+    {title}
+    {ax}
 
-    Returns
-    -------
-    Axes
-        A Matplotlib Axes object where the plot is drawn.
+    {returns_ax}
     """
     data = data.copy()
 

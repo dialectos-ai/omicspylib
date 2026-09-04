@@ -4,7 +4,7 @@ import requests
 
 
 def go_to_goslim(from_ids: list[str], to_ids: list[str],
-                 relations: str ='is_a,part_of,occurs_in,regulates',
+                 relations: str ="is_a,part_of,occurs_in,regulates",
                  batch_size: int = 100, delay_time: float = 0.1) -> dict:
     """
     Map a list of GO term ids, to the corresponding GO-slim terms.
@@ -59,7 +59,7 @@ def go_to_goslim(from_ids: list[str], to_ids: list[str],
     {'GO:0035253': ['GO:0005929', 'GO:0005856'],
     'GO:0000922': ['GO:0005856']}
     """
-    url = 'https://www.ebi.ac.uk/QuickGO/services/ontology/go/slim'
+    url = "https://www.ebi.ac.uk/QuickGO/services/ontology/go/slim"
     from_ids = list(set(from_ids))
     to_ids = list(set(to_ids))
     from_ids = [go_id.strip() for go_id in from_ids]
@@ -74,17 +74,17 @@ def go_to_goslim(from_ids: list[str], to_ids: list[str],
         end_idx = min(start_idx + batch_size, n_items)
 
         params = {
-            'slimsToIds': ','.join(to_ids),
-            'slimsFromIds': ','.join(from_ids[start_idx:end_idx]),
-            'relations': relations
+            "slimsToIds": ",".join(to_ids),
+            "slimsFromIds": ",".join(from_ids[start_idx:end_idx]),
+            "relations": relations
         }
         response = requests.get(url, params=params)
         time.sleep(delay_time)
         if response.ok:
-            batched_mappings = response.json()['results']
+            batched_mappings = response.json()["results"]
             all_mappings.extend(batched_mappings)
         else:
             response.raise_for_status()
 
     # reformat outputs
-    return {r['slimsFromId']: r['slimsToIds'] for r in all_mappings}
+    return {r["slimsFromId"]: r["slimsToIds"] for r in all_mappings}

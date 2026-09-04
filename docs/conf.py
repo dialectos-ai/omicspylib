@@ -2,24 +2,26 @@
 #
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
-# import os
-# import sys
+import os
+import sys
+
+sys.path.insert(0, os.path.abspath("../.."))
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = 'omicspylib'
-copyright = '2024, Dialectos.AI'
-author = 'Dialectos.AI'
+project = "omicspylib"
+copyright = "2026, Dialectos.AI"
+author = "Dialectos.AI"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 extensions = [
-    'sphinx.ext.autodoc',
-    'sphinx.ext.autosectionlabel',
-    'sphinx.ext.napoleon',  # If you're using Google or NumPy docstrings
-    'nbsphinx',
+    "sphinx.ext.autodoc",
+    "sphinx.ext.autosectionlabel",
+    "sphinx.ext.napoleon",  # If you're using Google or NumPy docstrings
+    "nbsphinx",
 ]
 
 # Prefix section labels with the document path to avoid duplicate label warnings
@@ -27,12 +29,12 @@ autosectionlabel_prefix_document = True
 autosectionlabel_maxdepth = 2  # Optional: limit prefix depth if needed
 
 
-templates_path = ['_templates']
+templates_path = ["_templates"]
 exclude_patterns = [
-    '_build',
-    'build',
-    '**.ipynb_checkpoints',
-    '.doctrees',
+    "_build",
+    "build",
+    "**.ipynb_checkpoints",
+    ".doctrees",
 ]
 
 
@@ -44,16 +46,16 @@ exclude_patterns = [
 # html_theme = 'sphinx_rtd_theme'
 # html_theme = 'sphinx_book_theme'
 # html_theme = 'furo'
-html_theme = 'pydata_sphinx_theme'
+html_theme = "pydata_sphinx_theme"
 
-html_static_path = ['_static']
+html_static_path = ["_static"]
 
-autodoc_member_order = 'alphabetical'
+autodoc_member_order = "alphabetical"
 
-autoclass_content = 'class'  # Options: 'class', 'init', 'both'
+autoclass_content = "class"  # Options: 'class', 'init', 'both'
 # 'class': Use the class's docstring, ignore the __init__ method (this is the default).
 # 'both': Use both the class's and the __init__ method's docstring.
 # 'init': Use the __init__ method's docstring, ignore the class docstring.
 
 # Always execute notebooks during doc build
-nbsphinx_execute = 'always'
+nbsphinx_execute = "always"

@@ -21,7 +21,7 @@ class PairwiseComparisonTTestFC:
     def eval(self,
              min_frequency: int = 3,
              na_threshold: float = 0.0,
-             pval_adj_method: MULTITEST_METHOD | None = 'fdr_bh',
+             pval_adj_method: MULTITEST_METHOD | None = "fdr_bh",
              use_log_transformed: bool = True) -> pd.DataFrame:
         """
         Perform the pairwise comparison between the two groups, using
@@ -56,10 +56,10 @@ class PairwiseComparisonTTestFC:
             min_frequency=min_frequency,
             na_threshold=na_threshold)
 
-        mean_abundance = dataset.mean(na_threshold=na_threshold, join_method='inner')
+        mean_abundance = dataset.mean(na_threshold=na_threshold, join_method="inner")
         mean_abundance = mean_abundance.rename(columns={
-            f'mean_{self._condition_a}': self._condition_a,
-            f'mean_{self._condition_b}': self._condition_b,
+            f"mean_{self._condition_a}": self._condition_a,
+            f"mean_{self._condition_b}": self._condition_b,
         })
 
         fc_out = calc_fold_change(
@@ -79,6 +79,6 @@ class PairwiseComparisonTTestFC:
             na_threshold=na_threshold,
             pval_adj_method=pval_adj_method)
 
-        out_df = ttest_out.merge(fc_out, left_index=True, right_index=True, how='outer')
+        out_df = ttest_out.merge(fc_out, left_index=True, right_index=True, how="outer")
 
         return out_df

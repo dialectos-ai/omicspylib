@@ -12,30 +12,30 @@ from omicspylib import PeptidesDataset, ProteinsDataset
     [
         # protein dataset example
         (
-            'tests/data/protein_dataset.tsv',
+            "tests/data/protein_dataset.tsv",
              ProteinsDataset.from_df,
             {
-                'id_col': 'protein_id',
-                'conditions': {
-                    'c1': ['c1_rep1', 'c1_rep2', 'c1_rep3', 'c1_rep4', 'c1_rep5'],
-                    'c2': ['c2_rep1', 'c2_rep2', 'c2_rep3', 'c2_rep4', 'c2_rep5'],
-                    'c3': ['c3_rep1', 'c3_rep2', 'c3_rep3', 'c3_rep4', 'c3_rep5'],
+                "id_col": "protein_id",
+                "conditions": {
+                    "c1": ["c1_rep1", "c1_rep2", "c1_rep3", "c1_rep4", "c1_rep5"],
+                    "c2": ["c2_rep1", "c2_rep2", "c2_rep3", "c2_rep4", "c2_rep5"],
+                    "c3": ["c3_rep1", "c3_rep2", "c3_rep3", "c3_rep4", "c3_rep5"],
                 }
             },
             3, 15, 100,
         ),
         # peptide dataset
         (
-            'tests/data/peptides_dataset.tsv',
+            "tests/data/peptides_dataset.tsv",
             PeptidesDataset.from_df,
             {
-                'id_col': 'peptide_id',
-                'conditions': {
-                    'c1': ['c1_rep1', 'c1_rep2', 'c1_rep3', 'c1_rep4', 'c1_rep5'],
-                    'c2': ['c2_rep1', 'c2_rep2', 'c2_rep3', 'c2_rep4', 'c2_rep5'],
-                    'c3': ['c3_rep1', 'c3_rep2', 'c3_rep3', 'c3_rep4', 'c3_rep5'],
+                "id_col": "peptide_id",
+                "conditions": {
+                    "c1": ["c1_rep1", "c1_rep2", "c1_rep3", "c1_rep4", "c1_rep5"],
+                    "c2": ["c2_rep1", "c2_rep2", "c2_rep3", "c2_rep4", "c2_rep5"],
+                    "c3": ["c3_rep1", "c3_rep2", "c3_rep3", "c3_rep4", "c3_rep5"],
                 },
-                'protein_id_col': 'protein_id',
+                "protein_id_col": "protein_id",
             },
             3, 15, 1000,
         )
@@ -53,7 +53,7 @@ def test_protein_dataset_creation_from_df(
     created object has expected attributes.
     """
     # setup
-    data_df = pd.read_csv(fp, sep='\t')
+    data_df = pd.read_csv(fp, sep="\t")
 
     # action
     dataset = obj_constructor(data_df, **config)
@@ -63,7 +63,7 @@ def test_protein_dataset_creation_from_df(
     assert dataset.n_experiments == n_exp
     assert dataset.n_records == n_records
     experimental_conditions = dataset.condition_names
-    for condition_name, exp_names in config['conditions'].items():
+    for condition_name, exp_names in config["conditions"].items():
         assert condition_name in experimental_conditions
         experiment_names = dataset.experiment_names(condition_name)
         for exp_name in exp_names:
@@ -92,15 +92,15 @@ def test_protein_dataset_creation_from_mq_output(
     """
     # setup
     protein_groups_fp = "tests/data/protein_dataset_mq.tsv"
-    data = pd.read_csv(protein_groups_fp, sep='\t')
+    data = pd.read_csv(protein_groups_fp, sep="\t")
 
     config = {
-        'id_col': 'Majority protein IDs',
-        'rename_id_col': 'protein_id',
-        'conditions': {
-            'c1': ['c1_rep1', 'c1_rep2', 'c1_rep3', 'c1_rep4', 'c1_rep5'],
-            'c2': ['c2_rep1', 'c2_rep2', 'c2_rep3', 'c2_rep4', 'c2_rep5'],
-            'c3': ['c3_rep1', 'c3_rep2', 'c3_rep3', 'c3_rep4', 'c3_rep5'],
+        "id_col": "Majority protein IDs",
+        "rename_id_col": "protein_id",
+        "conditions": {
+            "c1": ["c1_rep1", "c1_rep2", "c1_rep3", "c1_rep4", "c1_rep5"],
+            "c2": ["c2_rep1", "c2_rep2", "c2_rep3", "c2_rep4", "c2_rep5"],
+            "c3": ["c3_rep1", "c3_rep2", "c3_rep3", "c3_rep4", "c3_rep5"],
         }
     }
 
@@ -132,11 +132,11 @@ def test_protein_and_peptides_dataset_stats(
     """
     # setup
     exp_high_level_keys = [
-        'n_conditions_total', 'n_records_total',
-        'n_experiments_total', 'statistics_per_condition']
+        "n_conditions_total", "n_records_total",
+        "n_experiments_total", "statistics_per_condition"]
     exp_low_level_keys = [
-        'name', 'n_experiments', 'n_records',
-        'experiment_names', 'n_records_per_experiment']
+        "name", "n_experiments", "n_records",
+        "experiment_names", "n_records_per_experiment"]
 
     # action
     for dataset in [proteins_dataset, peptides_dataset]:
@@ -147,6 +147,6 @@ def test_protein_and_peptides_dataset_stats(
         for key in exp_high_level_keys:
             assert key in stats
 
-        example_cond = stats['statistics_per_condition'][0]
+        example_cond = stats["statistics_per_condition"][0]
         for key in exp_low_level_keys:
             assert key in example_cond

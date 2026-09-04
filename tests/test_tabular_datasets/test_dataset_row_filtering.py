@@ -11,9 +11,9 @@ def test_protein_dataset_filter_on_conditions(
     conditions from a given dataset.
     """
     # setup
-    c1 = 'c1'
-    c2 = 'c2'
-    c3 = 'c3'
+    c1 = "c1"
+    c2 = "c2"
+    c3 = "c3"
     datasets = [proteins_dataset, peptides_dataset]
 
     # action
@@ -29,8 +29,8 @@ def test_protein_dataset_filter_on_conditions(
 @pytest.mark.parametrize(
     "dset_name,conditions,min_f,n_before,n_after",
     [
-        ('proteins', ['c1'], 3, 100, 100),
-        ('peptides', ['c1'], 3, 1000, 1000),
+        ("proteins", ["c1"], 3, 100, 100),
+        ("peptides", ["c1"], 3, 1000, 1000),
     ]
 )
 def test_filtering_of_rows_with_low_within_group_frequency(
@@ -43,8 +43,8 @@ def test_filtering_of_rows_with_low_within_group_frequency(
     """
     # setup
     dsets = {
-        'proteins': proteins_dataset,
-        'peptides': peptides_dataset
+        "proteins": proteins_dataset,
+        "peptides": peptides_dataset
     }
     dataset = dsets[dset_name]
     dset_before = dataset.filter(cond=conditions)
@@ -60,8 +60,8 @@ def test_filtering_of_rows_with_low_within_group_frequency(
 @pytest.mark.parametrize(
     "dset_name,target_ids",
     [
-        ('proteins', ['p1', 'p2', 'p3']),
-        ('peptides', ['pept1', 'pept2', 'pept3']),
+        ("proteins", ["p1", "p2", "p3"]),
+        ("peptides", ["pept1", "pept2", "pept3"]),
     ]
 )
 def test_filter_dataset_based_on_primary_id(
@@ -73,8 +73,8 @@ def test_filter_dataset_based_on_primary_id(
     """
     # setup
     dsets = {
-        'proteins': proteins_dataset,
-        'peptides': peptides_dataset
+        "proteins": proteins_dataset,
+        "peptides": peptides_dataset
     }
     dataset = dsets[dset_name]
 
@@ -96,7 +96,7 @@ def test_filter_peptides_dataset_based_on_protein_id(
     based on the associated protein id.
     """
     # setup
-    target_ids = ['prot1', 'prot2', 'prot3']
+    target_ids = ["prot1", "prot2", "prot3"]
 
     # action
     filtered_dset = peptides_dataset.filter(protein_ids=target_ids)
@@ -117,7 +117,7 @@ def test_drop_peptides_dataset_records_based_on_protein_id(
     based on the associated protein id.
     """
     # setup
-    target_ids = ['prot1', 'prot2', 'prot3']
+    target_ids = ["prot1", "prot2", "prot3"]
 
     # action
     filtered_dset = peptides_dataset.drop(protein_ids=target_ids)
@@ -133,8 +133,8 @@ def test_drop_peptides_dataset_records_based_on_protein_id(
 @pytest.mark.parametrize(
     "dset_name,target_ids",
     [
-        ('proteins', ['p1', 'p2', 'p3']),
-        ('peptides', ['pept1', 'pept2', 'pept3']),
+        ("proteins", ["p1", "p2", "p3"]),
+        ("peptides", ["pept1", "pept2", "pept3"]),
     ]
 )
 def test_you_can_drop_specific_records_from_the_dataset_based_on_their_id(
@@ -146,8 +146,8 @@ def test_you_can_drop_specific_records_from_the_dataset_based_on_their_id(
     """
     # setup
     dsets = {
-        'proteins': proteins_dataset,
-        'peptides': peptides_dataset
+        "proteins": proteins_dataset,
+        "peptides": peptides_dataset
     }
     dataset = dsets[dset_name]
 

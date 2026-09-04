@@ -1,3 +1,4 @@
+import warnings
 from typing import Literal
 
 import matplotlib.pyplot as plt
@@ -7,8 +8,19 @@ import seaborn as sns
 from matplotlib.axes import Axes
 
 from omicspylib.datasets.abc import TabularDataset
+from omicspylib.docs.definition import doc
+from omicspylib.plots.utils import apply_text_annotation_formatting, apply_xtick_formatting
 
 
+@doc(
+    "show_experiment_names",
+    "text_annotation_size",
+    "text_annotation_rotation",
+    "text_annotation_round_digits",
+    "text_xlabel_rotation",
+    "text_xlabel_ha",
+    "text_xlabel_va",
+)
 def plot_record_across_experiments(
     dataset: TabularDataset,
     plot_type: Literal["jitter", "bar"],
@@ -26,8 +38,7 @@ def plot_record_across_experiments(
 
     Parameters
     ----------
-    dataset : TabularDataset
-        Dataset object containing quantitative values and experiment conditions.
+    {dataset}
     plot_type : Literal["jitter", "bar"]
         Type of plot to generate: "jitter" (boxplot + stripplot grouped by condition)
         or "bar" (barplot across experiments).
@@ -40,28 +51,38 @@ def plot_record_across_experiments(
     ylabel : str | None, default=None
         Label for the y-axis. If None, defaults based on log_transform.
     title : str | None, default=None
-        Title of the plot. If None, defaults to "Record: {record_id}".
-    ax : Axes | None, default=None
-        Matplotlib Axes object to draw on. If None, a new figure and axes are created.
-    **kwargs : dict, optional
-        Additional keyword arguments:
+        Title of the plot.
+    {ax}
+    {kwargs_doc}
 
-        * show_experiment_name : bool, default=False
-            If True, displays experiment names on the jitter plot.
-        * text_annotation_size : float, default=5
-            Font size for text annotations on jitter plot points.
-        * text_rotation : float, default=0
-            Rotation angle in degrees for text annotations.
-        * text_round_digits : int | None, default=None
-            If specified, rounds numeric text annotations to this number of decimal places.
-    Returns
-    -------
-    Axes
-        Matplotlib Axes object containing the plot.
+    {returns_ax}
     """
     text_annotation_size = kwargs.get("text_annotation_size", 6)
-    text_rotation = kwargs.get("text_rotation", 0)
-    text_round_digits = kwargs.get("text_round_digits", None)
+    text_xlabel_rotation = kwargs.get("text_xlabel_rotation", None)
+    text_xlabel_ha = kwargs.get("text_xlabel_ha", None)
+    text_xlabel_va = kwargs.get("text_xlabel_va", None)
+
+    if kwargs.get("text_rotation"):
+        warnings.warn(
+            "The 'text_rotation' parameter is deprecated and will be removed in a future version. "
+            "Use 'text_annotation_rotation' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        text_annotation_rotation = kwargs.get("text_rotation", 0)
+    else:
+        text_annotation_rotation = kwargs.get("text_annotation_rotation", 0)
+
+    if kwargs.get("text_round_digits"):
+        warnings.warn(
+            "The 'text_round_digits' parameter is deprecated and will be removed in a future version. "
+            "Use 'text_annotation_round_digits' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        text_annotation_round_digits = kwargs.get("text_round_digits", None)
+    else:
+        text_annotation_round_digits = kwargs.get("text_annotation_round_digits", None)
 
     tabular_df = dataset.to_table()
     if record_id not in tabular_df.index:
@@ -151,16 +172,21 @@ def plot_record_across_experiments(
     else:
         raise ValueError(f"Invalid plot_type '{plot_type}'. Must be 'jitter' or 'bar'.")
 
+    # Configure x-axis tick label orientation
+    apply_xtick_formatting(
+        ax,
+        rotation=text_xlabel_rotation,
+        ha=text_xlabel_ha,
+        va=text_xlabel_va,
+        default_rotation=45 if plot_type == "bar" else 0,
+    )
+
     # Apply rotation and rounding formatting to all text annotations
-    for txt in ax.texts:
-        if text_rotation != 0:
-            txt.set_rotation(text_rotation)
-        if text_round_digits is not None:
-            try:
-                val = float(txt.get_text())
-                txt.set_text(f"{val:.{text_round_digits}f}")
-            except ValueError:
-                pass
+    apply_text_annotation_formatting(
+        ax,
+        rotation=text_annotation_rotation,
+        round_digits=text_annotation_round_digits,
+    )
 
     ax.set_title(title if title is not None else f"Record: {record_id}", fontweight="bold")
     ax.set_ylabel(ylabel if ylabel is not None else default_ylabel)
