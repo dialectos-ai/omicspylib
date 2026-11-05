@@ -102,7 +102,62 @@ def test_trimmed_mean_normalization_all_records() -> None:
 
 
 @pytest.mark.parametrize("use_common_records", [True, False])
-def test_reference_condition_replicates_are_normalized(use_common_records) -> None:
+def test_median_normalization_explicit(use_common_records) -> None:
+    # p9 is missing in the target, so the two paths use different records.
+    df = pd.DataFrame(
+        {
+            "peptide_id": [f"p{i}" for i in range(10)],
+            "protein_id": ["prot1"] * 10,
+            "ref_rep1": [10.0, 20, 30, 40, 50, 60, 70, 80, 90, 1000],
+            "targ_rep1": [12.0, 22, 32, 42, 52, 62, 72, 82, 500, 0],
+        }
+    )
+    config = {
+        "id_col": "peptide_id",
+        "conditions": {"c1": ["ref_rep1"], "c2": ["targ_rep1"]},
+        "protein_id_col": "protein_id",
+    }
+    dataset = PeptidesDataset.from_df(df, **config)
+
+    norm_table = dataset.normalize(
+        method="median", ref_exp="ref_rep1", use_common_records=use_common_records
+    ).to_table()
+
+    present = df["targ_rep1"] > 0
+    targ = df.loc[present, "targ_rep1"]
+    if use_common_records:
+        ref = df.loc[present, "ref_rep1"]
+    else:
+        ref = df["ref_rep1"]
+    expected_shift = np.median(targ) - np.median(ref)
+
+    actual_shift = (
+        targ.to_numpy()
+        - norm_table.loc[df.loc[present, "peptide_id"], "targ_rep1"].to_numpy()
+    )
+    np.testing.assert_allclose(actual_shift, expected_shift)
+    np.testing.assert_allclose(norm_table["ref_rep1"], df["ref_rep1"])
+    # missing values stay missing
+    assert norm_table.loc["p9", "targ_rep1"] == 0
+
+
+def test_invalid_norm_method_raises() -> None:
+    data_df = pd.read_csv("tests/data/peptides_dataset.tsv", sep="\t")
+    dataset = PeptidesDataset.from_df(
+        data_df,
+        id_col="peptide_id",
+        conditions={"c1": ["c1_rep1", "c1_rep2"], "c2": ["c2_rep1", "c2_rep2"]},
+        protein_id_col="protein_id",
+    )
+    with pytest.raises(NotImplementedError):
+        dataset.normalize(method="quantile")  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("method", ["mean", "median"])
+@pytest.mark.parametrize("use_common_records", [True, False])
+def test_reference_condition_replicates_are_normalized(
+    use_common_records, method
+) -> None:
     df = pd.DataFrame(
         {
             "peptide_id": [f"p{i}" for i in range(5)],
@@ -120,7 +175,7 @@ def test_reference_condition_replicates_are_normalized(use_common_records) -> No
     dataset = PeptidesDataset.from_df(df, **config)
 
     norm_table = dataset.normalize(
-        method="mean", ref_exp="ref_rep1", use_common_records=use_common_records
+        method=method, ref_exp="ref_rep1", use_common_records=use_common_records
     ).to_table()
 
     np.testing.assert_allclose(norm_table["ref_rep2"], df["ref_rep1"])
@@ -172,6 +227,9 @@ def test_normalization_with_trim_fraction_param(
         ("mean", "c2_rep2", None, False, 0.1),
         ("mean", None, "c3", False, 0.1),
         ("mean", None, "c3", True, 0.9),
+        ("median", None, None, False, 0.2),
+        ("median", "c2_rep2", None, False, 0.2),
+        ("median", None, "c3", True, 0.9),
     ],
 )
 def test_normalization_method(
