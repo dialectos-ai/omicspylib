@@ -306,7 +306,7 @@ class HierarchicallyClusteredHeatmap:
             n_cols = data.shape[1] - 1
             non_nan_freq = n_cols - data.isna().sum(axis=1)
             keep_rows = non_nan_freq >= self._min_frequency
-            data = data.loc[keep_rows, :].copy()
+            data = data[keep_rows].copy()
 
         if self._fillna_method == "drop":
             data = data.dropna()
