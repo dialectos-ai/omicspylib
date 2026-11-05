@@ -2,6 +2,7 @@
 
 ProteinsDatasetExpCondition
 ===========================
+
 .. autoclass:: ProteinsDatasetExpCondition
     :show-inheritance:
 
@@ -13,26 +14,45 @@ Constructor
 
 Properties
 ----------
+.. autoattribute:: ProteinsDatasetExpCondition.name
+.. autoattribute:: ProteinsDatasetExpCondition.experiment_names
+.. autoattribute:: ProteinsDatasetExpCondition.n_experiments
+.. autoattribute:: ProteinsDatasetExpCondition.record_ids
 .. autoattribute:: ProteinsDatasetExpCondition.id_col
 .. autoattribute:: ProteinsDatasetExpCondition.metadata
-.. autoattribute:: ProteinsDatasetExpCondition.n_experiments
-.. autoattribute:: ProteinsDatasetExpCondition.experiment_names
-.. autoattribute:: ProteinsDatasetExpCondition.record_ids
-.. autoattribute:: ProteinsDatasetExpCondition.name
 
 
-
-Methods
--------
+Inspecting
+----------
 .. automethod:: ProteinsDatasetExpCondition.describe
-.. automethod:: ProteinsDatasetExpCondition.min
-.. automethod:: ProteinsDatasetExpCondition.missing_values
+
+
+Selecting records and experiments
+---------------------------------
+These methods return a new object.
+
+.. automethod:: ProteinsDatasetExpCondition.filter
+.. automethod:: ProteinsDatasetExpCondition.drop
+
+
+Transforming values
+-------------------
+These methods modify the object in place.
+
 .. automethod:: ProteinsDatasetExpCondition.log2_transform
 .. automethod:: ProteinsDatasetExpCondition.log2_backtransform
-.. automethod:: ProteinsDatasetExpCondition.mean
-.. automethod:: ProteinsDatasetExpCondition.filter
-.. automethod:: ProteinsDatasetExpCondition.frequency
-.. automethod:: ProteinsDatasetExpCondition.drop
 .. automethod:: ProteinsDatasetExpCondition.impute
-.. automethod:: ProteinsDatasetExpCondition.to_table
 .. automethod:: ProteinsDatasetExpCondition.shift
+
+
+Summarizing
+-----------
+.. automethod:: ProteinsDatasetExpCondition.min
+.. automethod:: ProteinsDatasetExpCondition.mean
+.. automethod:: ProteinsDatasetExpCondition.frequency
+.. automethod:: ProteinsDatasetExpCondition.missing_values
+
+
+Exporting
+---------
+.. automethod:: ProteinsDatasetExpCondition.to_table

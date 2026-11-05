@@ -5,6 +5,11 @@ HierarchicallyClusteredHeatmap
 
 .. autoclass:: HierarchicallyClusteredHeatmap
     :members:
-    :inherited-members:
-    :undoc-members:
-    :special-members: __init__, __name__
+    :special-members: __init__
+
+
+Results
+-------
+
+.. autoclass:: HCHeatmapData
+

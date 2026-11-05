@@ -2,6 +2,7 @@
 
 PeptidesDatasetExpCondition
 ===========================
+
 .. autoclass:: PeptidesDatasetExpCondition
     :show-inheritance:
 
@@ -13,26 +14,46 @@ Constructor
 
 Properties
 ----------
+.. autoattribute:: PeptidesDatasetExpCondition.name
 .. autoattribute:: PeptidesDatasetExpCondition.experiment_names
+.. autoattribute:: PeptidesDatasetExpCondition.n_experiments
+.. autoattribute:: PeptidesDatasetExpCondition.record_ids
 .. autoattribute:: PeptidesDatasetExpCondition.id_col
 .. autoattribute:: PeptidesDatasetExpCondition.metadata
-.. autoattribute:: PeptidesDatasetExpCondition.n_experiments
-.. autoattribute:: PeptidesDatasetExpCondition.name
-.. autoattribute:: PeptidesDatasetExpCondition.record_ids
+.. autoattribute:: PeptidesDatasetExpCondition.protein_id_col
 
 
-
-Methods
--------
+Inspecting
+----------
 .. automethod:: PeptidesDatasetExpCondition.describe
-.. automethod:: PeptidesDatasetExpCondition.drop
+
+
+Selecting records and experiments
+---------------------------------
+These methods return a new object.
+
 .. automethod:: PeptidesDatasetExpCondition.filter
-.. automethod:: PeptidesDatasetExpCondition.frequency
-.. automethod:: PeptidesDatasetExpCondition.impute
+.. automethod:: PeptidesDatasetExpCondition.drop
+
+
+Transforming values
+-------------------
+These methods modify the object in place.
+
 .. automethod:: PeptidesDatasetExpCondition.log2_transform
 .. automethod:: PeptidesDatasetExpCondition.log2_backtransform
+.. automethod:: PeptidesDatasetExpCondition.impute
+.. automethod:: PeptidesDatasetExpCondition.shift
+
+
+Summarizing
+-----------
 .. automethod:: PeptidesDatasetExpCondition.min
 .. automethod:: PeptidesDatasetExpCondition.mean
+.. automethod:: PeptidesDatasetExpCondition.frequency
 .. automethod:: PeptidesDatasetExpCondition.missing_values
-.. automethod:: PeptidesDatasetExpCondition.shift
+
+
+Exporting
+---------
 .. automethod:: PeptidesDatasetExpCondition.to_table

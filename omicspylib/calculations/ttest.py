@@ -63,11 +63,18 @@ def calc_ttest_adj(
     # I assume that you removed cases with low frequency before
     t_stat, p_val = ttest_ind(m1, m2, axis=1, nan_policy="omit")
 
+    p_val = np.asarray(p_val, dtype=float)
     out_data = {"p-value": p_val, "t-statistic": t_stat}
     if pval_adj_method is not None:
-        _, adjusted_p_values, _, _ = multipletests(
-            p_val, method=pval_adj_method, is_sorted=False)
-        if adjusted_p_values is not None:
-            out_data["adj-p-value"] = adjusted_p_values
+        # The p-value is undefined (NaN) for records that cannot be tested,
+        # e.g. with constant values or fewer than two values in a group.
+        # Adjust the valid p-values among themselves; a single NaN passed to
+        # ``multipletests`` would turn every adjusted p-value into NaN.
+        adjusted_p_values = np.full_like(p_val, np.nan)
+        is_valid = ~np.isnan(p_val)
+        if is_valid.any():
+            _, adjusted_p_values[is_valid], _, _ = multipletests(
+                p_val[is_valid], method=pval_adj_method, is_sorted=False)
+        out_data["adj-p-value"] = adjusted_p_values
 
     return pd.DataFrame(out_data, index=df.index)

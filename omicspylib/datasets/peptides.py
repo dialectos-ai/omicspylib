@@ -14,13 +14,46 @@ ProteinsAggMethod = Literal["sum", "counts"]
 
 class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
     """
-    Peptide dataset for a specific experimental condition.
-    Includes all experiments (runs) for that case.
+    The peptide values of a single experimental condition.
 
-    Normally, you don't have to interact with this object.
-    :class:`~omicspylib.datasets.peptides.PeptidesDataset` wraps multiple
-    :class:`~omicspylib.datasets.peptides.PeptidesDatasetExpCondition`
-    objects under one group.
+    It holds one experimental condition, such as ``control``, with all its
+    experiments (e.g., biological replicates): one row per peptide and one
+    column per experiment. If a ``protein_id_col`` is given, it also keeps
+    the protein of each peptide, in ``metadata["peptide_to_protein"]``.
+
+    A :class:`~omicspylib.datasets.peptides.PeptidesDataset` is made of one
+    of these objects per condition. They are created for you by
+    :meth:`PeptidesDataset.from_df
+    <omicspylib.datasets.peptides.PeptidesDataset.from_df>`, and the dataset
+    methods call them internally, condition by condition. You normally
+    don't need to use them directly.
+
+    Unlike the dataset objects, some methods of a condition object modify it
+    **in place**: :meth:`impute`, :meth:`shift`, :meth:`log2_transform` and
+    :meth:`log2_backtransform`. :meth:`filter` and :meth:`drop` return a new
+    object.
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> from omicspylib.datasets.peptides import PeptidesDatasetExpCondition
+    >>> data = pd.DataFrame({
+    ...     "peptide": ["LVNEVTEFAK", "AEFAEVSK", "VGYVSGWGR"],
+    ...     "protein_id": ["P02768", "P02768", "P00738"],
+    ...     "ctrl_rep1": [1200.0, 830.5, 410.2],
+    ...     "ctrl_rep2": [1150.4, 0.0, 398.7],
+    ... })
+    >>> control = PeptidesDatasetExpCondition(
+    ...     name="control",
+    ...     data=data,
+    ...     id_col="peptide",
+    ...     experiment_cols=["ctrl_rep1", "ctrl_rep2"],
+    ...     protein_id_col="protein_id",
+    ... )
+    >>> control.metadata["peptide_to_protein"]["VGYVSGWGR"]
+    'P00738'
+    >>> control.filter(protein_ids=["P02768"]).record_ids
+    ['LVNEVTEFAK', 'AEFAEVSK']
     """
 
     def __init__(
@@ -33,12 +66,12 @@ class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
         metadata: dict | None = None,
     ) -> None:
         """
-        Initializes the object.
+        Create an experimental condition from a pandas data frame.
 
         Parameters
         ----------
         name: str
-            Name of the object.
+            Name of the experimental condition (e.g., ``control``).
         data: pd.DataFrame
             Experiments of the specified condition as a Pandas data frame,
             where each column is one experiment.
@@ -60,8 +93,10 @@ class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
             convert a :class:`~omicspylib.datasets.peptides.PeptidesDataset`
             to a :class:`~omicspylib.datasets.proteins.ProteinsDataset`.
             If it is not provided, there is no information about doing that conversion.
-        metadata: dict
-            Optional metadata.
+        metadata: dict, optional
+            Used internally to pass the peptide-to-protein mapping to new
+            objects created by :meth:`filter` and :meth:`drop`. If not
+            provided, the mapping is built from ``protein_id_col``.
         """
         super().__init__(
             name=name, data=data, id_col=id_col, experiment_cols=experiment_cols
@@ -94,29 +129,30 @@ class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
         protein_ids: list | None = None,
     ) -> PeptidesDatasetExpCondition:
         """
-        Filter dataset based on a given set of properties.
+        Keep a subset of the experiments and records.
 
         Parameters
         ----------
         exp: list, str, optional
-            List or experiment to keep with. Leave empty to keep all experiments.
+            Experiment name, or list of names, to keep. Names that are not
+            part of this condition are ignored. Leave empty to keep all
+            experiments.
         min_frequency: int or None, optional
-            If specified, records of the dataset will be filtered based on their
-            within group frequency.
+            If specified, keep only the records with at least this number of
+            values (non-missing) in this condition.
         na_threshold: float or None, optional
             Values below or equal to this threshold are considered missing.
-            It is used in to filter records based on the number of missing values.
+            Used together with ``min_frequency``.
         ids: list, optional
-            If specified, a list of records ids to keep in the dataset.
+            If specified, a list of record ids to keep.
         protein_ids: list, optional
-            If specified, a list of protein ids from which the records will
-            remain in the dataset.
+            If specified, keep only the peptides of these proteins.
+            Requires ``protein_id_col``.
 
         Returns
         -------
         PeptidesDatasetExpCondition
-            A new instance of the dataset object, filtered based on the
-            user's input.
+            A new object, with the selected experiments and records.
         """
         data = self._apply_filter(
             exp, min_frequency, na_threshold, ids=ids, protein_ids=protein_ids
@@ -163,29 +199,25 @@ class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
         **kwargs,
     ) -> PeptidesDatasetExpCondition:
         """
-        Drop experiments or records from a dataset.
+        Remove experiments or records.
 
         Parameters
         ----------
         exp: list, str, optional
-            List or experiment to drop from the dataset.
-            Leave empty to keep all experiments.
+            Experiment name, or list of names, to remove.
         ids: list, optional
-            If specified, a list of records ids to keep in the dataset.
-
-        omit_missing_cols: bool, optional,
-            By default, specified columns that do not exist in the dataset
-            are omitted. Set to ``False`` to raise the exception instead.
-        **kwargs:
-            protein_ids: list, optional
-                If specified, a list of protein ids from which the records will
-                be dropped from the dataset.
+            If specified, a list of record ids to remove.
+        omit_missing_cols: bool, optional
+            By default, experiment names that are not part of this condition
+            are ignored. Set to ``False`` to raise an error instead.
+        **kwargs
+            ``protein_ids`` (list, optional): remove all the peptides of
+            these proteins. Requires ``protein_id_col``.
 
         Returns
         -------
         PeptidesDatasetExpCondition
-            A new instance of the dataset object, filtered based on the
-            user's input.
+            A new object, without the specified experiments and records.
         """
         protein_ids: list | None = kwargs.get("protein_ids")
 
@@ -262,16 +294,90 @@ class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
 
 class PeptidesDataset(TabularDataset):
     """
-    A peptide dataset object.
-    It contains multiple experimental conditions with one
-    or more experiments per condition.
+    Quantitative peptide data, from one or more experimental conditions.
+
+    The dataset is a table with one row per peptide (record) and one column
+    per experiment, such as a biological replicate. Experiments are grouped
+    into experimental conditions, such as ``control`` and ``treated``, which
+    you define when you create the dataset.
+
+    It has the same interface as
+    :class:`~omicspylib.datasets.proteins.ProteinsDataset`. In addition, if you
+    provide the protein each peptide belongs to (``protein_id_col`` in
+    :meth:`from_df`), you can:
+
+    * aggregate peptides into a ``ProteinsDataset`` with :meth:`to_proteins`,
+    * keep or remove all peptides of given proteins, with the ``protein_ids``
+      argument of :meth:`filter` and :meth:`drop`.
+
+    Each peptide is assumed to belong to a single protein (group).
+
+    Methods that change the data, such as :meth:`filter`, :meth:`impute`,
+    :meth:`normalize` or :meth:`log2_transform`, return a new dataset and
+    leave the original unchanged, so they can be chained.
+
+    Missing values can be stored as ``0`` or ``NaN``. Most methods also take
+    an ``na_threshold`` argument: values equal to or below it are treated as
+    missing too.
+
+    See Also
+    --------
+    omicspylib.datasets.proteins.ProteinsDataset : The same interface, for
+        protein-level data.
+    omicspylib.datasets.concat.concat : Combine datasets with different
+        experimental conditions.
+
+    Examples
+    --------
+    Create a dataset of four peptides from two proteins:
+
+    >>> import pandas as pd
+    >>> from omicspylib import PeptidesDataset
+    >>> data = pd.DataFrame({
+    ...     "peptide": ["LVNEVTEFAK", "AEFAEVSK", "QNCELFEQLGEYK", "VGYVSGWGR"],
+    ...     "protein_id": ["P02768", "P02768", "P02768", "P00738"],
+    ...     "ctrl_rep1": [1200.0, 830.5, 0.0, 410.2],
+    ...     "ctrl_rep2": [1150.4, 790.1, 220.3, 398.7],
+    ...     "trt_rep1": [1420.8, 905.6, 260.1, 0.0],
+    ...     "trt_rep2": [1388.2, 950.0, 241.7, 0.0],
+    ... })
+    >>> peptides = PeptidesDataset.from_df(
+    ...     data,
+    ...     id_col="peptide",
+    ...     protein_id_col="protein_id",
+    ...     conditions={
+    ...         "control": ["ctrl_rep1", "ctrl_rep2"],
+    ...         "treated": ["trt_rep1", "trt_rep2"],
+    ...     },
+    ... )
+    >>> peptides.n_records
+    4
+
+    Sum peptide intensities into protein intensities:
+
+    >>> proteins = peptides.to_proteins(agg_method="sum")
+    >>> proteins.to_table()  # doctest: +NORMALIZE_WHITESPACE
+                ctrl_rep1  ctrl_rep2  trt_rep1  trt_rep2
+    protein_id
+    P00738          410.2      398.7       0.0       0.0
+    P02768         2030.5     2160.8    2586.5    2579.9
+
+    Keep only the peptides of a protein:
+
+    >>> peptides.filter(protein_ids=["P00738"]).n_records
+    1
     """
 
     _conditions: list[PeptidesDatasetExpCondition]
 
     @property
     def protein_id_col(self) -> str | None:
-        """Get protein ID column."""
+        """
+        Name of the column that links each peptide to its protein, as given
+        to :meth:`from_df`, or ``None`` if it was not provided. It is required
+        by :meth:`to_proteins` and by the ``protein_ids`` argument of
+        :meth:`filter` and :meth:`drop`.
+        """
         first_condition = self._conditions[0]
         return first_condition.protein_id_col
 
@@ -357,8 +463,8 @@ class PeptidesDataset(TabularDataset):
             Note that the names should match exactly.
         add_prefix: str, optional
             Use ``add_prefix`` instead of ``names_lookup`` for simple name prefixing.
-            NOTE: there will be no seperator between the prefix and the existing column name.
-            You need to provide it (e.g., intensity_ or pept_counts_).
+            NOTE: there will be no separator between the prefix and the existing column name.
+            You need to provide it (e.g., ``intensity_`` or ``pept_counts_``).
 
         Returns
         -------
@@ -423,10 +529,16 @@ class PeptidesDataset(TabularDataset):
         )
 
     def append(
-        self, new_obj: PeptidesDataset, skip_duplicates: bool = False
+        self,
+        new_obj: PeptidesDataset,
+        skip_duplicates: bool = False,
+        inplace: bool | None = None,
     ) -> PeptidesDataset:
         """
-        Append another experimental condition in the same dataset.
+        Append the experimental conditions of another dataset to this one.
+
+        ``new_obj`` is never modified. To combine more than two datasets,
+        see :func:`~omicspylib.datasets.concat.concat`.
 
         Parameters
         ----------
@@ -435,12 +547,19 @@ class PeptidesDataset(TabularDataset):
         skip_duplicates: bool
             If ``False``, when an experimental condition (name) already exists,
             it will raise an error.
-            Otherwise, it will just be omitted.
+            Otherwise, that condition of ``new_obj`` is left out, and the
+            existing one is kept.
+        inplace: bool, optional
+            If ``True``, modify this dataset and return it. If ``False``,
+            return a new dataset and leave this one unchanged.
+            If not specified, behaves as ``True`` and emits a ``FutureWarning``:
+            the default will change to ``False`` in a future release.
 
         Returns
         -------
         PeptidesDataset:
-            A new object containing the experimental conditions of the two datasets.
+            A dataset containing the experimental conditions of the two
+            datasets. With ``inplace=True``, it is this same object.
 
         Raises
         ------
@@ -449,37 +568,17 @@ class PeptidesDataset(TabularDataset):
             protein_id_col, column name differs, or an experimental condition
             already exists.
         """
-        if not self.__class__ == new_obj.__class__:
-            raise ValueError(
-                f"The provided object should be of type {self.__class__}. "
-                f"Received object of type {new_obj.__class__} instead.f"
-            )
-        id_col = self._conditions[0].id_col
-        protein_id_col = self._conditions[0].protein_id_col
-
-        if not id_col == new_obj._conditions[0].id_col:
-            raise ValueError(
-                f"Cannot join, because there is a missmatch between the "
-                f"id_col name between the datasets. All datasets should "
-                f"have an id_col == {id_col}."
-            )
-        if not protein_id_col == new_obj._conditions[0].protein_id_col:
-            raise ValueError(
-                f"Cannot join, because there is a missmatch between the "
-                f"protein_id_col name between the datasets. All datasets should "
-                f"have a protein_id_col == {protein_id_col}."
-            )
-
-        for new_cond in new_obj._conditions:
-            if new_cond.name in self.condition_names and not skip_duplicates:
+        # Only peptide datasets have a protein_id_col. Other types are rejected
+        # with a clear error in ``_append_conditions``.
+        if self.__class__ == new_obj.__class__:
+            protein_id_col = self.protein_id_col
+            if protein_id_col != new_obj.protein_id_col:
                 raise ValueError(
-                    f"Experimental condition {new_cond} already exists in "
-                    f"the current dataset. Either remove it or select to "
-                    f"`skip_duplicates`."
+                    f"Cannot join, because there is a mismatch between the "
+                    f"protein_id_col name between the datasets. All datasets should "
+                    f"have a protein_id_col == {protein_id_col}."
                 )
-        self._conditions.extend(new_obj._conditions)
-
-        return self.__class__(conditions=self._conditions)
+        return self._append_conditions(new_obj, skip_duplicates=skip_duplicates, inplace=inplace)
 
     def filter(
         self,
