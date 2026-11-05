@@ -61,8 +61,89 @@ def test_trimmed_mean_normalization_explicit() -> None:
     np.testing.assert_allclose(actual_shift, expected_shift)
 
 
+def test_trimmed_mean_normalization_all_records() -> None:
+    # Records are not shared, so only the all-records path applies.
+    df = pd.DataFrame(
+        {
+            "peptide_id": [f"p{i}" for i in range(10)],
+            "protein_id": ["prot1"] * 10,
+            "ref_rep1": [10.0, 20, 30, 40, 50, 60, 70, 80, 90, 1000],
+            "targ_rep1": [12.0, 22, 32, 42, 52, 62, 72, 82, 92, 0],  # p9 missing
+        }
+    )
+    config = {
+        "id_col": "peptide_id",
+        "conditions": {"c1": ["ref_rep1"], "c2": ["targ_rep1"]},
+        "protein_id_col": "protein_id",
+    }
+    dataset = PeptidesDataset.from_df(df, **config)
+
+    trim_fraction = 0.2
+    norm_dataset = dataset.normalize(
+        method="mean",
+        ref_exp="ref_rep1",
+        use_common_records=False,
+        trim_fraction=trim_fraction,
+    )
+
+    # 10 ref values -> drop 1 per end; 9 targ values -> int(0.9) = 0, no trim
+    expected_ref_mean = np.mean([20.0, 30, 40, 50, 60, 70, 80, 90])
+    expected_targ_mean = np.mean([12.0, 22, 32, 42, 52, 62, 72, 82, 92])
+    expected_shift = expected_targ_mean - expected_ref_mean
+
+    norm_table = norm_dataset.to_table()
+    present = df["targ_rep1"] > 0
+    actual_shift = (
+        df.loc[present, "targ_rep1"].to_numpy()
+        - norm_table.loc[df.loc[present, "peptide_id"], "targ_rep1"].to_numpy()
+    )
+    np.testing.assert_allclose(actual_shift, expected_shift)
+    np.testing.assert_allclose(norm_table["ref_rep1"], df["ref_rep1"])
+
+
+@pytest.mark.parametrize("use_common_records", [True, False])
+def test_reference_condition_replicates_are_normalized(use_common_records) -> None:
+    df = pd.DataFrame(
+        {
+            "peptide_id": [f"p{i}" for i in range(5)],
+            "protein_id": ["prot1"] * 5,
+            "ref_rep1": [10.0, 20, 30, 40, 50],
+            "ref_rep2": [15.0, 25, 35, 45, 55],  # same condition, +5
+            "targ_rep1": [12.0, 22, 32, 42, 52],
+        }
+    )
+    config = {
+        "id_col": "peptide_id",
+        "conditions": {"c1": ["ref_rep1", "ref_rep2"], "c2": ["targ_rep1"]},
+        "protein_id_col": "protein_id",
+    }
+    dataset = PeptidesDataset.from_df(df, **config)
+
+    norm_table = dataset.normalize(
+        method="mean", ref_exp="ref_rep1", use_common_records=use_common_records
+    ).to_table()
+
+    np.testing.assert_allclose(norm_table["ref_rep2"], df["ref_rep1"])
+    np.testing.assert_allclose(norm_table["targ_rep1"], df["ref_rep1"])
+
+
+def test_invalid_trim_fraction_raises() -> None:
+    data_df = pd.read_csv("tests/data/peptides_dataset.tsv", sep="\t")
+    dataset = PeptidesDataset.from_df(
+        data_df,
+        id_col="peptide_id",
+        conditions={"c1": ["c1_rep1", "c1_rep2"], "c2": ["c2_rep1", "c2_rep2"]},
+        protein_id_col="protein_id",
+    )
+    with pytest.raises(ValueError):
+        dataset.normalize(method="mean", trim_fraction=1.0)
+
+
+@pytest.mark.parametrize("use_common_records", [True, False])
 @pytest.mark.parametrize("trim_fraction", [0.0, 0.1, 0.2])
-def test_normalization_with_trim_fraction_param(trim_fraction) -> None:
+def test_normalization_with_trim_fraction_param(
+    trim_fraction, use_common_records
+) -> None:
     data_df = pd.read_csv("tests/data/peptides_dataset.tsv", sep="\t")
     config = {
         "id_col": "peptide_id",
@@ -78,7 +159,7 @@ def test_normalization_with_trim_fraction_param(trim_fraction) -> None:
     norm_dataset = dataset.normalize(
         method="mean",
         ref_exp="c1_rep1",
-        use_common_records=True,
+        use_common_records=use_common_records,
         trim_fraction=trim_fraction,
     )
     assert norm_dataset is not None
