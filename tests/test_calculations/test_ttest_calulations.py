@@ -49,9 +49,8 @@ def test_adjusted_pvalues_ignore_undefined_pvalues() -> None:
 
     result = calc_ttest_adj(dataset, condition_a="A", condition_b="B", pval_adj_method="fdr_bh")
 
-    assert np.isnan(result.loc["p0", "p-value"])
-    assert np.isnan(result.loc["p0", "adj-p-value"])
+    assert result.loc[["p0"], ["p-value", "adj-p-value"]].isna().all(axis=None)
     # the remaining records are adjusted among themselves only
     valid = result.drop(index="p0")
-    expected = multipletests(valid["p-value"], method="fdr_bh")[1]
-    np.testing.assert_allclose(valid["adj-p-value"], expected)
+    expected = np.asarray(multipletests(valid["p-value"], method="fdr_bh")[1], dtype=float)
+    np.testing.assert_allclose(valid["adj-p-value"].to_numpy(dtype=float), expected)
