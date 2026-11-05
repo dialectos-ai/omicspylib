@@ -33,6 +33,21 @@ ImputeMethod = Literal[
 T = TypeVar("T", bound="TabularDataset")
 
 
+def _trimmed_mean(values: pd.Series, trim_fraction: float) -> float:
+    """
+    Mean after discarding ``trim_fraction / 2`` of the values from each end.
+
+    NaNs are ignored. If trimming would remove every value, or the number
+    of values to cut from each end rounds down to zero, the plain mean
+    is returned.
+    """
+    arr = np.sort(values.dropna().to_numpy(dtype=float))
+    k = int(len(arr) * (trim_fraction / 2))
+    if k > 0 and 2 * k < len(arr):
+        arr = arr[k:-k]
+    return float(arr.mean()) if len(arr) > 0 else float("nan")
+
+
 class TabularExperimentalConditionDataset(abc.ABC):
     def __init__(
         self,
@@ -1402,16 +1417,22 @@ class TabularDataset(abc.ABC):
         na_threshold: float
             Values below or equal to this threshold are considered missing.
         trim_fraction: float
-            When normalizing to the mean using shared peptides, you can use
-            a trimmed mean approach to and discard a certain percentage of edge
-            cases brom from the top and bottom ends. For example, if ``trim_fraction``
-            is set to ``0.1``, a total of 10% of the edge cases will be discarded
-            (5% from each edge).
+            Use a trimmed mean instead of a plain mean, discarding a fraction
+            of the most extreme values from the top and bottom ends. Applies
+            both when normalizing to all records and to shared records.
+            Each experiment is trimmed independently. For example, if
+            ``trim_fraction`` is set to ``0.1``, a total of 10% of the values
+            will be discarded (5% from each edge). Must be in ``[0, 1)``.
 
         Returns
         -------
         A new instance of the same object with normalized values.
         """
+        if not 0.0 <= trim_fraction < 1.0:
+            raise ValueError(
+                f"trim_fraction must be in the range [0, 1), got {trim_fraction}."
+            )
+
         ref_exp = self._select_norm_ref(na_threshold, ref_condition, ref_exp)
 
         # step 2 - calculate difference
@@ -1420,7 +1441,9 @@ class TabularDataset(abc.ABC):
                 na_threshold, ref_exp, trim_fraction=trim_fraction
             )
         elif method == "mean" and not use_common_records:
-            exp_conditions = self._base_mean_normalization(na_threshold, ref_exp)
+            exp_conditions = self._base_mean_normalization(
+                na_threshold, ref_exp, trim_fraction=trim_fraction
+            )
         else:
             raise NotImplementedError(
                 f"Normalization method {method} with the specified "
@@ -1438,36 +1461,41 @@ class TabularDataset(abc.ABC):
             (c for c in exp_conditions_data if ref_exp in c.experiment_names), None
         )
         if ref_c:
+            # The reference experiment is never shifted, so its values
+            # can be read once, up front.
+            ref_case = ref_c.filter(exp=ref_exp).to_table()
             for exp_c in exp_conditions_data:
-                cond_name = exp_c.name
-                exp_names = exp_c.experiment_names
-                for targ_exp in exp_names:
-                    if cond_name != ref_c.name and targ_exp != ref_exp:
-                        ref_case = ref_c.filter(exp=ref_exp).to_table()
-                        targ_case = exp_c.filter(exp=targ_exp).to_table()
-                        df = ref_case.merge(
-                            targ_case, left_index=True, right_index=True, how="inner"
-                        )
-                        df[df <= na_threshold] = np.nan
-                        df = df.dropna()
+                for targ_exp in exp_c.experiment_names:
+                    if targ_exp == ref_exp:
+                        continue
+                    targ_case = exp_c.filter(exp=targ_exp).to_table()
+                    df = ref_case.merge(
+                        targ_case, left_index=True, right_index=True, how="inner"
+                    )
+                    df[df <= na_threshold] = np.nan
+                    df = df.dropna()
 
-                        if trim_fraction > 0.0 and len(df) > 0:
-                            df = df.sort_values(by=ref_exp)
-                            k = int(len(df) * (trim_fraction / 2))
-                            if k > 0 and 2 * k < len(df):
-                                df = df.iloc[k:-k]
-
-                        mean_ref = df[ref_exp].mean()
-                        mean_targ = df[targ_exp].mean()
-                        norm_diff = mean_targ - mean_ref
-                        exp_c.shift(targ_exp, norm_diff, na_threshold=na_threshold)
+                    mean_ref = _trimmed_mean(df[ref_exp], trim_fraction)
+                    mean_targ = _trimmed_mean(df[targ_exp], trim_fraction)
+                    norm_diff = mean_targ - mean_ref
+                    exp_c.shift(targ_exp, norm_diff, na_threshold=na_threshold)
 
         return exp_conditions_data
 
     def _base_mean_normalization(
-        self, na_threshold, ref_exp
+        self, na_threshold: float, ref_exp: str, trim_fraction: float = 0.0
     ) -> Sequence[TabularExperimentalConditionDataset]:
-        mean_before = self.mean(na_threshold=na_threshold, axis=0)
+        if trim_fraction > 0.0:
+            exp_means = {}
+            for c in self._conditions:
+                for exp in c.experiment_names:
+                    values = c.filter(exp=exp).to_table()[exp]
+                    exp_means[exp] = _trimmed_mean(
+                        values[values > na_threshold], trim_fraction
+                    )
+            mean_before = pd.DataFrame([exp_means])
+        else:
+            mean_before = self.mean(na_threshold=na_threshold, axis=0)
         ref_mean = mean_before[ref_exp].values[0]
         mean_diff = mean_before - ref_mean
         exp_names = mean_diff.columns
