@@ -2,15 +2,19 @@
 
 ProteinsDataset
 ===============
+
 .. autoclass:: ProteinsDataset
     :show-inheritance:
 
+See the :doc:`Datasets overview <index>` for the input format and a
+summary of the common tasks.
 
-Constructor
------------
-.. automethod:: ProteinsDataset.__init__
+
+Creating a dataset
+------------------
 .. automethod:: ProteinsDataset.from_df
 .. automethod:: ProteinsDataset.from_maxquant
+.. automethod:: ProteinsDataset.__init__
 
 
 Properties
@@ -21,25 +25,44 @@ Properties
 .. autoattribute:: ProteinsDataset.n_records
 
 
-Methods
--------
-.. automethod:: ProteinsDataset.append
+Inspecting
+----------
 .. automethod:: ProteinsDataset.describe
-.. automethod:: ProteinsDataset.drop
 .. automethod:: ProteinsDataset.experiment_names
-.. automethod:: ProteinsDataset.filter
-.. automethod:: ProteinsDataset.frequency
-.. automethod:: ProteinsDataset.impute
-.. automethod:: ProteinsDataset.log2_backtransform
-.. automethod:: ProteinsDataset.log2_transform
-.. automethod:: ProteinsDataset.missing_values
-.. automethod:: ProteinsDataset.mean
-.. automethod:: ProteinsDataset.normalize
-.. automethod:: ProteinsDataset.to_table
 .. automethod:: ProteinsDataset.unique_records
 
 
+Selecting records, experiments and conditions
+---------------------------------------------
+.. automethod:: ProteinsDataset.filter
+.. automethod:: ProteinsDataset.drop
 
 
+Transforming values
+-------------------
+.. automethod:: ProteinsDataset.log2_transform
+.. automethod:: ProteinsDataset.log2_backtransform
+.. automethod:: ProteinsDataset.normalize
+.. automethod:: ProteinsDataset.impute
 
 
+Summarizing
+-----------
+.. automethod:: ProteinsDataset.mean
+.. automethod:: ProteinsDataset.frequency
+.. automethod:: ProteinsDataset.record_counts
+
+
+Combining datasets
+------------------
+.. automethod:: ProteinsDataset.append
+
+
+Exporting
+---------
+.. automethod:: ProteinsDataset.to_table
+
+
+Deprecated
+----------
+.. automethod:: ProteinsDataset.missing_values

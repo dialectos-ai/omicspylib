@@ -14,6 +14,18 @@ class PairwiseComparisonTTestFC:
                  dataset: ProteinsDataset,
                  condition_a: str,
                  condition_b: str) -> None:
+        """
+        Parameters
+        ----------
+        dataset: ProteinsDataset
+            The dataset to analyze, with values on their original scale
+            (not log-transformed).
+        condition_a: str
+            Name of the first condition. Fold changes are calculated as
+            condition A over condition B.
+        condition_b: str
+            Name of the second condition, usually the reference (e.g., control).
+        """
         self._raw_dataset = dataset
         self._condition_a = condition_a
         self._condition_b = condition_b

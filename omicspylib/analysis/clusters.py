@@ -74,10 +74,11 @@ class HierarchicallyClusteredHeatmap:
         Parameters
         ----------
         log_transform: bool
-            By default, values will be log transformed before clustering.
-            Set to ``False`` to skip this step.
+            By default, values are transformed with ``log10(x + 1)`` before
+            clustering. Set to ``False`` to skip this step.
         fillna_method: FillNAMethod
             How to handle missing values. Possible options include:
+
             * ``min``: Use min value.
             * ``mean``: Use mean value.
             * ``median``: Use median value.
@@ -86,10 +87,9 @@ class HierarchicallyClusteredHeatmap:
             You can shift the na-imputed values by a fixed number.
             For example, you can set ``fillna_method`` to ``min`` by
             and decrease by ``0.2`` units. Set to ``0.0`` to skip this step.
-        min_frequency: float
-            In cases with a significant number of missing values,
-            you might choose to first filter the dataset based on the
-            number of experiments with valid values.
+        min_frequency: int
+            Keep only rows with at least this number of valid (non-missing)
+            values. Useful in datasets with many missing values.
         na_threshold: float or None, optional
             Values below or equal to this threshold are considered missing.
             It is used in to filter records based on the number of missing values.
@@ -138,9 +138,6 @@ class HierarchicallyClusteredHeatmap:
         """
         Perform hierarchical clustering and plot a heatmap with the separated groups.
 
-        Returns a filtered version of the provided dataset, a graph object,
-        and a list of row and column groups.
-
         Parameters
         ----------
         data: pd.DataFrame
@@ -159,17 +156,10 @@ class HierarchicallyClusteredHeatmap:
 
         Returns
         -------
-        pd.DataFrame:
-            The provided dataset filtered to the min frequency specified
-            in the constructor.
-        ClusterGrid:
-            A plot object.
-        row_groups: list or None
-            A list of row groups, or ``None`` if no row clustering is performed.
-        col_groups: list or None
-            A list of col groups, or ``None`` if no column clustering is performed.
-        pd.DataFrame:
-            A Pandas data frame with the inputs passed to the heatmap function.
+        HCHeatmapData
+            The filtered data, the plot, the row and column groups and
+            their silhouette scores. Row and column groups are listed in
+            the same order as the rows and columns of ``filtered_data``.
         """
         data = copy.deepcopy(data)
         # if user provides column order follow it -> column names must be exact.
@@ -303,8 +293,7 @@ class HierarchicallyClusteredHeatmap:
             data[is_na] = np.nan
 
         if self._min_frequency > 1:
-            n_cols = data.shape[1] - 1
-            non_nan_freq = n_cols - data.isna().sum(axis=1)
+            non_nan_freq = data.notna().sum(axis=1)
             keep_rows = non_nan_freq >= self._min_frequency
             data = data[keep_rows].copy()
 

@@ -42,6 +42,24 @@ class TabularExperimentalConditionDataset(abc.ABC):
         experiment_cols: list,
         **kwargs,
     ) -> None:
+        """
+        Create an experimental condition from a pandas data frame.
+
+        Parameters
+        ----------
+        name: str
+            Name of the experimental condition (e.g., ``control``).
+        data: pd.DataFrame
+            A table with one row per record and one column per experiment.
+            It may contain other columns too: only ``id_col`` and
+            ``experiment_cols`` are used, and the data frame is copied.
+        id_col: str
+            Name of the column with the record ids. Ids should be unique.
+        experiment_cols: list
+            Names of the columns with the experiments of this condition.
+        **kwargs
+            Ignored. Accepted so that subclasses can share the same signature.
+        """
         self._name = name
         self._data: pd.DataFrame = (
             data[[id_col, *experiment_cols]].copy().set_index(id_col)
@@ -81,11 +99,12 @@ class TabularExperimentalConditionDataset(abc.ABC):
     @property
     def n_experiments(self) -> int:
         """
-        Returns the number of experiments.
+        Number of experiments in this condition.
 
         Returns
         -------
-            int: The number of experiments.
+        int
+            The number of experiments.
         """
         return len(self._data.columns)
 
@@ -105,7 +124,7 @@ class TabularExperimentalConditionDataset(abc.ABC):
     @property
     def record_ids(self) -> list[str]:
         """
-        A list of unique protein ids as they are provided by the user.
+        Ids of the records in this condition, e.g. protein or peptide ids.
 
         Returns
         -------
@@ -126,9 +145,15 @@ class TabularExperimentalConditionDataset(abc.ABC):
         """
         return self._name
 
-    def describe(self) -> dict:
+    def describe(self, na_threshold: float = 0.0) -> dict:
         """
         Returns basic information about the dataset.
+
+        Parameters
+        ----------
+        na_threshold: float, optional
+            Values below or equal to this threshold are considered missing,
+            and are not counted in ``n_records_per_experiment``.
 
         Returns
         -------
@@ -142,23 +167,34 @@ class TabularExperimentalConditionDataset(abc.ABC):
             "n_experiments": self.n_experiments,
             "n_records": len(self.record_ids),
             "experiment_names": self._data.columns.tolist(),
-            "n_records_per_experiment": np.sum(self._data.values > 0, axis=0).tolist(),
+            "n_records_per_experiment": np.sum(self._data.values > na_threshold, axis=0).tolist(),
         }
 
     def min(
         self, na_threshold: float = 0.0, axis: AxisName | None = None
     ) -> float | pd.Series:
         """
-        Calculate the minimum value of that condition.
-        By default, records with quantitative value ⇐ 0.0 will
-        be omitted, so that you don't get 0.0 during ``min`` calculation.
+        Calculate the minimum value, ignoring missing values.
+
+        Missing values (by default, values ``<= 0.0``) are left out, so that
+        the minimum is the lowest value actually measured.
 
         Parameters
         ----------
         na_threshold: float
             Values below or equal to this threshold are considered missing.
         axis: AxisName, optional
-            You can calculate the ``min`` over ``rows`` or ``columns``.
+            * ``None`` (default): a single minimum across all values.
+            * ``"rows"``: the minimum of each experiment, calculated down
+              the rows.
+            * ``"columns"``: the minimum of each record, calculated across
+              the experiments.
+
+        Returns
+        -------
+        float or pd.Series
+            A single value if ``axis`` is ``None``. Otherwise, a series indexed
+            by experiment name (``"rows"``) or by record id (``"columns"``).
         """
         df = self._data.copy()
         df[df <= na_threshold] = np.nan
@@ -206,25 +242,55 @@ class TabularExperimentalConditionDataset(abc.ABC):
         return df, int(n_missing_total), int(total_values)
 
     def log2_transform(self) -> Self:
+        """
+        Perform log2 transformation on all experiments of the condition,
+        as ``log2(x + 1)``. The ``+ 1`` keeps zeros (missing values) at zero.
+
+        The values are modified in place.
+
+        Returns
+        -------
+        Self
+            The same object, with the values transformed.
+        """
         self._data = np.log2(self._data + 1)  # type: ignore
         return self
 
     def log2_backtransform(self) -> Self:
+        """
+        Invert :meth:`log2_transform`, as ``2 ** x - 1``, converting
+        values back to their original scale.
+
+        The values are modified in place.
+
+        Returns
+        -------
+        Self
+            The same object, with the values transformed.
+        """
         self._data = 2**self._data - 1
         return self
 
     def mean(self, na_threshold: float = 0.0, axis: Literal[0, 1] = 1) -> pd.DataFrame:
         """
+        Calculate the mean value, ignoring missing values.
 
         Parameters
         ----------
-        na_threshold
+        na_threshold : float
+            Values below or equal to this threshold are considered missing
+            and are excluded from the calculation.
         axis: int
-            Axis to perform the operation. Use 1 for row by row and 0 for column by column.
+            Axis to perform the operation. Use ``1`` for row by row (mean of each
+            record across experiments) and ``0`` for column by column (mean of each
+            experiment across records).
 
         Returns
         -------
-
+        pd.DataFrame
+            For ``axis=1``, a data frame indexed by record id with a single
+            column named ``mean_<condition name>``. For ``axis=0``, a data frame
+            indexed by experiment name with a single column named ``mean``.
         """
         mask = self._data > na_threshold
         data = self._data.copy()
@@ -264,6 +330,26 @@ class TabularExperimentalConditionDataset(abc.ABC):
         return cast(pd.DataFrame, data)
 
     def frequency(self, na_threshold: float = 0.0, axis: int = 1) -> pd.DataFrame:
+        """
+        Count the number of values above the specified threshold.
+
+        Parameters
+        ----------
+        na_threshold : float
+            Values below or equal to this threshold are considered missing.
+        axis: int
+            Axis on which to calculate the frequency. Use ``1`` for row by row
+            (in how many experiments each record is present) and ``0`` for column
+            by column (how many records are present in each experiment).
+
+        Returns
+        -------
+        pd.DataFrame
+            For ``axis=1``, a data frame indexed by record id with a single
+            column named ``frequency_<condition name>``. For ``axis=0``, a data
+            frame indexed by experiment name with a single column named
+            ``frequency``.
+        """
         f = np.sum(self._data > na_threshold, axis=axis)
         if axis == 1:
             return pd.DataFrame({f"frequency_{self.name}": f})
@@ -320,19 +406,44 @@ class TabularExperimentalConditionDataset(abc.ABC):
         random_noise: bool = False,
     ) -> Self:
         """
-        TBD ...
+        Impute missing values of this condition.
+
+        The values are modified in place.
 
         Parameters
         ----------
-        method
-        value
-        na_threshold
-        shift
+        method: str
+            One of:
+
+            * ``fixed``: replace missing values with ``value``, a number.
+            * ``fixed row``: replace missing values with a different value
+              per record. ``value`` must be a ``pd.Series`` indexed by
+              record id.
+            * ``row min``, ``row mean``, ``row median``: replace missing
+              values of each record with the min, mean or median of its
+              values in this condition, minus ``shift``.
+        na_threshold: float
+            Values below or equal to this threshold are considered missing.
+        value: float or pd.Series, optional
+            Required by the ``fixed`` and ``fixed row`` methods.
+        shift: float
+            Subtracted from the imputed value, for the ``row`` methods.
         random_noise: bool
+            If ``True``, each imputed value is drawn from a normal
+            distribution centered on the selected value, with standard
+            deviation equal to the average standard deviation of the
+            records in this condition.
 
         Returns
         -------
+        Self
+            The same object, with missing values imputed.
 
+        Raises
+        ------
+        ValueError
+            If ``method`` is unknown, or ``value`` is missing for the
+            ``fixed`` and ``fixed row`` methods.
         """
         self._data[self._data <= na_threshold] = np.nan
 
@@ -423,31 +534,32 @@ class TabularExperimentalConditionDataset(abc.ABC):
 
     def to_table(self) -> pd.DataFrame:
         """
-        Returns the individual experiments from this condition
-        as a Pandas data frame.
+        Return the values of this condition as a pandas data frame.
 
         Returns
         -------
         pd.DataFrame
-            A table with protein ids as rows and experiment quantitative
-            values as columns.
+            A copy of the table, with record ids as the index and one column
+            per experiment. Modifying it does not change this object.
         """
-        return self._data
+        return self._data.copy()
 
     def shift(self, exp, value, na_threshold: float = 0.0) -> None:
         """
-        Shift values of a given experiment by a fixed value.
-        The specified value will be subtracted from that experiment.
+        Subtract a fixed value from all the values of one experiment.
+
+        Missing values are not changed. The values are modified in place.
+        Used by the dataset's ``normalize`` method.
 
         Parameters
         ----------
-        exp
-        value
+        exp: str
+            Name of the experiment to shift.
+        value: float
+            The value to subtract.
         na_threshold : float
-
-        Returns
-        -------
-
+            Values below or equal to this threshold are considered missing,
+            and are not shifted.
         """
         mask = self._data[exp] > na_threshold
         self._data.loc[mask, exp] -= value
@@ -457,6 +569,18 @@ class TabularDataset(abc.ABC):
     def __init__(
         self, conditions: Sequence[TabularExperimentalConditionDataset]
     ) -> None:
+        """
+        Create a dataset from experimental condition objects.
+
+        You normally don't need to call the constructor directly. Use the
+        ``from_df`` class method instead.
+
+        Parameters
+        ----------
+        conditions: Sequence
+            One experimental condition object per condition. Each condition
+            name should appear only once.
+        """
         self._conditions = conditions
 
     @classmethod
@@ -489,6 +613,69 @@ class TabularDataset(abc.ABC):
             A list of experimental condition names.
         """
         return [c.name for c in self._conditions]
+
+    def _append_conditions(
+        self,
+        new_obj: TabularDataset,
+        skip_duplicates: bool = False,
+        inplace: bool | None = None,
+    ) -> Self:
+        """
+        Shared implementation of ``append``. Adds the conditions of
+        ``new_obj`` after the conditions of ``self``.
+
+        With ``inplace=False``, returns a new dataset and neither input is
+        modified. With ``inplace=True``, ``self`` is modified and returned.
+        ``inplace=None`` behaves like ``True`` and emits a ``FutureWarning``,
+        since the default will change to ``False``.
+        In all cases, the result does not share condition objects with ``new_obj``.
+        """
+        if inplace is None:
+            warnings.warn(
+                "The default of `inplace` in `append` will change from True to False "
+                "in a future release of omicspylib, and `append` will then return a new "
+                "dataset without modifying the original. Pass `inplace=True` to keep "
+                "the current behaviour, or `inplace=False` to adopt the new one and "
+                "silence this warning.",
+                category=FutureWarning,
+                stacklevel=3,  # user code -> append -> _append_conditions
+            )
+            inplace = True
+
+        if self.__class__ != new_obj.__class__:
+            raise ValueError(
+                f"The provided object should be of type {self.__class__.__name__}. "
+                f"Received object of type {new_obj.__class__.__name__} instead."
+            )
+        id_col = self._conditions[0].id_col
+        if id_col != new_obj._conditions[0].id_col:
+            raise ValueError(
+                f"Cannot join, because there is a mismatch between the "
+                f"id_col name between the datasets. All datasets should "
+                f"have an id_col == {id_col}."
+            )
+
+        # Validate all conditions before changing anything, so that a failing
+        # call never leaves ``self`` half-modified when ``inplace=True``.
+        to_add = []
+        existing_names = set(self.condition_names)
+        for new_cond in new_obj._conditions:
+            if new_cond.name in existing_names:
+                if skip_duplicates:
+                    continue
+                raise ValueError(
+                    f"Experimental condition '{new_cond.name}' already exists in "
+                    f"the current dataset. Either remove it or set "
+                    f"`skip_duplicates=True`."
+                )
+            to_add.append(new_cond)
+            existing_names.add(new_cond.name)
+
+        if inplace:
+            self._conditions = [*self._conditions, *copy.deepcopy(to_add)]
+            return self
+
+        return self.__class__(conditions=copy.deepcopy([*self._conditions, *to_add]))
 
     @property
     def n_experiments(self) -> int:
@@ -561,12 +748,19 @@ class TabularDataset(abc.ABC):
             all_records.extend(condition.record_ids)
         return sorted(set(all_records))
 
-    def describe(self) -> dict[str, Any]:
+    def describe(self, na_threshold: float = 0.0) -> dict[str, Any]:
         """
         Returns basic information about the dataset.
         Includes fields like number of experimental conditions,
         number of records in total, total number of experiments
         and statistics for each experimental condition.
+
+        Parameters
+        ----------
+        na_threshold: float, optional
+            Values below or equal to this threshold are considered missing,
+            and are not counted in the ``n_records_per_experiment`` of each
+            condition.
 
         Returns
         -------
@@ -577,7 +771,9 @@ class TabularDataset(abc.ABC):
             "n_conditions_total": self.n_conditions,
             "n_records_total": self.n_records,
             "n_experiments_total": self.n_experiments,
-            "statistics_per_condition": [c.describe() for c in self._conditions],
+            "statistics_per_condition": [
+                c.describe(na_threshold=na_threshold) for c in self._conditions
+            ],
         }
 
     def mean(

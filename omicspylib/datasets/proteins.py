@@ -14,12 +14,43 @@ from omicspylib.utils import mq_rm_contaminants, mq_rm_only_modified, mq_rm_reve
 
 class ProteinsDatasetExpCondition(TabularExperimentalConditionDataset):
     """
-    Protein dataset for a specific experimental condition.
-    Includes all experiments (runs) for that case.
+    The protein values of a single experimental condition.
 
-    Normally, you don't have to interact with this object.
-    ``ProteinsDataset`` wraps multiple ``ProteinsDatasetExpCondition``
-    objects under one group.
+    It holds one experimental condition, such as ``control``, with all its
+    experiments (e.g., biological replicates): one row per protein and one
+    column per experiment.
+
+    A :class:`~omicspylib.datasets.proteins.ProteinsDataset` is made of one
+    of these objects per condition. They are created for you by
+    :meth:`ProteinsDataset.from_df
+    <omicspylib.datasets.proteins.ProteinsDataset.from_df>`, and the dataset
+    methods call them internally, condition by condition. You normally
+    don't need to use them directly.
+
+    Unlike the dataset objects, some methods of a condition object modify it
+    **in place**: :meth:`impute`, :meth:`shift`, :meth:`log2_transform` and
+    :meth:`log2_backtransform`. :meth:`filter` and :meth:`drop` return a new
+    object.
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> from omicspylib.datasets.proteins import ProteinsDatasetExpCondition
+    >>> data = pd.DataFrame({
+    ...     "protein_id": ["P02768", "P01024", "P0DJI8"],
+    ...     "ctrl_rep1": [25010.3, 1310.8, 0.0],
+    ...     "ctrl_rep2": [24410.0, 1450.2, 410.5],
+    ... })
+    >>> control = ProteinsDatasetExpCondition(
+    ...     name="control",
+    ...     data=data,
+    ...     id_col="protein_id",
+    ...     experiment_cols=["ctrl_rep1", "ctrl_rep2"],
+    ... )
+    >>> control.n_experiments, control.record_ids
+    (2, ['P02768', 'P01024', 'P0DJI8'])
+    >>> control.min(axis="rows").to_dict()
+    {'ctrl_rep1': 1310.8, 'ctrl_rep2': 410.5}
     """
 
     def filter(
@@ -30,26 +61,27 @@ class ProteinsDatasetExpCondition(TabularExperimentalConditionDataset):
         ids: list | None = None,
     ) -> ProteinsDatasetExpCondition:
         """
-        Filter dataset based on a given set of properties.
+        Keep a subset of the experiments and records.
 
         Parameters
         ----------
         exp: list, str, optional
-            List or experiment to keep with. Leave empty to keep all experiments.
+            Experiment name, or list of names, to keep. Names that are not
+            part of this condition are ignored. Leave empty to keep all
+            experiments.
         min_frequency: int or None, optional
-            If specified, records of the dataset will be filtered to the records with
-            greater than or equal the specified frequency.
+            If specified, keep only the records with at least this number of
+            values (non-missing) in this condition.
         na_threshold: float or None, optional
             Values below or equal to this threshold are considered missing.
-            It is used in to filter records based on the number of missing values.
+            Used together with ``min_frequency``.
         ids: list, optional
-            If specified, a list of records ids to keep in the dataset.
+            If specified, a list of record ids to keep.
 
         Returns
         -------
         ProteinsDatasetExpCondition
-            A new instance of the dataset object, filtered based on the
-            user's input.
+            A new object, with the selected experiments and records.
         """
         data = self._apply_filter(exp, min_frequency, na_threshold, ids=ids)
 
@@ -68,23 +100,22 @@ class ProteinsDatasetExpCondition(TabularExperimentalConditionDataset):
         **kwargs
     ) -> ProteinsDatasetExpCondition:
         """
-        Drop experiments or records from a dataset.
+        Remove experiments or records.
 
         Parameters
         ----------
         exp: list, str, optional
-            List or experiment to keep with. Leave empty to keep all experiments.
+            Experiment name, or list of names, to remove.
         ids: list, optional
-            If specified, a list of records ids to keep in the dataset.
+            If specified, a list of record ids to remove.
         omit_missing_cols: bool, optional
-            By default, specified columns that do not exist in the dataset
-            are omitted. Set to ``False`` to raise the exception instead.
+            By default, experiment names that are not part of this condition
+            are ignored. Set to ``False`` to raise an error instead.
 
         Returns
         -------
         ProteinsDatasetExpCondition
-            A new instance of the dataset object, filtered based on the
-            user's input.
+            A new object, without the specified experiments and records.
         """
         data = self._apply_drop(exp=exp, ids=ids, omit_missing_cols=omit_missing_cols)
 
@@ -98,21 +129,88 @@ class ProteinsDatasetExpCondition(TabularExperimentalConditionDataset):
 
 class ProteinsDataset(TabularDataset):
     """
-    A protein sequence dataset object.
-    It contains multiple experimental conditions with one
-    or more experiments per condition.
+    Quantitative protein data, from one or more experimental conditions.
+
+    The dataset is a table with one row per protein (record) and one column
+    per experiment, such as a biological replicate. Experiments are grouped
+    into experimental conditions, such as ``control`` and ``treated``, which
+    you define when you create the dataset.
+
+    Create a dataset with :meth:`from_df`, from any pandas data frame, or with
+    :meth:`from_maxquant`, from a MaxQuant ``proteinGroups.txt`` file.
+
+    Methods that change the data, such as :meth:`filter`, :meth:`impute`,
+    :meth:`normalize` or :meth:`log2_transform`, return a new dataset and
+    leave the original unchanged, so they can be chained.
+
+    Missing values can be stored as ``0`` or ``NaN``. Most methods also take
+    an ``na_threshold`` argument: values equal to or below it are treated as
+    missing too.
+
+    See Also
+    --------
+    omicspylib.datasets.peptides.PeptidesDataset : The same interface, for
+        peptide-level data.
+    omicspylib.datasets.concat.concat : Combine datasets with different
+        experimental conditions.
+
+    Examples
+    --------
+    Create a dataset with two conditions of three replicates each:
+
+    >>> import pandas as pd
+    >>> from omicspylib import ProteinsDataset
+    >>> data = pd.DataFrame({
+    ...     "protein_id": ["P02768", "P01024", "P0DJI8"],
+    ...     "ctrl_rep1": [25010.3, 1310.8, 0.0],
+    ...     "ctrl_rep2": [24410.0, 1450.2, 410.5],
+    ...     "ctrl_rep3": [26120.7, 1398.7, 0.0],
+    ...     "trt_rep1": [31200.5, 0.0, 395.1],
+    ...     "trt_rep2": [30988.1, 0.0, 402.9],
+    ...     "trt_rep3": [29874.2, 512.4, 388.0],
+    ... })
+    >>> dataset = ProteinsDataset.from_df(
+    ...     data,
+    ...     id_col="protein_id",
+    ...     conditions={
+    ...         "control": ["ctrl_rep1", "ctrl_rep2", "ctrl_rep3"],
+    ...         "treated": ["trt_rep1", "trt_rep2", "trt_rep3"],
+    ...     },
+    ... )
+    >>> dataset.condition_names
+    ['control', 'treated']
+    >>> dataset.n_records, dataset.n_experiments
+    (3, 6)
+
+    Count in how many experiments of each condition each protein is found:
+
+    >>> dataset.frequency()  # doctest: +NORMALIZE_WHITESPACE
+                frequency_control  frequency_treated
+    protein_id
+    P01024                      3                  1
+    P02768                      3                  3
+    P0DJI8                      1                  3
+
+    Keep proteins found in at least 2 experiments of a condition, and
+    log-transform the values:
+
+    >>> prepared = dataset.filter(min_frequency=2).log2_transform()
     """
 
     _conditions: list[ProteinsDatasetExpCondition]
 
     def __init__(self, conditions: Sequence[ProteinsDatasetExpCondition]) -> None:
         """
-        Protein dataset object constractor. This object wraps multiple experiments
-        under sets of experimental conditions.
+        Create a dataset from experimental condition objects.
+
+        You normally don't need to call the constructor directly. Use
+        :meth:`from_df` or :meth:`from_maxquant` instead.
 
         Parameters
         ----------
-        conditions
+        conditions: Sequence[ProteinsDatasetExpCondition]
+            One object per experimental condition. Each condition name
+            should appear only once.
         """
         super().__init__(conditions=list(conditions))
         self._conditions = list(conditions)
@@ -203,24 +301,37 @@ class ProteinsDataset(TabularDataset):
         return cls.from_df(data, id_col, conditions)
 
     def append(
-        self, new_obj: ProteinsDataset, skip_duplicates: bool = False
+        self,
+        new_obj: ProteinsDataset,
+        skip_duplicates: bool = False,
+        inplace: bool | None = None,
     ) -> ProteinsDataset:
         """
-        Append another experimental condition in the same dataset.
+        Append the experimental conditions of another dataset to this one.
+
+        ``new_obj`` is never modified. To combine more than two datasets,
+        see :func:`~omicspylib.datasets.concat.concat`.
 
         Parameters
         ----------
         new_obj: ProteinsDataset
-            A Peptides dataset object to join.
+            A Proteins dataset object to join.
         skip_duplicates: bool
             If ``False``, when an experimental condition (name) already exists,
             it will raise an error.
-            Otherwise, it will just be omitted.
+            Otherwise, that condition of ``new_obj`` is left out, and the
+            existing one is kept.
+        inplace: bool, optional
+            If ``True``, modify this dataset and return it. If ``False``,
+            return a new dataset and leave this one unchanged.
+            If not specified, behaves as ``True`` and emits a ``FutureWarning``:
+            the default will change to ``False`` in a future release.
 
         Returns
         -------
         ProteinsDataset:
-            A new object containing the experimental conditions of the two datasets.
+            A dataset containing the experimental conditions of the two
+            datasets. With ``inplace=True``, it is this same object.
 
         Raises
         ------
@@ -228,27 +339,4 @@ class ProteinsDataset(TabularDataset):
             If the provided class differs from the existing or the id_col
             column name differs, or an experimental condition already exists.
         """
-        if not self.__class__ == new_obj.__class__:
-            raise ValueError(
-                f"The provided object should be of type {self.__class__}. "
-                f"Received object of type {new_obj.__class__} instead.f"
-            )
-        id_col = self._conditions[0].id_col
-
-        if not id_col == new_obj._conditions[0].id_col:
-            raise ValueError(
-                f"Cannot join, because there is a missmatch between the "
-                f"id_col name between the datasets. All datasets should "
-                f"have an id_col == {id_col}."
-            )
-
-        for new_cond in new_obj._conditions:
-            if new_cond.name in self.condition_names and not skip_duplicates:
-                raise ValueError(
-                    f"Experimental condition {new_cond} already exists in "
-                    f"the current dataset. Either remove it or select to "
-                    f"`skip_duplicates`."
-                )
-        self._conditions.extend(new_obj._conditions)
-
-        return self.__class__(conditions=self._conditions)
+        return self._append_conditions(new_obj, skip_duplicates=skip_duplicates, inplace=inplace)

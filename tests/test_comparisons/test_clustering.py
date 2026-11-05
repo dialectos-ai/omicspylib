@@ -22,7 +22,7 @@ def test_clustering_success_case(proteins_dataset: ProteinsDataset) -> None:
 
 @pytest.mark.parametrize(
     "fillna_method,min_frequency,n_rows",
-    [("min", 0, 100), ("min", 5, 97), ("drop", 0, 2)],
+    [("min", 0, 100), ("min", 5, 98), ("drop", 0, 2)],
 )
 def test_clustering_filtering_on_missing_values(
     proteins_dataset: ProteinsDataset,
@@ -75,3 +75,21 @@ def test_row_col_clustering_options(
     else:
         assert result.col_groups is not None
         assert len(list(set(result.col_groups))) == n_col_clusters
+
+
+@pytest.mark.parametrize("min_frequency, kept", [(2, True), (3, False)])
+def test_clustering_min_frequency_counts_all_columns(min_frequency, kept) -> None:
+    """A row with exactly N valid values is kept with ``min_frequency=N``."""
+    import numpy as np
+    import pandas as pd
+
+    rng = np.random.default_rng(0)
+    data = pd.DataFrame(
+        rng.uniform(100, 1000, (6, 6)), columns=[f"e{i}" for i in range(6)], index=[f"p{i}" for i in range(6)]
+    )
+    data.loc["p0", ["e2", "e3", "e4", "e5"]] = 0  # p0 has exactly 2 valid values
+    clustering = HierarchicallyClusteredHeatmap(min_frequency=min_frequency, n_row_clusters=2, n_col_clusters=2)
+
+    result = clustering.eval(data=data)
+
+    assert ("p0" in result.filtered_data.index) is kept

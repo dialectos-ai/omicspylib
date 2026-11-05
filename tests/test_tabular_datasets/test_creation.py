@@ -150,3 +150,50 @@ def test_protein_and_peptides_dataset_stats(
         example_cond = stats["statistics_per_condition"][0]
         for key in exp_low_level_keys:
             assert key in example_cond
+
+
+def _single_condition_data() -> pd.DataFrame:
+    return pd.DataFrame({
+        "peptide": ["A", "B", "C"],
+        "protein_id": ["P1", "P1", "P2"],
+        "r1": [1.0, 0.0, 3.0],
+        "r2": [4.0, 0.5, 6.0],
+    })
+
+
+@pytest.mark.parametrize("n_conditions", [1, 2])
+def test_to_table_returns_a_copy(n_conditions) -> None:
+    """Editing the output of ``to_table`` must not change the dataset."""
+    data = _single_condition_data()
+    conditions = {"c1": ["r1"], "c2": ["r2"]} if n_conditions == 2 else {"c1": ["r1", "r2"]}
+    dataset = ProteinsDataset.from_df(data, id_col="peptide", conditions=conditions)
+
+    table = dataset.to_table()
+    table.loc["A", "r1"] = -999
+
+    assert dataset.to_table().loc["A", "r1"] == 1.0
+    condition_table = dataset._conditions[0].to_table()
+    condition_table.loc["A", "r1"] = -999
+    assert dataset._conditions[0].to_table().loc["A", "r1"] == 1.0
+
+
+def test_to_proteins_does_not_modify_single_condition_peptides() -> None:
+    peptides = PeptidesDataset.from_df(
+        _single_condition_data(), id_col="peptide", conditions={"c1": ["r1", "r2"]}, protein_id_col="protein_id"
+    )
+
+    peptides.to_proteins()
+
+    assert peptides.to_table().columns.tolist() == ["r1", "r2"]
+
+
+def test_describe_uses_na_threshold() -> None:
+    """``n_records_per_experiment`` counts only values above ``na_threshold``."""
+    dataset = ProteinsDataset.from_df(_single_condition_data(), id_col="peptide", conditions={"c1": ["r1", "r2"]})
+
+    default = dataset.describe()["statistics_per_condition"][0]
+    with_threshold = dataset.describe(na_threshold=1.0)["statistics_per_condition"][0]
+
+    assert default["n_records_per_experiment"] == [2, 3]
+    assert with_threshold["n_records_per_experiment"] == [1, 2]
+    assert dataset._conditions[0].describe(na_threshold=1.0)["n_records_per_experiment"] == [1, 2]
