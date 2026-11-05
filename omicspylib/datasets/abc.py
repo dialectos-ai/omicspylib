@@ -12,7 +12,7 @@ import pandas as pd
 from typing_extensions import Self
 
 AxisName = Literal["rows", "columns"]
-NormMethod = Literal["mean"]  # future implementation for quantile, median etc
+NormMethod = Literal["mean", "median"]  # future implementation for quantile etc
 MergeHow = Literal["left", "right", "inner", "outer", "cross"]
 ConditionImputeMethod = Literal[
     "fixed", "fixed row", "row min", "row mean", "row median"
@@ -46,6 +46,22 @@ def _trimmed_mean(values: pd.Series, trim_fraction: float) -> float:
     if k > 0 and 2 * k < len(arr):
         arr = arr[k:-k]
     return float(arr.mean()) if len(arr) > 0 else float("nan")
+
+
+def _central_value(values: pd.Series, method: NormMethod, trim_fraction: float) -> float:
+    """
+    Central value of ``values`` used as the normalization anchor.
+
+    ``mean`` returns the (optionally trimmed) mean, ``median`` the median.
+    NaNs are ignored. ``trim_fraction`` does not apply to the median,
+    since symmetric trimming leaves it unchanged.
+    """
+    if method == "mean":
+        return _trimmed_mean(values, trim_fraction)
+    if method == "median":
+        arr = values.dropna().to_numpy(dtype=float)
+        return float(np.median(arr)) if len(arr) > 0 else float("nan")
+    raise NotImplementedError(f"Normalization method {method} is not implemented.")
 
 
 class TabularExperimentalConditionDataset(abc.ABC):
@@ -1374,36 +1390,43 @@ class TabularDataset(abc.ABC):
         ``normalize`` and finally ``log2_backtransform`` the normalized
         values to return to the same units.
 
-        Normalization methods:
+        Each experiment is shifted so that its central value matches the
+        central value of a reference experiment. The central value is the
+        ``mean`` (optionally trimmed, see ``trim_fraction``) or the
+        ``median`` of the experiment's intensities, depending on ``method``.
+        The median is less sensitive to outliers and skewed distributions.
 
-        - Mean without a use of common records without a ``ref_exp``.:
-            1. Find the experiment with the most records and consider reference.
-            2. Calculate mean experiment intensity and the difference from reference.
-            3. Shift each experiment's intensity by the difference with reference.
-        - mean without a use of common records with ref exp.:
-            - Like above, but the reference experiment is defined by the user.
-        - Mean with common records without a ref exp.:
-            1. Find experiment with the most records and consider reference.
-            2. Perform a pairwise comparison of each experiment with the reference where:
-               i.
-               Filter on common records.
-               Ii.
-               Calculate difference from reference.
-               Iii.
-               Shift all intensities of that experiment based on that difference.
-        - mean with common records with a ref exp.:
-            - Similar with previous (pairwise comparison and select common records),
-              but reference is defined by the user.
-        - mean with common records with a ref condition:
-            - Similar with the previous, reference is selected automatically,
-              from the condition specified.
+        Steps, for either method:
 
+        - Without common records (default):
+            1. Pick the reference experiment: ``ref_exp`` if given, else the
+               experiment with the most records (within ``ref_condition``
+               if given, otherwise across the whole dataset).
+            2. Calculate the mean or median intensity of each experiment,
+               using all of its non-missing values, and the difference from
+               the reference.
+            3. Shift each experiment's intensity by that difference.
+        - With common records (``use_common_records=True``):
+            1. Pick the reference experiment as above.
+            2. For each other experiment, in a pairwise comparison with the
+               reference:
+
+               i. Keep only the records present in both experiments.
+               ii. Calculate the mean or median of both on those records,
+                   and the difference from the reference.
+               iii. Shift all intensities of that experiment by that
+                    difference.
+
+        Examples
+        --------
+        >>> norm = dataset.log2_transform() \\
+        ...     .normalize(method="median") \\
+        ...     .log2_backtransform()  # doctest: +SKIP
 
         Parameters
         ----------
         method:
-            Normalization method.
-            For the moment, only normalization to the ``mean`` is supported.
+            Normalization method: ``"mean"`` or ``"median"``.
         ref_exp: str, optional
             If specified, this experiment will be considered the reference.
             If this is set, the ``ref_condition`` field is ignored.
@@ -1423,6 +1446,8 @@ class TabularDataset(abc.ABC):
             Each experiment is trimmed independently. For example, if
             ``trim_fraction`` is set to ``0.1``, a total of 10% of the values
             will be discarded (5% from each edge). Must be in ``[0, 1)``.
+            Only used with ``method="mean"``; it has no effect on the
+            median, which symmetric trimming does not change.
 
         Returns
         -------
@@ -1433,27 +1458,31 @@ class TabularDataset(abc.ABC):
                 f"trim_fraction must be in the range [0, 1), got {trim_fraction}."
             )
 
+        if method not in ("mean", "median"):
+            raise NotImplementedError(
+                f"Normalization method {method} is not implemented."
+            )
+
         ref_exp = self._select_norm_ref(na_threshold, ref_condition, ref_exp)
 
         # step 2 - calculate difference
-        if method == "mean" and use_common_records:
-            exp_conditions = self._mean_norm_with_shared_records(
-                na_threshold, ref_exp, trim_fraction=trim_fraction
-            )
-        elif method == "mean" and not use_common_records:
-            exp_conditions = self._base_mean_normalization(
-                na_threshold, ref_exp, trim_fraction=trim_fraction
+        if use_common_records:
+            exp_conditions = self._norm_with_shared_records(
+                na_threshold, ref_exp, method=method, trim_fraction=trim_fraction
             )
         else:
-            raise NotImplementedError(
-                f"Normalization method {method} with the specified "
-                f"arguments is not implemented."
+            exp_conditions = self._base_normalization(
+                na_threshold, ref_exp, method=method, trim_fraction=trim_fraction
             )
 
         return self.__class__(conditions=exp_conditions)
 
-    def _mean_norm_with_shared_records(
-        self, na_threshold: float, ref_exp: str, trim_fraction: float = 0.0
+    def _norm_with_shared_records(
+        self,
+        na_threshold: float,
+        ref_exp: str,
+        method: NormMethod = "mean",
+        trim_fraction: float = 0.0,
     ) -> Sequence[TabularExperimentalConditionDataset]:
         exp_conditions_data = copy.deepcopy(self._conditions)
 
@@ -1475,35 +1504,33 @@ class TabularDataset(abc.ABC):
                     df[df <= na_threshold] = np.nan
                     df = df.dropna()
 
-                    mean_ref = _trimmed_mean(df[ref_exp], trim_fraction)
-                    mean_targ = _trimmed_mean(df[targ_exp], trim_fraction)
-                    norm_diff = mean_targ - mean_ref
+                    center_ref = _central_value(df[ref_exp], method, trim_fraction)
+                    center_targ = _central_value(df[targ_exp], method, trim_fraction)
+                    norm_diff = center_targ - center_ref
                     exp_c.shift(targ_exp, norm_diff, na_threshold=na_threshold)
 
         return exp_conditions_data
 
-    def _base_mean_normalization(
-        self, na_threshold: float, ref_exp: str, trim_fraction: float = 0.0
+    def _base_normalization(
+        self,
+        na_threshold: float,
+        ref_exp: str,
+        method: NormMethod = "mean",
+        trim_fraction: float = 0.0,
     ) -> Sequence[TabularExperimentalConditionDataset]:
-        if trim_fraction > 0.0:
-            exp_means = {}
-            for c in self._conditions:
-                for exp in c.experiment_names:
-                    values = c.filter(exp=exp).to_table()[exp]
-                    exp_means[exp] = _trimmed_mean(
-                        values[values > na_threshold], trim_fraction
-                    )
-            mean_before = pd.DataFrame([exp_means])
-        else:
-            mean_before = self.mean(na_threshold=na_threshold, axis=0)
-        ref_mean = mean_before[ref_exp].values[0]
-        mean_diff = mean_before - ref_mean
-        exp_names = mean_diff.columns
-        shift_values = mean_diff.values.reshape(-1)
+        centers: dict[str, float] = {}
+        for c in self._conditions:
+            for exp in c.experiment_names:
+                values = c.filter(exp=exp).to_table()[exp]
+                centers[exp] = _central_value(
+                    values[values > na_threshold], method, trim_fraction
+                )
+        ref_center = centers[ref_exp]
         exp_conditions_data = copy.deepcopy(self._conditions)
         for condition in exp_conditions_data:
-            for exp, shift_value in zip(exp_names, shift_values, strict=True):
-                if exp in condition.experiment_names and shift_value != 0:
+            for exp in condition.experiment_names:
+                shift_value = centers[exp] - ref_center
+                if shift_value != 0:
                     condition.shift(exp, value=shift_value, na_threshold=na_threshold)
         return exp_conditions_data
 
