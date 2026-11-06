@@ -47,16 +47,10 @@ def plot_venn2(data: pd.DataFrame,
         .count()
     counts_col = f_counts.columns.tolist()[-1]
     grp1_idx = [i for i in f_counts.index if i.endswith(condition_a)]
-    if len(grp1_idx) > 0:
-        f_a = cast(float, f_counts.at[grp1_idx[0], counts_col])
-    else:
-        f_a = 0
+    f_a = cast(float, f_counts.at[grp1_idx[0], counts_col]) if len(grp1_idx) > 0 else 0
 
     grp2_idx = [i for i in f_counts.index if i.endswith(condition_b)]
-    if len(grp2_idx) > 0:
-        f_b = cast(float, f_counts.at[grp2_idx[0], counts_col])
-    else:
-        f_b = 0
+    f_b = cast(float, f_counts.at[grp2_idx[0], counts_col]) if len(grp2_idx) > 0 else 0
 
     f_common = cast(float, f_counts.at["common", counts_col])
 

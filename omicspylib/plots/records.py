@@ -58,9 +58,9 @@ def plot_record_across_experiments(
     {returns_ax}
     """
     text_annotation_size = kwargs.get("text_annotation_size", 6)
-    text_xlabel_rotation = kwargs.get("text_xlabel_rotation", None)
-    text_xlabel_ha = kwargs.get("text_xlabel_ha", None)
-    text_xlabel_va = kwargs.get("text_xlabel_va", None)
+    text_xlabel_rotation = kwargs.get("text_xlabel_rotation")
+    text_xlabel_ha = kwargs.get("text_xlabel_ha")
+    text_xlabel_va = kwargs.get("text_xlabel_va")
 
     if kwargs.get("text_rotation"):
         warnings.warn(
@@ -80,9 +80,9 @@ def plot_record_across_experiments(
             DeprecationWarning,
             stacklevel=2,
         )
-        text_annotation_round_digits = kwargs.get("text_round_digits", None)
+        text_annotation_round_digits = kwargs.get("text_round_digits")
     else:
-        text_annotation_round_digits = kwargs.get("text_annotation_round_digits", None)
+        text_annotation_round_digits = kwargs.get("text_annotation_round_digits")
 
     tabular_df = dataset.to_table()
     if record_id not in tabular_df.index:
@@ -97,7 +97,7 @@ def plot_record_across_experiments(
     plot_df = pd.DataFrame(
         {
             "experiment": rec_series.index,
-            "value": rec_series.values,
+            "value": rec_series.to_numpy(),
         }
     )
     plot_df["condition"] = plot_df["experiment"].map(exp_to_cond)

@@ -69,21 +69,20 @@ def mq_rm_reverse(data: pd.DataFrame) -> pd.DataFrame:
         filtered_data = data.loc[data[col] != "+"].copy()
         logger.info("Removed %d reverse/decoy entries.", len(data) - len(filtered_data))
         return filtered_data
-    elif len(found_cols) > 1:
+    if len(found_cols) > 1:
         warnings.warn(
             "Both 'Reverse' and 'Decoy' columns were found, so no reverse hits "
             "were removed. Filter the data manually, using the right column.",
             stacklevel=2
         )
         return data
-    else:
-        warnings.warn(
-            "Neither a 'Reverse' nor a 'Decoy' column was found, so no reverse "
-            "hits were removed. Check that the data is a MaxQuant output table, "
-            "or filter it manually.",
-            stacklevel=2
-        )
-        return data
+    warnings.warn(
+        "Neither a 'Reverse' nor a 'Decoy' column was found, so no reverse "
+        "hits were removed. Check that the data is a MaxQuant output table, "
+        "or filter it manually.",
+        stacklevel=2
+    )
+    return data
 
 
 def mq_rm_contaminants(data: pd.DataFrame) -> pd.DataFrame:

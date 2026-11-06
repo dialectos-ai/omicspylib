@@ -27,7 +27,7 @@ def test_protein_dataset_filter_on_conditions(
 
 
 @pytest.mark.parametrize(
-    "dset_name,conditions,min_f,n_before,n_after",
+    ("dset_name", "conditions", "min_f", "n_before", "n_after"),
     [
         ("proteins", ["c1"], 3, 100, 100),
         ("peptides", ["c1"], 3, 1000, 1000),
@@ -58,7 +58,7 @@ def test_filtering_of_rows_with_low_within_group_frequency(
 
 
 @pytest.mark.parametrize(
-    "dset_name,target_ids",
+    ("dset_name", "target_ids"),
     [
         ("proteins", ["p1", "p2", "p3"]),
         ("peptides", ["pept1", "pept2", "pept3"]),
@@ -131,7 +131,7 @@ def test_drop_peptides_dataset_records_based_on_protein_id(
 
 
 @pytest.mark.parametrize(
-    "dset_name,target_ids",
+    ("dset_name", "target_ids"),
     [
         ("proteins", ["p1", "p2", "p3"]),
         ("peptides", ["pept1", "pept2", "pept3"]),

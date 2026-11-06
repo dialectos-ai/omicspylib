@@ -162,7 +162,7 @@ class TabularExperimentalConditionDataset(abc.ABC):
         list
             A list of unique record ids.
         """
-        return self._data.index.values.tolist()
+        return self._data.index.tolist()
 
     @property
     def name(self) -> str:
@@ -198,7 +198,7 @@ class TabularExperimentalConditionDataset(abc.ABC):
             "n_experiments": self.n_experiments,
             "n_records": len(self.record_ids),
             "experiment_names": self._data.columns.tolist(),
-            "n_records_per_experiment": np.sum(self._data.values > na_threshold, axis=0).tolist(),
+            "n_records_per_experiment": np.sum(self._data.to_numpy() > na_threshold, axis=0).tolist(),
         }
 
     def min(
@@ -230,7 +230,7 @@ class TabularExperimentalConditionDataset(abc.ABC):
         df = self._data.copy()
         df[df <= na_threshold] = np.nan
         if axis is None:
-            min_value = np.nanmin(df.values.flatten())
+            min_value = np.nanmin(df.to_numpy().flatten())
         elif axis == "rows":
             min_value = df.min(axis=0)
         else:  # axis = columns
@@ -329,8 +329,8 @@ class TabularExperimentalConditionDataset(abc.ABC):
         mean = data.sum(axis=axis) / mask.sum(axis=axis)
         if axis == 1:  # row mean
             return pd.DataFrame({f"mean_{self.name}": mean})
-        else:  # column mean
-            return pd.DataFrame({"mean": mean})
+        # column mean
+        return pd.DataFrame({"mean": mean})
 
     @abc.abstractmethod
     def filter(
@@ -384,8 +384,7 @@ class TabularExperimentalConditionDataset(abc.ABC):
         f = np.sum(self._data > na_threshold, axis=axis)
         if axis == 1:
             return pd.DataFrame({f"frequency_{self.name}": f})
-        else:
-            return pd.DataFrame({"frequency": f})
+        return pd.DataFrame({"frequency": f})
 
     @abc.abstractmethod
     def drop(
@@ -478,10 +477,7 @@ class TabularExperimentalConditionDataset(abc.ABC):
         """
         self._data[self._data <= na_threshold] = np.nan
 
-        if random_noise:
-            rand_noise_std = self._calc_mean_std()
-        else:
-            rand_noise_std = None
+        rand_noise_std = self._calc_mean_std() if random_noise else None
 
         if method == "fixed":
             if value is None:
@@ -551,7 +547,7 @@ class TabularExperimentalConditionDataset(abc.ABC):
             else:
                 for j, v in enumerate(row):
                     if np.isnan(v):
-                        row.iloc[j] = np.random.normal(val.iloc[val_idx], std_value)
+                        row.iloc[j] = np.random.normal(val.iloc[val_idx], std_value)  # noqa: NPY002
         # case where you fill with the same value across rows
         else:
             if std_value is None:
@@ -559,7 +555,7 @@ class TabularExperimentalConditionDataset(abc.ABC):
             else:
                 for j, v in enumerate(row):
                     if np.isnan(v):
-                        row.iloc[j] = np.random.normal(val, std_value)
+                        row.iloc[j] = np.random.normal(val, std_value)  # noqa: NPY002
 
         return row
 
@@ -840,7 +836,8 @@ class TabularDataset(abc.ABC):
             A Pandas data frame containing the average value for
             each condition.
         """
-        assert axis in [0, 1]
+        if axis not in (0, 1):
+            raise ValueError(f"axis must be 0 or 1, got {axis!r}.")
 
         tables = [
             c.mean(na_threshold=na_threshold, axis=axis) for c in self._conditions
@@ -943,11 +940,11 @@ class TabularDataset(abc.ABC):
         # total number of missing values across all datasets.
         n_counts_total = np.sum(n_counts_per_exp)
         n_total = data.shape[0] * len(data.columns)
-        names_lookup = []
-        for cond in self._conditions:
-            experiments = cond.experiment_names
-            for exp in experiments:
-                names_lookup.append({"experiment": exp, "condition": cond.name})
+        names_lookup = [
+            {"experiment": exp, "condition": cond.name}
+            for cond in self._conditions
+            for exp in cond.experiment_names
+        ]
         names_lookup_df = pd.DataFrame(names_lookup)
         out_df = n_counts_df.merge(names_lookup_df, on="experiment", how="left")
 
@@ -1057,8 +1054,8 @@ class TabularDataset(abc.ABC):
         tables: list[pd.DataFrame], how: MergeHow = "outer"
     ) -> pd.DataFrame:
         return reduce(
-            lambda left, right: pd.merge(
-                left, right, left_index=True, right_index=True, how=how
+            lambda left, right: left.merge(
+                right, left_index=True, right_index=True, how=how
             ),
             tables,
         )
@@ -1155,11 +1152,11 @@ class TabularDataset(abc.ABC):
         # total number of missing values across all datasets.
         n_missing_total = np.sum(n_missing_per_exp)
         n_total = data.shape[0] * len(data.columns)
-        names_lookup = []
-        for cond in self._conditions:
-            experiments = cond.experiment_names
-            for exp in experiments:
-                names_lookup.append({"experiment": exp, "condition": cond.name})
+        names_lookup = [
+            {"experiment": exp, "condition": cond.name}
+            for cond in self._conditions
+            for exp in cond.experiment_names
+        ]
         names_lookup_df = pd.DataFrame(names_lookup)
         out_df = n_missing.merge(names_lookup_df, on="experiment", how="left")
 
@@ -1312,7 +1309,7 @@ class TabularDataset(abc.ABC):
         else:
             raise ValueError(f"Value type {value_type} not supported.")
 
-        imputed_conditions = [
+        return [
             c.impute(
                 method="fixed row",
                 na_threshold=na_threshold,
@@ -1321,7 +1318,6 @@ class TabularDataset(abc.ABC):
             )
             for c in imputed_conditions
         ]
-        return imputed_conditions
 
     def _impute_by_global_value(
         self,
@@ -1333,7 +1329,7 @@ class TabularDataset(abc.ABC):
     ) -> list[TabularExperimentalConditionDataset]:
         df = self.to_table()
         df[df <= na_threshold] = np.nan
-        all_values = df.values.flatten()
+        all_values = df.to_numpy().flatten()
         if value_type == "min":
             targ_value = np.nanmin(all_values)
         elif value_type == "mean":
@@ -1360,7 +1356,7 @@ class TabularDataset(abc.ABC):
         shift: float = 0.0,
         random_noise: bool = False,
     ) -> list[TabularExperimentalConditionDataset]:
-        imputed_conditions = [
+        return [
             c.impute(
                 method=method,
                 na_threshold=na_threshold,
@@ -1370,7 +1366,6 @@ class TabularDataset(abc.ABC):
             )
             for c in conditions
         ]
-        return imputed_conditions
 
     def normalize(
         self,
@@ -1537,13 +1532,18 @@ class TabularDataset(abc.ABC):
     def _select_norm_ref(self, na_threshold, ref_condition, ref_exp) -> str:
         """Select a reference experiment for the normalization step."""
         if ref_exp is not None:
-            assert ref_exp in self.experiment_names(), (
-                f"Reference experiment {ref_exp} not found."
-            )
+            available_exps = self.experiment_names()
+            if ref_exp not in available_exps:
+                raise ValueError(
+                    f"Reference experiment {ref_exp!r} not found. "
+                    f"Available experiments: {available_exps}."
+                )
         elif ref_condition is not None:
-            assert ref_condition in self.condition_names, (
-                f"Reference condition {ref_condition} not found."
-            )
+            if ref_condition not in self.condition_names:
+                raise ValueError(
+                    f"Reference condition {ref_condition!r} not found. "
+                    f"Available conditions: {self.condition_names}."
+                )
             n_entries_per_exp = self.frequency(
                 na_threshold=na_threshold, axis=0, conditions=[ref_condition]
             ).transpose()

@@ -5,7 +5,7 @@ from omicspylib.calculations.ttest import calc_ttest_adj
 
 
 @pytest.mark.parametrize(
-    "padj_method, exp_cols, skipped_cols",
+    ("padj_method", "exp_cols", "skipped_cols"),
     [
         ("fdr_bh", ["p-value", "t-statistic", "adj-p-value"], []),
         (None, ["p-value", "t-statistic"], ["adj-p-value"]),
