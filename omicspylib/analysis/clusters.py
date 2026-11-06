@@ -227,7 +227,7 @@ class HierarchicallyClusteredHeatmap:
             row_groups = [int(t) for t in row_trees.reshape(-1)]
         if self._n_col_clusters is not None:
             col_linkage = scipy.cluster.hierarchy.linkage(
-                scipy.spatial.distance.pdist(data.values.T), method=self._linkage_method
+                scipy.spatial.distance.pdist(data.to_numpy().T), method=self._linkage_method
             )
             col_trees = scipy.cluster.hierarchy.cut_tree(
                 col_linkage, n_clusters=[self._n_col_clusters]
@@ -266,8 +266,8 @@ class HierarchicallyClusteredHeatmap:
         Log transform protein intensities, impute missing values,
         center and scale, so that values are ready for plotting.
         """
-        row_mean = data.mean(axis=1).values
-        row_std = data.std(axis=1).values
+        row_mean = data.mean(axis=1).to_numpy()
+        row_std = data.std(axis=1).to_numpy()
         return (data - row_mean.reshape(-1, 1)) / row_std.reshape(-1, 1)
 
     def _filter_based_on_nan_frequency(self, data: pd.DataFrame) -> pd.DataFrame:

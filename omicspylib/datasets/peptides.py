@@ -268,15 +268,13 @@ class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
     def _drop_or_filter_on_protein_ids(
         self, data, protein_ids, action: Literal["drop", "filter"]
     ) -> pd.DataFrame:
-        assert action in ["drop", "filter"]
+        if action not in ("drop", "filter"):
+            raise ValueError(f"action must be 'drop' or 'filter', got {action!r}.")
 
         # step 1 - make the reverse lookup but save peptide ids in an array
         prot2pept = {}
         for pept_id, prot_id in self._metadata["peptide_to_protein"].items():
-            if action == "drop":
-                condition = prot_id not in protein_ids
-            else:
-                condition = prot_id in protein_ids
+            condition = prot_id not in protein_ids if action == "drop" else prot_id in protein_ids
 
             if condition:
                 if prot_id not in prot2pept:
@@ -285,7 +283,7 @@ class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
 
         # step 2 - collect target peptide ids
         targ_pept_ids = []
-        for _, pept_ids in prot2pept.items():
+        for pept_ids in prot2pept.values():
             targ_pept_ids.extend(pept_ids)
 
         # step 3 - do the filtering
@@ -482,7 +480,8 @@ class PeptidesDataset(TabularDataset):
             )
             return None
 
-        assert agg_method in ["sum", "counts"]
+        if agg_method not in ("sum", "counts"):
+            raise ValueError(f"agg_method must be 'sum' or 'counts', got {agg_method!r}.")
         cond_conf = {}
 
         # since each experimental condition might have a fraction of the total records

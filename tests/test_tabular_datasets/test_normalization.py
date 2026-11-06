@@ -125,10 +125,7 @@ def test_median_normalization_explicit(use_common_records) -> None:
 
     present = df["targ_rep1"] > 0
     targ = df.loc[present, "targ_rep1"]
-    if use_common_records:
-        ref = df.loc[present, "ref_rep1"]
-    else:
-        ref = df["ref_rep1"]
+    ref = df.loc[present, "ref_rep1"] if use_common_records else df["ref_rep1"]
     expected_shift = np.median(targ) - np.median(ref)
 
     actual_shift = (
@@ -190,7 +187,7 @@ def test_invalid_trim_fraction_raises() -> None:
         conditions={"c1": ["c1_rep1", "c1_rep2"], "c2": ["c2_rep1", "c2_rep2"]},
         protein_id_col="protein_id",
     )
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="trim_fraction must be in the range"):
         dataset.normalize(method="mean", trim_fraction=1.0)
 
 
@@ -221,7 +218,7 @@ def test_normalization_with_trim_fraction_param(
 
 
 @pytest.mark.parametrize(
-    "method,ref_exp,ref_condition,use_common_records,atol",
+    ("method", "ref_exp", "ref_condition", "use_common_records", "atol"),
     [
         ("mean", None, None, False, 0.1),
         ("mean", "c2_rep2", None, False, 0.1),

@@ -53,12 +53,12 @@ def _plot_barplot(
             "x_values, y_values and group labels should be of the same size"
         )
 
-    text_annotation_size = kwargs.get("text_annotation_size", None)
+    text_annotation_size = kwargs.get("text_annotation_size")
     text_annotation_rotation = kwargs.get("text_annotation_rotation", 0)
-    text_annotation_round_digits = kwargs.get("text_annotation_round_digits", None)
+    text_annotation_round_digits = kwargs.get("text_annotation_round_digits")
     text_xlabel_rotation = kwargs.get("text_xlabel_rotation", 45)
-    text_xlabel_ha = kwargs.get("text_xlabel_ha", None)
-    text_xlabel_va = kwargs.get("text_xlabel_va", None)
+    text_xlabel_ha = kwargs.get("text_xlabel_ha")
+    text_xlabel_va = kwargs.get("text_xlabel_va")
 
     # setup colors
     unique_categories = list(set(group))

@@ -4,7 +4,7 @@ from omicspylib import PeptidesDataset, ProteinsDataset
 
 
 @pytest.mark.parametrize(
-    "dset_name,drop_exp,drop_cond",
+    ("dset_name", "drop_exp", "drop_cond"),
     [
         ("proteins", "c1_rep1", None),
         ("proteins", ["c1_rep1", "c2_rep2"], None),

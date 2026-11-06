@@ -8,7 +8,7 @@ from omicspylib import PeptidesDataset, ProteinsDataset
 
 
 @pytest.mark.parametrize(
-    "fp,obj_constructor,config,n_conditions,n_exp,n_records",
+    ("fp", "obj_constructor", "config", "n_conditions", "n_exp", "n_records"),
     [
         # protein dataset example
         (
@@ -71,7 +71,7 @@ def test_protein_dataset_creation_from_df(
 
 
 @pytest.mark.parametrize(
-    "rm_contaminants, rm_reverse, rm_modified, n_rows",
+    ("rm_contaminants", "rm_reverse", "rm_modified", "n_rows"),
     [
         (False, False, False, 100),  # don't remove anything
         (True, False, False, 94),  # rm only contaminants

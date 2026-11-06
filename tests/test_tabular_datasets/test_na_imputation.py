@@ -5,7 +5,7 @@ from omicspylib import PeptidesDataset, ProteinsDataset
 
 
 @pytest.mark.parametrize(
-    "dset_name,row_idx,impute_method,targ_cols,targ_values,a_tol,kwargs",
+    ("dset_name", "row_idx", "impute_method", "targ_cols", "targ_values", "a_tol", "kwargs"),
     [
         (
             "proteins",

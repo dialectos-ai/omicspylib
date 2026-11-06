@@ -78,7 +78,7 @@ def go_to_goslim(from_ids: list[str], to_ids: list[str],
             "slimsFromIds": ",".join(from_ids[start_idx:end_idx]),
             "relations": relations
         }
-        response = requests.get(url, params=params)
+        response = requests.get(url, params=params, timeout=60)
         time.sleep(delay_time)
         if response.ok:
             batched_mappings = response.json()["results"]

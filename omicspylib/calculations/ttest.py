@@ -57,8 +57,8 @@ def calc_ttest_adj(
     df[~mask] = np.nan
     a_cols = data.experiment_names(condition_a)
     b_cols = data.experiment_names(condition_b)
-    m1 = df[a_cols].values
-    m2 = df[b_cols].values
+    m1 = df[a_cols].to_numpy()
+    m2 = df[b_cols].to_numpy()
 
     # I assume that you removed cases with low frequency before
     t_stat, p_val = ttest_ind(m1, m2, axis=1, nan_policy="omit")

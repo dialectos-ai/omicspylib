@@ -288,7 +288,7 @@ class ProteinsDataset(TabularDataset):
             data = pd.read_csv(data, sep="\t")
 
         if rename_id_col is not None:
-            data.rename(columns={id_col: rename_id_col}, inplace=True)
+            data = data.rename(columns={id_col: rename_id_col})
             id_col = rename_id_col
 
         if rm_contaminants:

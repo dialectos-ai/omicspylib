@@ -57,8 +57,9 @@ def test_record_frequency_plotting_fn(proteins_dataset: ProteinsDataset) -> None
 
 def test_volcano_plotting_fn() -> None:
     # setup
-    pvals = np.random.rand(1000)
-    fc_vals = 4 * np.random.rand(1000)
+    rng = np.random.default_rng(0)
+    pvals = rng.random(1000)
+    fc_vals = 4 * rng.random(1000)
     data = pd.DataFrame({"p-values": pvals, "fc_vals": fc_vals})
 
     # action

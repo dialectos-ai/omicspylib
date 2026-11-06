@@ -21,7 +21,7 @@ def test_clustering_success_case(proteins_dataset: ProteinsDataset) -> None:
 
 
 @pytest.mark.parametrize(
-    "fillna_method,min_frequency,n_rows",
+    ("fillna_method", "min_frequency", "n_rows"),
     [("min", 0, 100), ("min", 5, 98), ("drop", 0, 2)],
 )
 def test_clustering_filtering_on_missing_values(
@@ -48,7 +48,7 @@ def test_clustering_filtering_on_missing_values(
 
 
 @pytest.mark.parametrize(
-    "n_row_clusters,n_col_clusters", [(12, 3), (12, None), (12, 0), (None, 3), (0, 3)]
+    ("n_row_clusters", "n_col_clusters"), [(12, 3), (12, None), (12, 0), (None, 3), (0, 3)]
 )
 def test_row_col_clustering_options(
     proteins_dataset: ProteinsDataset,
@@ -77,7 +77,7 @@ def test_row_col_clustering_options(
         assert len(list(set(result.col_groups))) == n_col_clusters
 
 
-@pytest.mark.parametrize("min_frequency, kept", [(2, True), (3, False)])
+@pytest.mark.parametrize(("min_frequency", "kept"), [(2, True), (3, False)])
 def test_clustering_min_frequency_counts_all_columns(min_frequency, kept) -> None:
     """A row with exactly N valid values is kept with ``min_frequency=N``."""
     import numpy as np

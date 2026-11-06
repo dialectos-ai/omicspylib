@@ -202,12 +202,6 @@ def _define_xy_limits(data, xmax, ymax) -> tuple[float, float]:
     Specify the x, y max limits.
     I assume that you want a symmetrical plot, so for x_min use -x_max.
     """
-    if xmax is None:
-        x_max = data[_LOG2_FC_COL].max() * _X_EXPANSION_FACTOR
-    else:
-        x_max = xmax
-    if ymax is None:
-        y_max = data[_MINUS_LOG10_PVAL_COL].max()
-    else:
-        y_max = ymax
+    x_max = data[_LOG2_FC_COL].max() * _X_EXPANSION_FACTOR if xmax is None else xmax
+    y_max = data[_MINUS_LOG10_PVAL_COL].max() if ymax is None else ymax
     return x_max, y_max

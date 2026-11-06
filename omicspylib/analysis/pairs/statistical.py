@@ -79,10 +79,7 @@ class PairwiseComparisonTTestFC:
             condition_a=self._condition_a,
             condition_b=self._condition_b)
 
-        if use_log_transformed:
-            ttest_input_dataset = dataset.log2_transform()
-        else:
-            ttest_input_dataset = dataset
+        ttest_input_dataset = dataset.log2_transform() if use_log_transformed else dataset
 
         ttest_out = calc_ttest_adj(
             data=ttest_input_dataset,
@@ -91,6 +88,5 @@ class PairwiseComparisonTTestFC:
             na_threshold=na_threshold,
             pval_adj_method=pval_adj_method)
 
-        out_df = ttest_out.merge(fc_out, left_index=True, right_index=True, how="outer")
+        return ttest_out.merge(fc_out, left_index=True, right_index=True, how="outer")
 
-        return out_df

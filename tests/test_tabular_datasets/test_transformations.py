@@ -27,8 +27,8 @@ def test_log2_transformation(proteins_dataset: ProteinsDataset) -> None:
     log2_dset = proteins_dataset.log2_transform().to_table()
 
     # assert
-    mean_raw_int = np.mean(proteins_dataset.to_table().values.reshape(-1))
-    mean_log2_int = np.mean(log2_dset.values.reshape(-1))
+    mean_raw_int = np.mean(proteins_dataset.to_table().to_numpy().reshape(-1))
+    mean_log2_int = np.mean(log2_dset.to_numpy().reshape(-1))
     assert np.isclose(mean_raw_int, 1_567_714, 1_000_000)
     assert np.isclose(mean_log2_int, 25, 10)
 
@@ -42,7 +42,7 @@ def test_log2_back_transformation(proteins_dataset: ProteinsDataset) -> None:
 
     # assertion
     # assert
-    mean_raw_int = np.mean(bt_dset.values.reshape(-1))
-    mean_log2_int = np.mean(log2_dset.to_table().values.reshape(-1))
+    mean_raw_int = np.mean(bt_dset.to_numpy().reshape(-1))
+    mean_log2_int = np.mean(log2_dset.to_table().to_numpy().reshape(-1))
     assert np.isclose(mean_raw_int, 1_567_714, 1_000_000)
     assert np.isclose(mean_log2_int, 25, 10)
