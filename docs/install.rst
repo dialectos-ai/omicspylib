@@ -3,55 +3,93 @@
 Installation
 ============
 
-The library is tested using Python 3.10 -> 3.13.
-
-Using pip
----------
-Install the library via:
-
-    ``pip install omicspylib``
-
-To update an existing installation type:
-
-    ``pip install -U omicspylib``
+omicspylib requires **Python 3.10 or newer**, and is tested on Python 3.10
+to 3.14. It is available on `PyPI <https://pypi.org/project/omicspylib/>`_.
 
 
-Using uv
---------
-Install the library using `uv`:
+Install with pip
+----------------
 
-    ``uv pip install omicspylib``
+.. code-block:: bash
 
-To update an existing installation type:
+   pip install omicspylib
 
-    ``uv pip install --upgrade omicspylib``
+To upgrade an existing installation:
+
+.. code-block:: bash
+
+   pip install --upgrade omicspylib
 
 
-Using a virtual environment
----------------------------
-Create a virtual environment:
+Install with uv
+---------------
 
-Using standard tools:
+In a `uv <https://docs.astral.sh/uv/>`_ project:
 
-    ``virtualenv venv``
+.. code-block:: bash
 
-Or using `uv`:
+   uv add omicspylib
 
-    ``uv venv``
+Or, to install it into the active environment:
 
-Activate the virtual environment (Windows command prompt):
+.. code-block:: bash
 
-    ``venv\Scripts\activate``
+   uv pip install omicspylib
 
-Activate the virtual environment (macOS/Linux):
 
-    ``source venv/bin/activate``
+Use a virtual environment
+-------------------------
 
-Install the library into the active environment:
+We recommend installing omicspylib in a virtual environment, to keep its
+dependencies separate from other projects.
 
-    ``pip install omicspylib``
+Create and activate the environment, with the standard library:
 
-    .. code-block:: text
+.. code-block:: bash
 
-        # Or using uv:
-        uv pip install omicspylib
+   python -m venv .venv
+
+   # macOS / Linux
+   source .venv/bin/activate
+
+   # Windows
+   .venv\Scripts\activate
+
+Or, with uv:
+
+.. code-block:: bash
+
+   uv venv
+   # then activate it as above
+
+Then install omicspylib into it:
+
+.. code-block:: bash
+
+   pip install omicspylib
+
+
+Use in Jupyter notebooks
+------------------------
+
+The :doc:`tutorials <tutorials>` are Jupyter notebooks, and the plotting
+functions work well in them. omicspylib installs ``ipykernel``, so after
+installing it in your environment you can select that environment as the
+notebook kernel, e.g. in VS Code or PyCharm. To use it in Jupyter, install
+Jupyter in the same environment:
+
+.. code-block:: bash
+
+   pip install jupyterlab
+   jupyter lab
+
+
+Check the installation
+----------------------
+
+.. code-block:: python
+
+   import omicspylib
+   print(omicspylib.__version__)
+
+Next, follow the :doc:`quick start <quickstart>`.

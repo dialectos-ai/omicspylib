@@ -14,6 +14,18 @@ class PairwiseComparisonTTestFC:
                  dataset: ProteinsDataset,
                  condition_a: str,
                  condition_b: str) -> None:
+        """
+        Parameters
+        ----------
+        dataset: ProteinsDataset
+            The dataset to analyze, with values on their original scale
+            (not log-transformed).
+        condition_a: str
+            Name of the first condition. Fold changes are calculated as
+            condition A over condition B.
+        condition_b: str
+            Name of the second condition, usually the reference (e.g., control).
+        """
         self._raw_dataset = dataset
         self._condition_a = condition_a
         self._condition_b = condition_b
@@ -21,7 +33,7 @@ class PairwiseComparisonTTestFC:
     def eval(self,
              min_frequency: int = 3,
              na_threshold: float = 0.0,
-             pval_adj_method: MULTITEST_METHOD | None = 'fdr_bh',
+             pval_adj_method: MULTITEST_METHOD | None = "fdr_bh",
              use_log_transformed: bool = True) -> pd.DataFrame:
         """
         Perform the pairwise comparison between the two groups, using
@@ -56,10 +68,10 @@ class PairwiseComparisonTTestFC:
             min_frequency=min_frequency,
             na_threshold=na_threshold)
 
-        mean_abundance = dataset.mean(na_threshold=na_threshold, join_method='inner')
+        mean_abundance = dataset.mean(na_threshold=na_threshold, join_method="inner")
         mean_abundance = mean_abundance.rename(columns={
-            f'mean_{self._condition_a}': self._condition_a,
-            f'mean_{self._condition_b}': self._condition_b,
+            f"mean_{self._condition_a}": self._condition_a,
+            f"mean_{self._condition_b}": self._condition_b,
         })
 
         fc_out = calc_fold_change(
@@ -67,10 +79,7 @@ class PairwiseComparisonTTestFC:
             condition_a=self._condition_a,
             condition_b=self._condition_b)
 
-        if use_log_transformed:
-            ttest_input_dataset = dataset.log2_transform()
-        else:
-            ttest_input_dataset = dataset
+        ttest_input_dataset = dataset.log2_transform() if use_log_transformed else dataset
 
         ttest_out = calc_ttest_adj(
             data=ttest_input_dataset,
@@ -79,6 +88,5 @@ class PairwiseComparisonTTestFC:
             na_threshold=na_threshold,
             pval_adj_method=pval_adj_method)
 
-        out_df = ttest_out.merge(fc_out, left_index=True, right_index=True, how='outer')
+        return ttest_out.merge(fc_out, left_index=True, right_index=True, how="outer")
 
-        return out_df

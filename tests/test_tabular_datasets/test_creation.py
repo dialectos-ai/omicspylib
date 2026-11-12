@@ -8,34 +8,34 @@ from omicspylib import PeptidesDataset, ProteinsDataset
 
 
 @pytest.mark.parametrize(
-    "fp,obj_constructor,config,n_conditions,n_exp,n_records",
+    ("fp", "obj_constructor", "config", "n_conditions", "n_exp", "n_records"),
     [
         # protein dataset example
         (
-            'tests/data/protein_dataset.tsv',
+            "tests/data/protein_dataset.tsv",
              ProteinsDataset.from_df,
             {
-                'id_col': 'protein_id',
-                'conditions': {
-                    'c1': ['c1_rep1', 'c1_rep2', 'c1_rep3', 'c1_rep4', 'c1_rep5'],
-                    'c2': ['c2_rep1', 'c2_rep2', 'c2_rep3', 'c2_rep4', 'c2_rep5'],
-                    'c3': ['c3_rep1', 'c3_rep2', 'c3_rep3', 'c3_rep4', 'c3_rep5'],
+                "id_col": "protein_id",
+                "conditions": {
+                    "c1": ["c1_rep1", "c1_rep2", "c1_rep3", "c1_rep4", "c1_rep5"],
+                    "c2": ["c2_rep1", "c2_rep2", "c2_rep3", "c2_rep4", "c2_rep5"],
+                    "c3": ["c3_rep1", "c3_rep2", "c3_rep3", "c3_rep4", "c3_rep5"],
                 }
             },
             3, 15, 100,
         ),
         # peptide dataset
         (
-            'tests/data/peptides_dataset.tsv',
+            "tests/data/peptides_dataset.tsv",
             PeptidesDataset.from_df,
             {
-                'id_col': 'peptide_id',
-                'conditions': {
-                    'c1': ['c1_rep1', 'c1_rep2', 'c1_rep3', 'c1_rep4', 'c1_rep5'],
-                    'c2': ['c2_rep1', 'c2_rep2', 'c2_rep3', 'c2_rep4', 'c2_rep5'],
-                    'c3': ['c3_rep1', 'c3_rep2', 'c3_rep3', 'c3_rep4', 'c3_rep5'],
+                "id_col": "peptide_id",
+                "conditions": {
+                    "c1": ["c1_rep1", "c1_rep2", "c1_rep3", "c1_rep4", "c1_rep5"],
+                    "c2": ["c2_rep1", "c2_rep2", "c2_rep3", "c2_rep4", "c2_rep5"],
+                    "c3": ["c3_rep1", "c3_rep2", "c3_rep3", "c3_rep4", "c3_rep5"],
                 },
-                'protein_id_col': 'protein_id',
+                "protein_id_col": "protein_id",
             },
             3, 15, 1000,
         )
@@ -53,7 +53,7 @@ def test_protein_dataset_creation_from_df(
     created object has expected attributes.
     """
     # setup
-    data_df = pd.read_csv(fp, sep='\t')
+    data_df = pd.read_csv(fp, sep="\t")
 
     # action
     dataset = obj_constructor(data_df, **config)
@@ -63,7 +63,7 @@ def test_protein_dataset_creation_from_df(
     assert dataset.n_experiments == n_exp
     assert dataset.n_records == n_records
     experimental_conditions = dataset.condition_names
-    for condition_name, exp_names in config['conditions'].items():
+    for condition_name, exp_names in config["conditions"].items():
         assert condition_name in experimental_conditions
         experiment_names = dataset.experiment_names(condition_name)
         for exp_name in exp_names:
@@ -71,7 +71,7 @@ def test_protein_dataset_creation_from_df(
 
 
 @pytest.mark.parametrize(
-    "rm_contaminants, rm_reverse, rm_modified, n_rows",
+    ("rm_contaminants", "rm_reverse", "rm_modified", "n_rows"),
     [
         (False, False, False, 100),  # don't remove anything
         (True, False, False, 94),  # rm only contaminants
@@ -92,15 +92,15 @@ def test_protein_dataset_creation_from_mq_output(
     """
     # setup
     protein_groups_fp = "tests/data/protein_dataset_mq.tsv"
-    data = pd.read_csv(protein_groups_fp, sep='\t')
+    data = pd.read_csv(protein_groups_fp, sep="\t")
 
     config = {
-        'id_col': 'Majority protein IDs',
-        'rename_id_col': 'protein_id',
-        'conditions': {
-            'c1': ['c1_rep1', 'c1_rep2', 'c1_rep3', 'c1_rep4', 'c1_rep5'],
-            'c2': ['c2_rep1', 'c2_rep2', 'c2_rep3', 'c2_rep4', 'c2_rep5'],
-            'c3': ['c3_rep1', 'c3_rep2', 'c3_rep3', 'c3_rep4', 'c3_rep5'],
+        "id_col": "Majority protein IDs",
+        "rename_id_col": "protein_id",
+        "conditions": {
+            "c1": ["c1_rep1", "c1_rep2", "c1_rep3", "c1_rep4", "c1_rep5"],
+            "c2": ["c2_rep1", "c2_rep2", "c2_rep3", "c2_rep4", "c2_rep5"],
+            "c3": ["c3_rep1", "c3_rep2", "c3_rep3", "c3_rep4", "c3_rep5"],
         }
     }
 
@@ -132,11 +132,11 @@ def test_protein_and_peptides_dataset_stats(
     """
     # setup
     exp_high_level_keys = [
-        'n_conditions_total', 'n_records_total',
-        'n_experiments_total', 'statistics_per_condition']
+        "n_conditions_total", "n_records_total",
+        "n_experiments_total", "statistics_per_condition"]
     exp_low_level_keys = [
-        'name', 'n_experiments', 'n_records',
-        'experiment_names', 'n_records_per_experiment']
+        "name", "n_experiments", "n_records",
+        "experiment_names", "n_records_per_experiment"]
 
     # action
     for dataset in [proteins_dataset, peptides_dataset]:
@@ -147,6 +147,53 @@ def test_protein_and_peptides_dataset_stats(
         for key in exp_high_level_keys:
             assert key in stats
 
-        example_cond = stats['statistics_per_condition'][0]
+        example_cond = stats["statistics_per_condition"][0]
         for key in exp_low_level_keys:
             assert key in example_cond
+
+
+def _single_condition_data() -> pd.DataFrame:
+    return pd.DataFrame({
+        "peptide": ["A", "B", "C"],
+        "protein_id": ["P1", "P1", "P2"],
+        "r1": [1.0, 0.0, 3.0],
+        "r2": [4.0, 0.5, 6.0],
+    })
+
+
+@pytest.mark.parametrize("n_conditions", [1, 2])
+def test_to_table_returns_a_copy(n_conditions) -> None:
+    """Editing the output of ``to_table`` must not change the dataset."""
+    data = _single_condition_data()
+    conditions = {"c1": ["r1"], "c2": ["r2"]} if n_conditions == 2 else {"c1": ["r1", "r2"]}
+    dataset = ProteinsDataset.from_df(data, id_col="peptide", conditions=conditions)
+
+    table = dataset.to_table()
+    table.loc["A", "r1"] = -999
+
+    assert dataset.to_table().loc["A", "r1"] == 1.0
+    condition_table = dataset._conditions[0].to_table()
+    condition_table.loc["A", "r1"] = -999
+    assert dataset._conditions[0].to_table().loc["A", "r1"] == 1.0
+
+
+def test_to_proteins_does_not_modify_single_condition_peptides() -> None:
+    peptides = PeptidesDataset.from_df(
+        _single_condition_data(), id_col="peptide", conditions={"c1": ["r1", "r2"]}, protein_id_col="protein_id"
+    )
+
+    peptides.to_proteins()
+
+    assert peptides.to_table().columns.tolist() == ["r1", "r2"]
+
+
+def test_describe_uses_na_threshold() -> None:
+    """``n_records_per_experiment`` counts only values above ``na_threshold``."""
+    dataset = ProteinsDataset.from_df(_single_condition_data(), id_col="peptide", conditions={"c1": ["r1", "r2"]})
+
+    default = dataset.describe()["statistics_per_condition"][0]
+    with_threshold = dataset.describe(na_threshold=1.0)["statistics_per_condition"][0]
+
+    assert default["n_records_per_experiment"] == [2, 3]
+    assert with_threshold["n_records_per_experiment"] == [1, 2]
+    assert dataset._conditions[0].describe(na_threshold=1.0)["n_records_per_experiment"] == [1, 2]

@@ -1,7 +1,7 @@
 """
-Starting point for importing libraries main objects.
+Starting point for importing libraries' main objects.
 """
-# Datasets MUST come first so they are available on 'omicspylib' during subpackage initialization
+# Datasets MUST come first, so they are available on 'omicspylib' during subpackage initialization
 # ruff: isort: off
 from importlib.metadata import PackageNotFoundError, version
 
@@ -17,13 +17,13 @@ from omicspylib.go.goslim import go_to_goslim
 # ruff: isort: on
 
 __all__ = [
-    'HierarchicallyClusteredHeatmap',
-    'PairwiseComparisonTTestFC',
-    'PairwiseUniqueEntryComparison',
-    'PeptidesDataset',
-    'ProteinsDataset',
-    'concat',
-    'go_to_goslim'
+    "HierarchicallyClusteredHeatmap",
+    "PairwiseComparisonTTestFC",
+    "PairwiseUniqueEntryComparison",
+    "PeptidesDataset",
+    "ProteinsDataset",
+    "concat",
+    "go_to_goslim"
 ]
 
 try:

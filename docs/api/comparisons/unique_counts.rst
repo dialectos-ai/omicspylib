@@ -5,6 +5,4 @@ PairwiseUniqueEntryComparison
 
 .. autoclass:: PairwiseUniqueEntryComparison
     :members:
-    :inherited-members:
-    :undoc-members:
-    :special-members: __init__, __name__
+    :special-members: __init__

@@ -7,11 +7,15 @@ import pandas as pd
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
 
+from omicspylib.docs.definition import doc
+
 _MINUS_LOG10_PVAL_COL = "mlog10-pval"
 _LOG2_FC_COL = "log2_fc"
+_X_EXPANSION_FACTOR = 1.1
 
 
 # pylint: disable=too-many-arguments,too-many-locals
+@doc()
 def plot_volcano(
     data: pd.DataFrame,
     pval_col: str,
@@ -30,7 +34,7 @@ def plot_volcano(
     ax: Axes | None = None,
 ) -> Axes:
     """
-    Create a volcano plot, by plotting on the x-axis the fold change
+    Create a volcano plot by plotting on the x-axis the fold change
     (in a log2 scale) and on the y-axis the p-value (-log10 transformed).
 
     A Pandas data frame needs to be provided to the function, along with the
@@ -61,32 +65,23 @@ def plot_volcano(
         significant.
     fold_change_threshold: float
         Threshold value for considering significant difference in
-        fold change. By default, 2x fold difference (from any side)
+        fold change. By default, a 2x fold difference (from any side)
         is considered significant.
     xmax: float or None
         If ``xmax`` is provided, it will be used to set x limits in the
         range of (-xmax, xmax). Otherwise, it will be calculated based
-        on the provided data. It corresponds to transformed fold change
+        on the provided data. It corresponds to the transformed fold change
         value.
     ymax: float or None
         If ``ymax`` is provided, it will be used to set the y limit.
         Otherwise, it will be calculated based on the provided data.
         Note that it corresponds to transformed p-values.
-    xlabel: str
-        If provided will replace the default x-label.
-    ylabel: str
-        If provided will replace the default y-label.
-    title: str
-        If provided will replace the default title.
-    ax: plt.Axes or None
-        If a matplotlib axes object is provided, the plot will be drawn
-        on it. Otherwise, a new plt.Axes object is created and returned
-        to the user.
+    {xlabel}
+    {ylabel}
+    {title}
+    {ax}
 
-    Returns
-    -------
-    Axes
-        A Matplotlib Axes object where the plot is drawn.
+    {returns_ax}
     """
     data = data.copy()
 
@@ -110,6 +105,7 @@ def plot_volcano(
         sign_b,
         x_max,
         y_max,
+        fold_change_threshold
     )
 
     _set_plot_annotations(ax, condition_a, condition_b, title, x_max, xlabel, ylabel)
@@ -137,9 +133,20 @@ def _set_plot_annotations(
 
 
 def _plot_lines_and_data(
-    ax, color_a, color_b, condition_a, condition_b, ns_df, sign_a, sign_b, x_max, y_max
+        ax: Axes,
+        color_a,
+        color_b,
+        condition_a,
+        condition_b,
+        ns_df,
+        sign_a,
+        sign_b,
+        x_max,
+        y_max,
+        fold_change_threshold: float = 2.0
 ) -> None:
-    for x_val in [-1, 1]:
+    log2_fc_threshold = np.log2(fold_change_threshold)
+    for x_val in [-log2_fc_threshold, log2_fc_threshold]:
         ax.vlines(x=x_val, ymin=0, ymax=y_max, color="grey", linestyles=":", alpha=0.3)
     ax.hlines(
         y=-np.log10(0.05),
@@ -193,15 +200,8 @@ def _split_dataset_into_subsets(
 def _define_xy_limits(data, xmax, ymax) -> tuple[float, float]:
     """
     Specify the x, y max limits.
-    I assume that you want a symetrical plot, so for x_min use -x_max.
+    I assume that you want a symmetrical plot, so for x_min use -x_max.
     """
-    if xmax is None:
-        x_expansion_factor = 1.1
-        x_max = data[_LOG2_FC_COL].max() * x_expansion_factor
-    else:
-        x_max = xmax
-    if ymax is None:
-        y_max = data[_MINUS_LOG10_PVAL_COL].max()
-    else:
-        y_max = ymax
+    x_max = data[_LOG2_FC_COL].max() * _X_EXPANSION_FACTOR if xmax is None else xmax
+    y_max = data[_MINUS_LOG10_PVAL_COL].max() if ymax is None else ymax
     return x_max, y_max
