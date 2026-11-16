@@ -1,4 +1,5 @@
 import copy
+from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Literal
 
@@ -9,7 +10,11 @@ import pandas as pd
 import scipy
 import seaborn as sns
 from seaborn.matrix import ClusterGrid
-from sklearn.metrics import silhouette_score
+from sklearn.metrics import (
+    calinski_harabasz_score,
+    davies_bouldin_score,
+    silhouette_score,
+)
 
 LinkageMethod = Literal[
     "single", "complete", "average", "weighted", "centroid", "median", "ward"
@@ -39,6 +44,13 @@ class HCHeatmapData:
         Silhouette score for rows, if applicable and if it can be calculated.
     col_silhouette_score: float or None
         Silhouette score for columns, if applicable and if it can be calculated.
+    row_linkage: np.ndarray or None
+        Linkage matrix of the row tree, as returned by
+        ``scipy.cluster.hierarchy.linkage``. ``None`` if no row clustering
+        is performed.
+    col_linkage: np.ndarray or None
+        Linkage matrix of the column tree. ``None`` if no column clustering
+        is performed.
     """
 
     filtered_data: pd.DataFrame
@@ -48,6 +60,8 @@ class HCHeatmapData:
     col_groups: list[int] | None = None
     row_silhouette_score: float | None = None
     col_silhouette_score: float | None = None
+    row_linkage: np.ndarray | None = None
+    col_linkage: np.ndarray | None = None
 
 
 class HierarchicallyClusteredHeatmap:
@@ -204,6 +218,8 @@ class HierarchicallyClusteredHeatmap:
             heatmap_inputs=heatmap_inputs,
             row_silhouette_score=silhouette_avg_rows,
             col_silhouette_score=silhouette_avg_cols,
+            row_linkage=row_linkage,
+            col_linkage=col_linkage,
         )
 
     def _calculate_linkage_and_groups(
@@ -367,3 +383,266 @@ class HierarchicallyClusteredHeatmap:
         plt.tight_layout()
 
         return g
+
+
+@dataclass
+class ClusterDiagnosticsData:
+    """
+    Diagnostics of a hierarchical clustering. All values are descriptive:
+    no thresholds or pass/fail flags are applied, the interpretation is
+    left to the user.
+
+    Attributes
+    ----------
+    records : pd.DataFrame or None
+        One row per record (heatmap row), indexed by record id, with the
+        columns ``group``, ``silhouette``, ``nearest group`` and
+        ``imputed fraction``. ``None`` if no row clustering was performed.
+    experiments : pd.DataFrame or None
+        Same as ``records``, with one row per experiment (heatmap column).
+        ``None`` if no column clustering was performed.
+    row_k_scan : pd.DataFrame or None
+        Metrics of the row tree cut into each number of groups ``k`` of
+        ``k_range``, indexed by ``k``, with the columns ``silhouette``,
+        ``calinski-harabasz``, ``davies-bouldin``, ``merge height``,
+        ``height gap`` and ``min group size``. ``None`` if no row
+        clustering was performed, or no value of ``k_range`` is valid.
+    col_k_scan : pd.DataFrame or None
+        Same as ``row_k_scan``, for the column tree.
+    row_cophenetic_correlation : float or None
+        Correlation between the original distances of the rows and their
+        distances on the row tree.
+    col_cophenetic_correlation : float or None
+        Same as ``row_cophenetic_correlation``, for the column tree.
+    """
+
+    records: pd.DataFrame | None = None
+    experiments: pd.DataFrame | None = None
+    row_k_scan: pd.DataFrame | None = None
+    col_k_scan: pd.DataFrame | None = None
+    row_cophenetic_correlation: float | None = None
+    col_cophenetic_correlation: float | None = None
+
+
+class ClusterDiagnostics:
+    """
+    Describe how well-defined the groups of a
+    :class:`HierarchicallyClusteredHeatmap` are: per record and experiment,
+    and across different numbers of groups.
+
+    Every metric is computed on the data the clustering used
+    (``heatmap_inputs``), with Euclidean distances. Each metric has its own
+    strengths and blind spots; see the documentation for guidance on
+    reading them.
+    """
+
+    def __init__(self, k_range: Iterable[int] | None = range(2, 21)) -> None:
+        """
+        Initializer method.
+
+        Parameters
+        ----------
+        k_range: Iterable of int or None
+            Numbers of groups to cut each tree into, to compare them side
+            by side. Values outside ``[2, n - 1]``, with ``n`` the number
+            of rows or columns, are skipped for that axis. Set to ``None``
+            to skip the scan.
+        """
+        if k_range is None:
+            self._k_range: list[int] | None = None
+        else:
+            self._k_range = sorted({int(k) for k in k_range})
+
+    def eval(self, hc_data: HCHeatmapData) -> ClusterDiagnosticsData:
+        """
+        Calculate the diagnostics of a clustering.
+
+        Parameters
+        ----------
+        hc_data: HCHeatmapData
+            The output of :meth:`HierarchicallyClusteredHeatmap.eval`.
+
+        Returns
+        -------
+        ClusterDiagnosticsData
+            Per item tables, scans across numbers of groups and cophenetic
+            correlations, for each clustered axis.
+        """
+        result = ClusterDiagnosticsData()
+        missing = hc_data.filtered_data.isna()
+
+        if hc_data.row_groups is not None:
+            result.records, result.row_k_scan, result.row_cophenetic_correlation = (
+                self._diagnose_axis(
+                    data=hc_data.heatmap_inputs,
+                    groups=hc_data.row_groups,
+                    linkage=hc_data.row_linkage,
+                    imputed_fraction=missing.mean(axis=1),
+                    axis_name="row",
+                )
+            )
+
+        if hc_data.col_groups is not None:
+            (
+                result.experiments,
+                result.col_k_scan,
+                result.col_cophenetic_correlation,
+            ) = self._diagnose_axis(
+                data=hc_data.heatmap_inputs.T,
+                groups=hc_data.col_groups,
+                linkage=hc_data.col_linkage,
+                imputed_fraction=missing.mean(axis=0),
+                axis_name="col",
+            )
+
+        return result
+
+    def _diagnose_axis(
+        self,
+        data: pd.DataFrame,
+        groups: list[int],
+        linkage: np.ndarray | None,
+        imputed_fraction: pd.Series,
+        axis_name: str,
+    ) -> tuple[pd.DataFrame, pd.DataFrame | None, float]:
+        """Diagnostics of one axis. The items clustered are the rows of ``data``."""
+        if linkage is None:
+            raise ValueError(
+                f"{axis_name}_groups are set but {axis_name}_linkage is missing. "
+                "Pass the output of HierarchicallyClusteredHeatmap.eval."
+            )
+
+        x = data.to_numpy(dtype=float)
+        n_items = x.shape[0]
+        groups_arr = np.asarray(groups, dtype=int)
+
+        scan_ks: list[int] = []
+        if self._k_range is not None:
+            scan_ks = [k for k in self._k_range if 2 <= k <= n_items - 1]
+
+        label_sets = [groups_arr]
+        if scan_ks:
+            cuts = scipy.cluster.hierarchy.cut_tree(linkage, n_clusters=scan_ks)
+            label_sets += [cuts[:, j].astype(int) for j in range(len(scan_ks))]
+
+        silhouettes = _silhouette_samples(x, label_sets)
+
+        item_silhouette, nearest_group = silhouettes[0]
+        items = pd.DataFrame(
+            {
+                "group": groups_arr,
+                "silhouette": item_silhouette,
+                "nearest group": nearest_group,
+                "imputed fraction": imputed_fraction.reindex(data.index).to_numpy(),
+            },
+            index=data.index,
+        )
+
+        k_scan = None
+        if scan_ks:
+            heights = linkage[:, 2]
+            rows = []
+            for k, labels, (k_silhouette, _) in zip(
+                scan_ks, label_sets[1:], silhouettes[1:], strict=True
+            ):
+                # the tree has k groups between merge n - k - 1 and merge n - k (0-based)
+                upper = heights[n_items - k]
+                lower = heights[n_items - k - 1]
+                rows.append(
+                    {
+                        "k": k,
+                        "silhouette": float(np.mean(k_silhouette)),
+                        "calinski-harabasz": float(calinski_harabasz_score(x, labels)),
+                        "davies-bouldin": float(davies_bouldin_score(x, labels)),
+                        "merge height": float(upper),
+                        "height gap": float(upper - lower),
+                        "min group size": int(
+                            np.unique(labels, return_counts=True)[1].min()
+                        ),
+                    }
+                )
+            k_scan = pd.DataFrame(rows).set_index("k")
+
+        cophenetic_correlation = float(
+            scipy.cluster.hierarchy.cophenet(
+                linkage, scipy.spatial.distance.pdist(x)
+            )[0]
+        )
+
+        return items, k_scan, cophenetic_correlation
+
+
+def _silhouette_samples(
+    x: np.ndarray, label_sets: list[np.ndarray], chunk_size: int = 1024
+) -> list[tuple[np.ndarray, pd.api.extensions.ExtensionArray]]:
+    """
+    Per-item silhouette and nearest group, for several labelings of the
+    same items. Follows the conventions of
+    ``sklearn.metrics.silhouette_samples``: Euclidean distances, and ``0``
+    for items alone in their group.
+
+    Distances are computed in chunks of rows and reduced to sums per group
+    right away, so the full ``n x n`` distance matrix is never stored.
+
+    Parameters
+    ----------
+    x: np.ndarray
+        Items to be clustered, one per row.
+    label_sets: list of np.ndarray
+        One array of group labels per labeling, each of length ``n``.
+    chunk_size: int
+        Number of rows whose distances are computed at once.
+
+    Returns
+    -------
+    list of tuple
+        For each labeling, the silhouette of each item and its nearest
+        other group (``<NA>`` if there is only one group).
+    """
+    n_items = x.shape[0]
+    item_idx = np.arange(n_items)
+    encodings = []
+    for labels in label_sets:
+        uniques, inverse = np.unique(labels, return_inverse=True)
+        onehot = np.zeros((n_items, len(uniques)))
+        onehot[item_idx, inverse] = 1.0
+        encodings.append((uniques, inverse, onehot))
+
+    onehot_all = np.hstack([onehot for _, _, onehot in encodings])
+    group_sums = np.empty((n_items, onehot_all.shape[1]))
+    for start in range(0, n_items, chunk_size):
+        stop = min(start + chunk_size, n_items)
+        group_sums[start:stop] = (
+            scipy.spatial.distance.cdist(x[start:stop], x) @ onehot_all
+        )
+
+    results: list[tuple[np.ndarray, pd.api.extensions.ExtensionArray]] = []
+    offset = 0
+    for uniques, inverse, onehot in encodings:
+        n_groups = len(uniques)
+        sums = group_sums[:, offset : offset + n_groups]
+        offset += n_groups
+
+        if n_groups < 2:
+            results.append(
+                (np.full(n_items, np.nan), pd.array([pd.NA] * n_items, dtype="Int64"))
+            )
+            continue
+
+        counts = onehot.sum(axis=0)
+        own_counts = counts[inverse]
+        with np.errstate(divide="ignore", invalid="ignore"):
+            # mean distance to the other members of the own group
+            a = sums[item_idx, inverse] / (own_counts - 1)
+            # mean distance to the members of each other group
+            mean_to_groups = sums / counts
+            mean_to_groups[item_idx, inverse] = np.inf
+            nearest = np.argmin(mean_to_groups, axis=1)
+            b = mean_to_groups[item_idx, nearest]
+            denominator = np.maximum(a, b)
+            silhouette = np.where(denominator > 0, (b - a) / denominator, 0.0)
+        silhouette[own_counts == 1] = 0.0
+
+        results.append((silhouette, pd.array(uniques[nearest], dtype="Int64")))
+
+    return results

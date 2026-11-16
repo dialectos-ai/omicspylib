@@ -184,6 +184,318 @@ See the :doc:`clustering heatmap tutorial
 </notebooks/hierrarchically-clustered-heatmap>`.
 
 
+Cluster diagnostics
+-------------------
+
+Hierarchical clustering always returns the number of groups you ask for,
+whether the data has such groups or not.
+:class:`~omicspylib.analysis.clusters.ClusterDiagnostics` describes how
+well-defined these groups are, so that you can decide how much to rely on
+them.
+
+No metric can tell whether a grouping is right. Each one measures a
+different property, and each has blind spots. The diagnostics therefore
+report values only, with no thresholds or pass/fail flags. Whether the
+groups are meaningful depends on your data and your question, and is for
+you to judge.
+
+.. code-block:: python
+
+   from omicspylib import ClusterDiagnostics, HierarchicallyClusteredHeatmap
+
+   heatmap = HierarchicallyClusteredHeatmap(n_row_clusters=6, n_col_clusters=3)
+   result = heatmap.eval(dataset.to_table())
+
+   diagnostics = ClusterDiagnostics(k_range=range(2, 21)).eval(result)
+
+   diagnostics.records.sort_values("silhouette").head(20)  # least clear-cut records
+   diagnostics.row_k_scan                                   # compare numbers of groups
+   diagnostics.row_cophenetic_correlation                   # how faithful the tree is
+
+All values are computed on the data the clustering used
+(``heatmap_inputs``: transformed, imputed and scaled), with Euclidean
+distances, the same distances the trees are built on. Rows and columns are
+diagnosed separately: records are the items of the row clustering, and
+experiments the items of the column clustering.
+
+What is reported
+~~~~~~~~~~~~~~~~
+
+``eval`` returns a :class:`~omicspylib.analysis.clusters.ClusterDiagnosticsData`
+object. This table lists everything it contains, and where each value is
+explained.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 40 30
+
+   * - Value
+     - Where to find it
+     - Explained in
+   * - Group of each item
+     - ``group`` column of ``records`` and ``experiments``
+     - (assigned by the clustering)
+   * - Silhouette of each item
+     - ``silhouette`` column of ``records`` and ``experiments``
+     - `Silhouette`_
+   * - Nearest other group of each item
+     - ``nearest group`` column of ``records`` and ``experiments``
+     - `Silhouette`_
+   * - Imputed fraction of each item
+     - ``imputed fraction`` column of ``records`` and ``experiments``
+     - `Imputed fraction`_
+   * - Mean silhouette, per number of groups
+     - ``silhouette`` column of ``row_k_scan`` and ``col_k_scan``
+     - `Silhouette`_
+   * - Calinski-Harabasz score, per number of groups
+     - ``calinski-harabasz`` column of ``row_k_scan`` and ``col_k_scan``
+     - `Calinski-Harabasz score`_
+   * - Davies-Bouldin score, per number of groups
+     - ``davies-bouldin`` column of ``row_k_scan`` and ``col_k_scan``
+     - `Davies-Bouldin score`_
+   * - Merge height and height gap, per number of groups
+     - ``merge height`` and ``height gap`` columns of ``row_k_scan`` and
+       ``col_k_scan``
+     - `Merge height and height gap`_
+   * - Smallest group size, per number of groups
+     - ``min group size`` column of ``row_k_scan`` and ``col_k_scan``
+     - `Min group size`_
+   * - Cophenetic correlation, per tree
+     - ``row_cophenetic_correlation`` and ``col_cophenetic_correlation``
+     - `Cophenetic correlation`_
+
+``records`` and ``experiments`` have one row per record or experiment,
+indexed like your data, so you can join them back to it.
+
+``row_k_scan`` and ``col_k_scan`` have one row per number of groups ``k`` in
+``k_range``. Each row describes the same tree, cut into ``k`` groups
+instead of the number you chose. The tree is not rebuilt, so this is fast.
+Values of ``k`` below ``2`` or above the number of items minus one are
+skipped, so with few experiments ``col_k_scan`` has only a few rows. Set
+``k_range=None`` to skip the scan.
+
+How the values relate to the linkage method
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The values in ``row_k_scan`` and ``col_k_scan`` are computed in three
+different ways, which suit different ``linkage_method`` settings of
+:class:`~omicspylib.analysis.clusters.HierarchicallyClusteredHeatmap`:
+
+* ``calinski-harabasz`` and ``davies-bouldin`` summarise each group by its
+  mean. They suit ``ward`` linkage best, which also builds groups around
+  their means.
+* ``silhouette`` uses the distances between items. It makes fewer
+  assumptions, but still prefers compact, round groups.
+* ``merge height`` and ``height gap``, and the cophenetic correlation, are
+  read from the tree itself. They follow whatever the linkage method did.
+
+When the values disagree, this usually tells you about the shape of the
+groups, not that one of them is wrong. For example, ``single`` or
+``average`` linkage can form elongated groups that are clear on the tree
+but have a low silhouette.
+
+Silhouette
+~~~~~~~~~~
+
+*Reported in:* ``silhouette`` and ``nearest group`` columns of ``records``
+and ``experiments`` (per item), and ``silhouette`` column of ``row_k_scan``
+and ``col_k_scan`` (mean over all items).
+
+For each item, ``a`` is its mean distance to the other members of its
+group, and ``b`` its mean distance to the members of the nearest other
+group. The silhouette is ``(b - a) / max(a, b)``, from ``-1`` to ``1``:
+close to ``1`` means the item is much closer to its own group, close to
+``0`` that it sits between two groups, and negative that it is closer to
+another group. Items alone in their group get ``0``.
+
+``nearest group`` is the group that gives ``b``: for items with a low
+silhouette, the group they could just as well belong to.
+
+.. list-table::
+   :widths: 50 50
+   :header-rows: 1
+
+   * - Advantages
+     - Disadvantages
+   * - Available per item, so you can see which records or experiments
+       are clear-cut and which sit between two groups.
+     - Prefers compact, round groups. Elongated or chained groups, which
+       ``single`` and ``average`` linkage can form, get low values even if
+       they are clear on the tree.
+   * - Bounded from ``-1`` to ``1``, so values are comparable between
+       datasets and settings.
+     - The mean can hide a lot: ``0.3`` can mean all items are moderately
+       placed, or most are well placed and a few badly. Look at the per
+       item values too.
+   * - Uses distances only, no group means, so it fits any linkage method
+       reasonably.
+     - Needs the distance between every pair of items, which gets costly
+       for very large numbers of items. The clustering itself has the same
+       limit.
+
+Calinski-Harabasz score
+~~~~~~~~~~~~~~~~~~~~~~~
+
+*Reported in:* ``calinski-harabasz`` column of ``row_k_scan`` and
+``col_k_scan``.
+
+The spread of the group means around the overall mean, divided by the
+spread of the items around their group mean, each scaled by its degrees of
+freedom. It is the F-statistic of a one-way ANOVA, extended to many
+variables. Higher means better separated.
+
+.. list-table::
+   :widths: 50 50
+   :header-rows: 1
+
+   * - Advantages
+     - Disadvantages
+   * - Measures what ``ward`` linkage optimises, so it is the natural
+       score for ``ward`` groupings.
+     - Has no upper limit: values are only comparable within the same
+       data and settings, not between datasets.
+   * - Fast for any number of items, as it only needs group means.
+     - Assumes each group is well described by its mean. Fits groups from
+       ``single`` or ``average`` linkage poorly.
+   * - Familiar to many readers, as it is widely used.
+     - One value per number of groups: it does not show which items or
+       groups are the problem.
+
+Davies-Bouldin score
+~~~~~~~~~~~~~~~~~~~~
+
+*Reported in:* ``davies-bouldin`` column of ``row_k_scan`` and
+``col_k_scan``.
+
+For each group, take its most similar other group, and divide the sum of
+the two groups' spreads by the distance between their means. The score is
+the mean of these ratios over all groups. Lower means better separated,
+and ``0`` is the minimum.
+
+.. list-table::
+   :widths: 50 50
+   :header-rows: 1
+
+   * - Advantages
+     - Disadvantages
+   * - Each group is compared with its most similar group, so a single
+       pair of overlapping groups raises the score clearly.
+     - Like the Calinski-Harabasz score, it relies on group means and suits
+       ``ward`` linkage best.
+   * - Fast for any number of items.
+     - Has no upper limit, so values are only comparable within the same
+       data and settings.
+   * - Lower is better, with ``0`` as the ideal, which is easy to read.
+     - One value per number of groups: it does not tell which pair of
+       groups overlaps.
+
+Merge height and height gap
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+*Reported in:* ``merge height`` and ``height gap`` columns of
+``row_k_scan`` and ``col_k_scan``.
+
+The tree joins items and groups step by step, each at a height defined by
+the linkage method. The ``k`` groups exist between two of these steps: the
+one that formed them, and the next one, which merges them into ``k - 1``
+groups. ``merge height`` is the height of that next step, and ``height
+gap`` the distance between the two steps: the range of cut heights over
+which the tree has exactly ``k`` groups.
+
+.. list-table::
+   :widths: 50 50
+   :header-rows: 1
+
+   * - Advantages
+     - Disadvantages
+   * - Read from the tree itself, so they follow any linkage method on its
+       own terms.
+     - Describe the tree, not the data: if the tree distorts the data (see
+       `Cophenetic correlation`_), they inherit the distortion.
+   * - A large gap means that the ``k`` groups stay the same over a wide
+       range of cut heights, so the choice of ``k`` is less arbitrary.
+     - Heights are in the units of the linkage method, so they are only
+       comparable within the same data and settings.
+   * - Easy to relate to the dendrogram on the heatmap.
+     - With ``centroid`` and ``median`` linkage, a later step can be lower
+       than an earlier one. The height gap can then be negative and is hard
+       to interpret.
+
+Min group size
+~~~~~~~~~~~~~~
+
+*Reported in:* ``min group size`` column of ``row_k_scan`` and
+``col_k_scan``.
+
+The number of items in the smallest of the ``k`` groups.
+
+.. list-table::
+   :widths: 50 50
+   :header-rows: 1
+
+   * - Advantages
+     - Disadvantages
+   * - Shows when a larger ``k`` only splits off tiny groups, often single
+       outlier items, rather than dividing a real group.
+     - Says nothing about how separated the groups are. Small groups can
+       be real, for example a few co-regulated records.
+
+Cophenetic correlation
+~~~~~~~~~~~~~~~~~~~~~~
+
+*Reported in:* ``row_cophenetic_correlation`` and
+``col_cophenetic_correlation``, one value per tree.
+
+The correlation between the original distances of all pairs of items, and
+their distances on the tree: the height at which the two items are first
+joined. Close to ``1`` means the tree represents the distances faithfully.
+
+.. list-table::
+   :widths: 50 50
+   :header-rows: 1
+
+   * - Advantages
+     - Disadvantages
+   * - Shows how faithfully the tree represents the data, before any cut.
+       A low value means the dendrogram on the heatmap is a rough
+       summary, whichever number of groups you choose.
+     - Describes the whole tree, not the groups: it does not depend on the
+       number of groups, and does not tell which groups are well defined.
+   * - Comparable between linkage methods: run the clustering with each
+       method you consider, and compare their values.
+     - Large distances dominate the correlation, so it can be high even if
+       the fine structure of the tree is not faithful.
+
+Imputed fraction
+~~~~~~~~~~~~~~~~
+
+*Reported in:* ``imputed fraction`` column of ``records`` and
+``experiments``.
+
+The fraction of the item's values that were missing and filled in before
+clustering, from ``0`` to ``1``. It is not a cluster metric, but a check on
+what drives the groups.
+
+.. list-table::
+   :widths: 50 50
+   :header-rows: 1
+
+   * - Advantages
+     - Disadvantages
+   * - Shows groups that may be formed by the imputed values rather than
+       the measured ones. With ``fillna_method="min"``, records with many
+       missing values share the same low values, and can group together
+       for that reason alone.
+     - A high value does not make a group wrong: records missing in the
+       same experiments can reflect real biology, such as records absent
+       in one condition.
+   * - Imputed values affect all other values on this page, the
+       Calinski-Harabasz and Davies-Bouldin scores most. Check it before
+       reading the others.
+     - It is ``0`` everywhere with ``fillna_method="drop"``, as no values
+       are imputed.
+
+
 Reference
 ---------
 

@@ -13,3 +13,17 @@ Results
 
 .. autoclass:: HCHeatmapData
 
+
+ClusterDiagnostics
+==================
+
+.. autoclass:: ClusterDiagnostics
+    :members:
+    :special-members: __init__
+
+
+Diagnostics results
+-------------------
+
+.. autoclass:: ClusterDiagnosticsData
+
