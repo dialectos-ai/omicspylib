@@ -10,6 +10,7 @@ import pandas as pd
 
 from omicspylib.datasets.abc import TabularDataset, TabularExperimentalConditionDataset
 from omicspylib.utils import mq_rm_contaminants, mq_rm_only_modified, mq_rm_reverse
+from omicspylib.utils.deprecation import resolve_renamed_arg
 
 
 class ProteinsDatasetExpCondition(TabularExperimentalConditionDataset):
@@ -55,17 +56,19 @@ class ProteinsDatasetExpCondition(TabularExperimentalConditionDataset):
 
     def filter(
         self,
-        exp: str | list | None = None,
+        experiments: str | list | None = None,
         min_frequency: int | None = None,
         na_threshold: float = 0.0,
         ids: list | None = None,
+        *,
+        exp: str | list | None = None,
     ) -> ProteinsDatasetExpCondition:
         """
         Keep a subset of the experiments and records.
 
         Parameters
         ----------
-        exp: list, str, optional
+        experiments: list, str, optional
             Experiment name, or list of names, to keep. Names that are not
             part of this condition are ignored. Leave empty to keep all
             experiments.
@@ -77,13 +80,17 @@ class ProteinsDatasetExpCondition(TabularExperimentalConditionDataset):
             Used together with ``min_frequency``.
         ids: list, optional
             If specified, a list of record ids to keep.
+        exp: list, str, optional
+            .. deprecated:: 0.3.0
+                Use ``experiments`` instead.
 
         Returns
         -------
         ProteinsDatasetExpCondition
             A new object, with the selected experiments and records.
         """
-        data = self._apply_filter(exp, min_frequency, na_threshold, ids=ids)
+        experiments = resolve_renamed_arg(experiments, exp, "experiments", "exp")
+        data = self._apply_filter(experiments, min_frequency, na_threshold, ids=ids)
 
         return ProteinsDatasetExpCondition(
             name=self.name,
@@ -94,7 +101,7 @@ class ProteinsDatasetExpCondition(TabularExperimentalConditionDataset):
 
     def drop(
         self,
-        exp: str | list | None = None,
+        experiments: str | list | None = None,
         ids: list | None = None,
         omit_missing_cols: bool = True,
         **kwargs
@@ -104,20 +111,27 @@ class ProteinsDatasetExpCondition(TabularExperimentalConditionDataset):
 
         Parameters
         ----------
-        exp: list, str, optional
+        experiments: list, str, optional
             Experiment name, or list of names, to remove.
         ids: list, optional
             If specified, a list of record ids to remove.
         omit_missing_cols: bool, optional
             By default, experiment names that are not part of this condition
             are ignored. Set to ``False`` to raise an error instead.
+        **kwargs
+            ``exp`` (deprecated since 0.3.0): use ``experiments`` instead.
 
         Returns
         -------
         ProteinsDatasetExpCondition
             A new object, without the specified experiments and records.
         """
-        data = self._apply_drop(exp=exp, ids=ids, omit_missing_cols=omit_missing_cols)
+        experiments = resolve_renamed_arg(
+            experiments, kwargs.get("exp"), "experiments", "exp"
+        )
+        data = self._apply_drop(
+            experiments=experiments, ids=ids, omit_missing_cols=omit_missing_cols
+        )
 
         return ProteinsDatasetExpCondition(
             name=self.name,

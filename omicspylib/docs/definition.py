@@ -9,7 +9,15 @@ COMMON_PARAMS: dict[str, str] = {
     "xlabel": "xlabel : str | None, default=None\n    Label for the x-axis.",
     "ylabel": "ylabel : str | None, default=None\n    Label for the y-axis.",
     "title": "title : str | None, default=None\n    Title of the plot.",
-    "min_threshold": "min_threshold : float, default=0\n    Values below this threshold will be considered missing.",
+    "na_threshold": (
+        "na_threshold : float, default=0.0\n"
+        "    Values below or equal to this threshold are considered missing."
+    ),
+    "min_threshold": (
+        "min_threshold : float, optional\n"
+        "    .. deprecated:: 0.3.0\n"
+        "        Use ``na_threshold`` instead."
+    ),
     "returns_ax": "Returns\n-------\nAxes\n    A matplotlib Axes object containing the plot.",
 }
 
