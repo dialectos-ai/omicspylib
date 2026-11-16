@@ -265,3 +265,108 @@ def test_normalization_method(
     assert not np.any(np.isclose(global_mean_before, col_means_before, atol=0.1))
     global_mean_after = np.mean(col_means_after)
     assert np.all(np.isclose(global_mean_after, col_means_after, atol=atol))
+
+
+def _within_conditions_dataset() -> tuple[pd.DataFrame, PeptidesDataset]:
+    # c1 replicates differ by +2 / +4; c2 sits ~100 above c1 (kept).
+    df = pd.DataFrame(
+        {
+            "peptide_id": [f"p{i}" for i in range(5)],
+            "protein_id": ["prot1"] * 5,
+            "c1_rep1": [10.0, 20, 30, 40, 50],
+            "c1_rep2": [12.0, 22, 32, 42, 52],
+            "c1_rep3": [14.0, 24, 34, 44, 0],  # p4 missing
+            "c2_rep1": [110.0, 120, 130, 140, 150],
+            "c2_rep2": [120.0, 130, 140, 150, 160],
+        }
+    )
+    dataset = PeptidesDataset.from_df(
+        df,
+        id_col="peptide_id",
+        conditions={
+            "c1": ["c1_rep1", "c1_rep2", "c1_rep3"],
+            "c2": ["c2_rep1", "c2_rep2"],
+        },
+        protein_id_col="protein_id",
+    )
+    return df, dataset
+
+
+@pytest.mark.parametrize("method", ["mean", "median"])
+def test_within_conditions_normalizes_to_condition_mean(method: NormMethod) -> None:
+    _, dataset = _within_conditions_dataset()
+
+    norm = dataset.normalize(
+        method=method, within_conditions=True, use_common_records=True
+    ).to_table()
+
+    # common records of c1 are p0..p3: centers 25, 27, 29 -> target 27
+    np.testing.assert_allclose(norm.loc["p0":"p3", "c1_rep1"], [12.0, 22, 32, 42])
+    np.testing.assert_allclose(norm.loc["p0":"p3", "c1_rep2"], [12.0, 22, 32, 42])
+    np.testing.assert_allclose(norm.loc["p0":"p3", "c1_rep3"], [12.0, 22, 32, 42])
+    assert norm.loc["p4", "c1_rep3"] == 0
+    # c2: centers 130, 140 -> target 135; the c1/c2 offset is kept
+    np.testing.assert_allclose(norm["c2_rep1"], [115.0, 125, 135, 145, 155])
+    np.testing.assert_allclose(norm["c2_rep2"], [115.0, 125, 135, 145, 155])
+
+
+def test_within_conditions_all_records_keeps_condition_level() -> None:
+    df, dataset = _within_conditions_dataset()
+
+    norm = dataset.normalize(method="mean", within_conditions=True).to_table()
+
+    exps = ["c1_rep1", "c1_rep2", "c1_rep3"]
+    centers_before = [df.loc[df[e] > 0, e].mean() for e in exps]
+    centers_after = [norm.loc[norm[e] > 0, e].mean() for e in exps]
+    np.testing.assert_allclose(centers_after, np.mean(centers_before))
+
+
+@pytest.mark.parametrize("use_common_records", [True, False])
+def test_within_conditions_reference_per_condition(use_common_records) -> None:
+    df, dataset = _within_conditions_dataset()
+
+    norm = dataset.normalize(
+        method="median",
+        within_conditions=True,
+        ref_experiment=["c1_rep2", "c2_rep1"],
+        use_common_records=use_common_records,
+    ).to_table()
+
+    # references are unchanged, replicates move onto them
+    np.testing.assert_allclose(norm["c1_rep2"], df["c1_rep2"])
+    np.testing.assert_allclose(norm["c1_rep1"], df["c1_rep2"])
+    np.testing.assert_allclose(norm["c2_rep1"], df["c2_rep1"])
+    np.testing.assert_allclose(norm["c2_rep2"], df["c2_rep1"])
+    if use_common_records:
+        np.testing.assert_allclose(
+            norm.loc["p0":"p3", "c1_rep3"], df.loc[0:3, "c1_rep2"]
+        )
+
+
+def test_within_conditions_partial_references() -> None:
+    df, dataset = _within_conditions_dataset()
+
+    norm = dataset.normalize(
+        method="mean", within_conditions=True, ref_experiment="c2_rep2"
+    ).to_table()
+
+    # c2 goes to its reference, c1 (no reference) to its mean
+    np.testing.assert_allclose(norm["c2_rep1"], df["c2_rep2"])
+    np.testing.assert_allclose(norm["c2_rep2"], df["c2_rep2"])
+    c1_centers = [norm.loc[norm[e] > 0, e].mean() for e in ["c1_rep1", "c1_rep2"]]
+    assert c1_centers[0] == pytest.approx(c1_centers[1])
+
+
+def test_within_conditions_invalid_arguments_raise() -> None:
+    _, dataset = _within_conditions_dataset()
+
+    with pytest.raises(ValueError, match="ref_condition cannot be used"):
+        dataset.normalize(method="mean", within_conditions=True, ref_condition="c1")
+    with pytest.raises(ValueError, match="more than one reference"):
+        dataset.normalize(
+            method="mean", within_conditions=True, ref_experiment=["c1_rep1", "c1_rep2"]
+        )
+    with pytest.raises(ValueError, match="not found"):
+        dataset.normalize(method="mean", within_conditions=True, ref_experiment=["x"])
+    with pytest.raises(TypeError, match="within_conditions=True"):
+        dataset.normalize(method="mean", ref_experiment=["c1_rep1", "c2_rep1"])
