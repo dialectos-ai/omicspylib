@@ -11,7 +11,17 @@ import numpy as np
 import pandas as pd
 from typing_extensions import Self
 
+from omicspylib.calculations.bland_altman import calc_bland_altman
+from omicspylib.calculations.correlation import (
+    CorrelationMethod,
+    calc_pairwise_correlation,
+)
+from omicspylib.datasets.missing import MissingValuesMixin
+from omicspylib.utils.deprecation import resolve_renamed_arg
+
 AxisName = Literal["rows", "columns"]
+ExperimentPairs = Literal["within_conditions", "across_conditions", "all"]
+MissingHandling = Literal["pairwise", "listwise"]
 NormMethod = Literal["mean", "median"]  # future implementation for quantile etc
 MergeHow = Literal["left", "right", "inner", "outer", "cross"]
 ConditionImputeMethod = Literal[
@@ -64,7 +74,7 @@ def _central_value(values: pd.Series, method: NormMethod, trim_fraction: float) 
     raise NotImplementedError(f"Normalization method {method} is not implemented.")
 
 
-class TabularExperimentalConditionDataset(abc.ABC):
+class TabularExperimentalConditionDataset(MissingValuesMixin, abc.ABC):
     def __init__(
         self,
         name: str,
@@ -198,7 +208,7 @@ class TabularExperimentalConditionDataset(abc.ABC):
             "n_experiments": self.n_experiments,
             "n_records": len(self.record_ids),
             "experiment_names": self._data.columns.tolist(),
-            "n_records_per_experiment": np.sum(self._data.to_numpy() > na_threshold, axis=0).tolist(),
+            "n_records_per_experiment": self._detection_mask(self._data, na_threshold).sum(axis=0).tolist(),
         }
 
     def min(
@@ -227,8 +237,7 @@ class TabularExperimentalConditionDataset(abc.ABC):
             A single value if ``axis`` is ``None``. Otherwise, a series indexed
             by experiment name (``"rows"``) or by record id (``"columns"``).
         """
-        df = self._data.copy()
-        df[df <= na_threshold] = np.nan
+        df = self._mask_missing(self._data, na_threshold)
         if axis is None:
             min_value = np.nanmin(df.to_numpy().flatten())
         elif axis == "rows":
@@ -259,7 +268,7 @@ class TabularExperimentalConditionDataset(abc.ABC):
             Number of total values of that condition.
         """
         n_missing_per_exp = self._data.shape[0] - np.sum(
-            self._data > na_threshold, axis=0
+            self._detection_mask(self._data, na_threshold), axis=0
         )
         n_missing_total = np.sum(n_missing_per_exp)
         total_values = self._data.shape[0] * self._data.shape[1]
@@ -323,9 +332,8 @@ class TabularExperimentalConditionDataset(abc.ABC):
             column named ``mean_<condition name>``. For ``axis=0``, a data frame
             indexed by experiment name with a single column named ``mean``.
         """
-        mask = self._data > na_threshold
-        data = self._data.copy()
-        data[~mask] = np.nan
+        mask = self._detection_mask(self._data, na_threshold)
+        data = self._data.where(mask)
         mean = data.sum(axis=axis) / mask.sum(axis=axis)
         if axis == 1:  # row mean
             return pd.DataFrame({f"mean_{self.name}": mean})
@@ -335,25 +343,27 @@ class TabularExperimentalConditionDataset(abc.ABC):
     @abc.abstractmethod
     def filter(
         self,
-        exp: str | list | None = None,
+        experiments: str | list | None = None,
         min_frequency: int | None = None,
         na_threshold: float = 0.0,
         ids: list | None = None,
+        *,
+        exp: str | list | None = None,
     ) -> Self:
         raise NotImplementedError
 
-    def _apply_filter(self, exp, min_frequency, na_threshold, ids=None) -> pd.DataFrame:
+    def _apply_filter(self, experiments, min_frequency, na_threshold, ids=None) -> pd.DataFrame:
         data = self._data.copy()
         if min_frequency is not None:
-            valid_rows = (data > na_threshold).sum(axis=1) >= min_frequency
+            valid_rows = self._detection_mask(data, na_threshold).sum(axis=1) >= min_frequency
             data = data.loc[valid_rows, :].copy()
-        if isinstance(exp, str):
-            exp = [exp]
-        if exp is not None:
+        if isinstance(experiments, str):
+            experiments = [experiments]
+        if experiments is not None:
             # You might filter by providing names across experimental
             # conditions. So when you work on each condition separately,
             # some names are no longer valid.
-            local_exp = [ex for ex in exp if ex in data.columns]
+            local_exp = [ex for ex in experiments if ex in data.columns]
             data = data.loc[:, local_exp].copy()
         if ids is not None:
             data = data.loc[data.index.isin(ids)].copy()
@@ -381,7 +391,7 @@ class TabularExperimentalConditionDataset(abc.ABC):
             frame indexed by experiment name with a single column named
             ``frequency``.
         """
-        f = np.sum(self._data > na_threshold, axis=axis)
+        f = np.sum(self._detection_mask(self._data, na_threshold), axis=axis)
         if axis == 1:
             return pd.DataFrame({f"frequency_{self.name}": f})
         return pd.DataFrame({"frequency": f})
@@ -389,7 +399,7 @@ class TabularExperimentalConditionDataset(abc.ABC):
     @abc.abstractmethod
     def drop(
         self,
-        exp: str | list | None = None,
+        experiments: str | list | None = None,
         ids: list | None = None,
         omit_missing_cols: bool = True,
         **kwargs,
@@ -398,22 +408,22 @@ class TabularExperimentalConditionDataset(abc.ABC):
 
     def _apply_drop(
         self,
-        exp: str | list | None = None,
+        experiments: str | list | None = None,
         ids: list | None = None,
         omit_missing_cols: bool = True,
         **kwargs,
     ) -> pd.DataFrame:
         data = self._data.copy()
-        if isinstance(exp, str):
-            exp = [exp]
+        if isinstance(experiments, str):
+            experiments = [experiments]
 
-        if omit_missing_cols and exp is not None:
+        if omit_missing_cols and experiments is not None:
             # allow the user to pass column names that don't exist or
             # are already excluded from previous steps.
-            exp = [e for e in exp if e in data.columns]
+            experiments = [e for e in experiments if e in data.columns]
 
-        if exp is not None:
-            data = data.drop(exp, axis=1)
+        if experiments is not None:
+            data = data.drop(experiments, axis=1)
 
         if ids is not None:
             data = data.loc[~data.index.isin(ids)].copy()
@@ -475,7 +485,7 @@ class TabularExperimentalConditionDataset(abc.ABC):
             If ``method`` is unknown, or ``value`` is missing for the
             ``fixed`` and ``fixed row`` methods.
         """
-        self._data[self._data <= na_threshold] = np.nan
+        self._data = self._mask_missing(self._data, na_threshold)
 
         rand_noise_std = self._calc_mean_std() if random_noise else None
 
@@ -559,9 +569,21 @@ class TabularExperimentalConditionDataset(abc.ABC):
 
         return row
 
-    def to_table(self) -> pd.DataFrame:
+    def to_table(
+        self, mask_missing: bool = False, na_threshold: float = 0.0
+    ) -> pd.DataFrame:
         """
         Return the values of this condition as a pandas data frame.
+
+        Parameters
+        ----------
+        mask_missing : bool, optional
+            If ``True``, missing values (values below or equal to
+            ``na_threshold``) are returned as ``NaN``. By default, values
+            are returned as stored.
+        na_threshold : float, optional
+            Values below or equal to this threshold are considered missing.
+            Used only if ``mask_missing`` is ``True``.
 
         Returns
         -------
@@ -569,7 +591,27 @@ class TabularExperimentalConditionDataset(abc.ABC):
             A copy of the table, with record ids as the index and one column
             per experiment. Modifying it does not change this object.
         """
+        if mask_missing:
+            return self._mask_missing(self._data, na_threshold)
         return self._data.copy()
+
+    def detection_matrix(self, na_threshold: float = 0.0) -> pd.DataFrame:
+        """
+        Return whether each record was detected in each experiment.
+
+        Parameters
+        ----------
+        na_threshold : float, optional
+            Values below or equal to this threshold are considered missing.
+
+        Returns
+        -------
+        pd.DataFrame
+            A boolean data frame with the same shape as :meth:`to_table`.
+            ``True`` if the value is above ``na_threshold``, ``False`` if it
+            is missing.
+        """
+        return self._detection_mask(self._data, na_threshold)
 
     def shift(self, exp, value, na_threshold: float = 0.0) -> None:
         """
@@ -588,11 +630,11 @@ class TabularExperimentalConditionDataset(abc.ABC):
             Values below or equal to this threshold are considered missing,
             and are not shifted.
         """
-        mask = self._data[exp] > na_threshold
+        mask = self._detection_mask(self._data[exp], na_threshold)
         self._data.loc[mask, exp] -= value
 
 
-class TabularDataset(abc.ABC):
+class TabularDataset(MissingValuesMixin, abc.ABC):
     def __init__(
         self, conditions: Sequence[TabularExperimentalConditionDataset]
     ) -> None:
@@ -928,9 +970,9 @@ class TabularDataset(abc.ABC):
         """
         data = self.to_table()
         if value_type == "missing":
-            n_counts_per_exp = data.shape[0] - np.sum(data > na_threshold, axis=0)
+            n_counts_per_exp = data.shape[0] - np.sum(self._detection_mask(data, na_threshold), axis=0)
         elif value_type == "present":
-            n_counts_per_exp = np.sum(data > na_threshold, axis=0)
+            n_counts_per_exp = np.sum(self._detection_mask(data, na_threshold), axis=0)
         else:
             raise ValueError("type must be either 'missing' or 'present'")  # pyright: ignore
 
@@ -952,21 +994,30 @@ class TabularDataset(abc.ABC):
 
     def drop(
         self,
+        experiments: str | list | None = None,
+        conditions: str | list | None = None,
+        ids: list | None = None,
+        *,
         exp: str | list | None = None,
         cond: str | list | None = None,
-        ids: list | None = None,
     ) -> Self:
         """
         Drop specified experiment(s) and or condition(s).
 
         Parameters
         ----------
-        exp: str, list, optional
+        experiments: str, list, optional
             Experiment name(s) to be dropped.
-        cond: str, list, optional
+        conditions: str, list, optional
             Experimental condition(s) to be dropped.
         ids: list, optional
             If specified, a list of records ids to drop from the dataset.
+        exp: str, list, optional
+            .. deprecated:: 0.3.0
+                Use ``experiments`` instead.
+        cond: str, list, optional
+            .. deprecated:: 0.3.0
+                Use ``conditions`` instead.
 
         Returns
         -------
@@ -974,16 +1025,19 @@ class TabularDataset(abc.ABC):
             An object of the same instance type without
             the specified experiment(s) and/or condition(s).
         """
-        filt_conditions = copy.deepcopy(self._conditions)
-        if isinstance(exp, str):
-            exp = [exp]
-        if isinstance(cond, str):
-            cond = [cond]
-        if cond is not None:
-            filt_conditions = [c for c in filt_conditions if c.name not in cond]
+        experiments = resolve_renamed_arg(experiments, exp, "experiments", "exp")
+        conditions = resolve_renamed_arg(conditions, cond, "conditions", "cond")
 
-        if exp is not None:
-            filt_conditions = [c.drop(exp) for c in filt_conditions]
+        filt_conditions = copy.deepcopy(self._conditions)
+        if isinstance(experiments, str):
+            experiments = [experiments]
+        if isinstance(conditions, str):
+            conditions = [conditions]
+        if conditions is not None:
+            filt_conditions = [c for c in filt_conditions if c.name not in conditions]
+
+        if experiments is not None:
+            filt_conditions = [c.drop(experiments) for c in filt_conditions]
 
         if ids is not None:
             filt_conditions = [c.drop(ids=ids) for c in filt_conditions]
@@ -992,21 +1046,24 @@ class TabularDataset(abc.ABC):
 
     def filter(
         self,
-        exp: str | list | None = None,
-        cond: list | None = None,
+        experiments: str | list | None = None,
+        conditions: str | list | None = None,
         min_frequency: int | None = None,
         na_threshold: float = 0.0,
         ids: list | None = None,
+        *,
+        exp: str | list | None = None,
+        cond: str | list | None = None,
     ) -> Self:
         """
         Filter the dataset based on a given set of properties.
 
         Parameters
         ----------
-        exp: list, str, optional
+        experiments: list, str, optional
             List of experiment name or a single experiment to keep.
             Leave empty to keep all experiments.
-        cond: list, optional
+        conditions: list, str, optional
             List of experimental condition names. If provided, only the conditions
             specified will remain in the dataset.
         min_frequency: int or None, optional
@@ -1017,6 +1074,12 @@ class TabularDataset(abc.ABC):
             It is used in to filter records based on the number of missing values.
         ids: list, optional
             If specified, a list of records ids to keep in the dataset.
+        exp: list, str, optional
+            .. deprecated:: 0.3.0
+                Use ``experiments`` instead.
+        cond: list, str, optional
+            .. deprecated:: 0.3.0
+                Use ``conditions`` instead.
 
         Returns
         -------
@@ -1024,14 +1087,17 @@ class TabularDataset(abc.ABC):
             A new instance of the dataset object, filtered based on the
             user's input.
         """
-        exp_conditions = list(self._conditions).copy()
-        if isinstance(exp, str):
-            exp = [exp]
-        if isinstance(cond, str):
-            cond = [cond]
+        experiments = resolve_renamed_arg(experiments, exp, "experiments", "exp")
+        conditions = resolve_renamed_arg(conditions, cond, "conditions", "cond")
 
-        if cond is not None:
-            exp_conditions = [c for c in exp_conditions if c.name in cond]
+        exp_conditions = list(self._conditions).copy()
+        if isinstance(experiments, str):
+            experiments = [experiments]
+        if isinstance(conditions, str):
+            conditions = [conditions]
+
+        if conditions is not None:
+            exp_conditions = [c for c in exp_conditions if c.name in conditions]
 
         filt_min_f = min_frequency is not None
         filt_na_th = na_threshold is not None
@@ -1039,7 +1105,7 @@ class TabularDataset(abc.ABC):
         if filt_min_f or filt_na_th or filt_ids:
             exp_conditions = [
                 c.filter(
-                    exp=exp,
+                    experiments=experiments,
                     min_frequency=min_frequency,
                     na_threshold=na_threshold,
                     ids=ids,
@@ -1086,7 +1152,12 @@ class TabularDataset(abc.ABC):
         bt_conditions = [c.log2_backtransform() for c in conditions_copy]
         return self.__class__(conditions=bt_conditions)
 
-    def to_table(self, join_method: MergeHow = "outer") -> pd.DataFrame:
+    def to_table(
+        self,
+        join_method: MergeHow = "outer",
+        mask_missing: bool = False,
+        na_threshold: float = 0.0,
+    ) -> pd.DataFrame:
         """
         Merge individual experimental conditions to one table.
         You might use this method to extract a Pandas data frame from
@@ -1095,18 +1166,371 @@ class TabularDataset(abc.ABC):
         Note that the entry identifier is in the index of the
         data frame.
 
+        By default, values are returned as stored, so missing values may
+        appear as ``0``. Generic tools (e.g., ``DataFrame.mean``,
+        ``DataFrame.corr``, scikit-learn) treat such zeros as measured
+        values. Set ``mask_missing=True`` to get missing values as ``NaN``
+        instead, which pandas skips by default.
+
         Parameters
         ----------
-        join_method: MergeHow, optional
+        join_method : MergeHow, optional
             Method of joining records of each experimental condition in the output.
+            Records absent from a condition are ``NaN`` in its columns.
+        mask_missing : bool, optional
+            If ``True``, values below or equal to ``na_threshold`` are
+            replaced by ``NaN``. Default is ``False``.
+        na_threshold : float, optional
+            Values below or equal to this threshold are considered missing.
+            Used only if ``mask_missing`` is ``True``.
 
         Returns
         -------
         pd.DataFrame
             A Pandas data frame containing all experimental conditions.
+
+        See Also
+        --------
+        detection_matrix : Whether each record was detected in each experiment.
+
+        Examples
+        --------
+        >>> table = dataset.to_table(mask_missing=True)
+        >>> table.corr()  # zeros no longer count as measurements
         """
-        tables = [c.to_table() for c in self._conditions]
+        tables = [
+            c.to_table(mask_missing=mask_missing, na_threshold=na_threshold)
+            for c in self._conditions
+        ]
         return self._join_list_of_tables(tables, how=join_method)
+
+    def detection_matrix(
+        self, na_threshold: float = 0.0, join_method: MergeHow = "outer"
+    ) -> pd.DataFrame:
+        """
+        Return whether each record was detected in each experiment.
+
+        A value is detected if it is above ``na_threshold``. Missing
+        values, stored as ``0`` or ``NaN``, are not detected. Neither are
+        records absent from a condition after joining.
+
+        Useful for presence/absence analyses, such as records detected in
+        one condition but not another, or patterns of missing values.
+        To count detections, use :meth:`frequency` instead.
+
+        Parameters
+        ----------
+        na_threshold : float, optional
+            Values below or equal to this threshold are considered missing.
+        join_method : MergeHow, optional
+            Method of joining records of each experimental condition in the
+            output.
+
+        Returns
+        -------
+        pd.DataFrame
+            A boolean data frame with the same index and columns as
+            :meth:`to_table` with the same ``join_method``.
+
+        Examples
+        --------
+        >>> detected = dataset.detection_matrix()
+        >>> only_in_treated = detected[
+        ...     detected[dataset.experiment_names("treated")].any(axis=1)
+        ...     & ~detected[dataset.experiment_names("control")].any(axis=1)
+        ... ].index
+        """
+        return self._detection_mask(self.to_table(join_method=join_method), na_threshold)
+
+    def correlation(
+        self,
+        method: CorrelationMethod = "spearman",
+        pairs: ExperimentPairs | Sequence[tuple[str, str]] = "within_conditions",
+        missing: MissingHandling = "pairwise",
+        log_transform: bool | None = None,
+        min_records: int = 10,
+        na_threshold: float = 0.0,
+    ) -> pd.DataFrame:
+        """
+        Correlation coefficient between pairs of experiments.
+
+        Use it to check how reproducible the experiments are: replicates of
+        the same condition should correlate more closely than experiments
+        of different conditions.
+
+        Missing values (values below or equal to ``na_threshold``, stored as
+        ``0`` or ``NaN``) are never treated as measurements.
+
+        The choice of coefficient matters:
+
+        * ``"spearman"`` (default) and ``"kendall"`` are rank-based. They
+          are robust to outliers, and a log transformation does not change
+          them.
+        * ``"pearson"`` depends on the scale of the values. Intensities
+          span several orders of magnitude, so on raw values a few dozen of
+          the most abundant records dominate the coefficient. For this
+          reason, values are log2 transformed by default before computing
+          it (see ``log_transform``).
+
+        Parameters
+        ----------
+        method : {"spearman", "pearson", "kendall"}, optional
+            Correlation coefficient. Default is ``"spearman"``.
+        pairs : {"within_conditions", "across_conditions", "all"} or list of tuples, optional
+            Which pairs of experiments to correlate.
+            ``"within_conditions"`` (default): pairs of experiments of the
+            same condition (e.g., biological replicates).
+            ``"across_conditions"``: pairs of experiments of different
+            conditions. ``"all"``: every pair of experiments.
+            You can also pass a list of ``(experiment_a, experiment_b)``
+            tuples.
+        missing : {"pairwise", "listwise"}, optional
+            Which records to use.
+            ``"pairwise"`` (default): for each pair, the records with a value
+            in both experiments. ``"listwise"``: only the records with a
+            value in every experiment that is part of a selected pair, so
+            all pairs are computed on the same records.
+        log_transform : bool or None, optional
+            Log2 transform the values before computing the coefficient.
+            ``None`` (default) means ``True`` for ``"pearson"`` and ``False``
+            for the rank-based methods, which a log transformation does not
+            change. Set to ``False`` if the dataset is already
+            log-transformed.
+        min_records : int, optional
+            Minimum number of records used for a pair. Pairs with fewer
+            records get a ``NaN`` coefficient. Default is ``10``.
+        na_threshold : float, optional
+            Values below or equal to this threshold are considered missing.
+
+        Returns
+        -------
+        pd.DataFrame
+            One row per pair, with columns ``experiment_a``,
+            ``experiment_b``, ``condition_a``, ``condition_b``,
+            ``coefficient`` and ``n_records`` (the number of records used).
+            For the named selections, each pair appears once, with
+            ``experiment_a`` before ``experiment_b`` in the dataset's
+            experiment order.
+
+        Raises
+        ------
+        ValueError
+            If an argument has an invalid value, or if ``log_transform`` is
+            used and some values to transform are not positive.
+
+        Warns
+        -----
+        UserWarning
+            If the values are log-transformed by this method, but they seem
+            to be log-transformed already.
+
+        See Also
+        --------
+        bland_altman : Bias and limits of agreement between pairs of
+            experiments.
+        omicspylib.plots.plot_correlation_heatmap : Heatmap of all pairs.
+
+        Examples
+        --------
+        >>> corr = dataset.correlation()  # doctest: +SKIP
+        >>> corr.groupby("condition_a")["coefficient"].median()  # doctest: +SKIP
+
+        Get a matrix of all pairs, e.g., to plot a heatmap:
+
+        >>> corr = dataset.correlation(pairs="all")  # doctest: +SKIP
+        >>> corr.pivot(
+        ...     index="experiment_a", columns="experiment_b", values="coefficient"
+        ... )  # doctest: +SKIP
+        """
+        if log_transform is None:
+            log_transform = method == "pearson"
+
+        table, exp_pairs = self._paired_values(pairs, missing, log_transform, na_threshold)
+        result = calc_pairwise_correlation(
+            table,
+            pairs=[(exp_a, exp_b) for exp_a, _, exp_b, _ in exp_pairs],
+            method=method,
+            min_records=min_records,
+        )
+        return self._add_pair_conditions(result, exp_pairs)
+
+    def bland_altman(
+        self,
+        pairs: ExperimentPairs | Sequence[tuple[str, str]] = "within_conditions",
+        missing: MissingHandling = "pairwise",
+        log_transform: bool = True,
+        min_records: int = 10,
+        na_threshold: float = 0.0,
+    ) -> pd.DataFrame:
+        """
+        Bland-Altman agreement between pairs of experiments.
+
+        For each pair, the difference between the two experiments is
+        calculated for every record with a value in both. The mean of the
+        differences (``bias``) shows a systematic offset between the
+        experiments, e.g., a loading or normalization difference. The limits
+        of agreement (``bias`` ± 1.96 standard deviations) contain about 95%
+        of the differences, and show how far apart two measurements of the
+        same record typically are.
+
+        Unlike a correlation coefficient, these values are in the units of
+        the data. On log2 values (default), the difference is a log2 fold
+        change: a ``bias`` of ``1`` means that ``experiment_a`` is two
+        times higher than ``experiment_b`` on average.
+
+        Missing values (values below or equal to ``na_threshold``, stored as
+        ``0`` or ``NaN``) are never treated as measurements.
+
+        Parameters
+        ----------
+        pairs : {"within_conditions", "across_conditions", "all"} or list of tuples, optional
+            Which pairs of experiments to compare. See :meth:`correlation`.
+            You can also pass a list of ``(experiment_a, experiment_b)``
+            tuples.
+        missing : {"pairwise", "listwise"}, optional
+            Which records to use. See :meth:`correlation`.
+        log_transform : bool, optional
+            Log2 transform the values first. Default is ``True``, because the
+            differences between raw intensities grow with the intensity. Set
+            to ``False`` if the dataset is already log-transformed.
+        min_records : int, optional
+            Minimum number of records used for a pair. Pairs with fewer
+            records get ``NaN`` values. Default is ``10``.
+        na_threshold : float, optional
+            Values below or equal to this threshold are considered missing.
+
+        Returns
+        -------
+        pd.DataFrame
+            One row per pair, with columns ``experiment_a``,
+            ``experiment_b``, ``condition_a``, ``condition_b``, ``bias``
+            (mean of ``experiment_a - experiment_b``), ``sd`` (standard
+            deviation of the differences), ``loa_lower``, ``loa_upper``
+            (limits of agreement) and ``n_records``.
+
+        See Also
+        --------
+        correlation : Correlation coefficient between pairs of experiments.
+        omicspylib.plots.plot_experiment_pair : Bland-Altman or scatter plot
+            of one pair.
+
+        Examples
+        --------
+        >>> agreement = dataset.bland_altman()  # doctest: +SKIP
+        >>> agreement[agreement["bias"].abs() > 0.5]  # doctest: +SKIP
+        """
+        table, exp_pairs = self._paired_values(pairs, missing, log_transform, na_threshold)
+        result = calc_bland_altman(
+            table,
+            pairs=[(exp_a, exp_b) for exp_a, _, exp_b, _ in exp_pairs],
+            min_records=min_records,
+        )
+        return self._add_pair_conditions(result, exp_pairs)
+
+    def _paired_values(
+        self,
+        pairs: ExperimentPairs | Sequence[tuple[str, str]],
+        missing: MissingHandling,
+        log_transform: bool,
+        na_threshold: float,
+    ) -> tuple[pd.DataFrame, list[tuple[str, str, str, str]]]:
+        """
+        The values of the experiments in the selected pairs, ready for a
+        pairwise comparison, and the pairs as ``(experiment_a, condition_a,
+        experiment_b, condition_b)``.
+
+        Missing values are ``NaN``. With ``missing="listwise"``, only the
+        records with a value in every experiment of the pairs are kept.
+        """
+        if missing not in ("pairwise", "listwise"):
+            raise ValueError(f"missing must be 'pairwise' or 'listwise', got {missing!r}.")
+
+        exp_pairs = self._experiment_pairs(pairs)
+        involved = list(
+            dict.fromkeys(e for exp_a, _, exp_b, _ in exp_pairs for e in (exp_a, exp_b))
+        )
+        table = self.to_table(join_method="outer", mask_missing=True, na_threshold=na_threshold)
+        table = table.loc[:, involved]
+        if missing == "listwise":
+            table = table.dropna()
+        if log_transform:
+            table = self._log2_masked(table)
+        return table, exp_pairs
+
+    @staticmethod
+    def _add_pair_conditions(
+        result: pd.DataFrame, exp_pairs: list[tuple[str, str, str, str]]
+    ) -> pd.DataFrame:
+        result.insert(2, "condition_a", [cond_a for _, cond_a, _, _ in exp_pairs])
+        result.insert(3, "condition_b", [cond_b for _, _, _, cond_b in exp_pairs])
+        return result
+
+    def _experiment_pairs(
+        self, pairs: ExperimentPairs | Sequence[tuple[str, str]]
+    ) -> list[tuple[str, str, str, str]]:
+        """
+        Pairs of experiments as ``(experiment_a, condition_a, experiment_b,
+        condition_b)``. Named selections follow the dataset's experiment order.
+        """
+        experiments = [
+            (exp, cond) for cond in self.condition_names for exp in self.experiment_names(cond)
+        ]
+        if not isinstance(pairs, str):
+            exp_to_cond = dict(experiments)
+            explicit = []
+            for pair in pairs:
+                if len(pair) != 2:
+                    raise ValueError(f"Each pair must have two experiment names, got {pair!r}.")
+                exp_a, exp_b = pair
+                unknown = [e for e in (exp_a, exp_b) if e not in exp_to_cond]
+                if unknown:
+                    raise ValueError(
+                        f"Experiments not found: {unknown}. "
+                        f"Available experiments: {list(exp_to_cond)}."
+                    )
+                if exp_a == exp_b:
+                    raise ValueError(f"A pair needs two different experiments, got {pair!r}.")
+                explicit.append((exp_a, exp_to_cond[exp_a], exp_b, exp_to_cond[exp_b]))
+            return explicit
+
+        if pairs not in ("within_conditions", "across_conditions", "all"):
+            raise ValueError(
+                "pairs must be 'within_conditions', 'across_conditions', 'all' "
+                f"or a list of (experiment_a, experiment_b) tuples, got {pairs!r}."
+            )
+        selected = []
+        for i, (exp_a, cond_a) in enumerate(experiments):
+            for exp_b, cond_b in experiments[i + 1:]:
+                same_condition = cond_a == cond_b
+                if (
+                    pairs == "all"
+                    or (pairs == "within_conditions" and same_condition)
+                    or (pairs == "across_conditions" and not same_condition)
+                ):
+                    selected.append((exp_a, cond_a, exp_b, cond_b))
+        return selected
+
+    @staticmethod
+    def _log2_masked(table: pd.DataFrame) -> pd.DataFrame:
+        """Log2 of the masked values, with checks for invalid or already logged values."""
+        values = table.to_numpy(dtype=float)
+        observed = values[~np.isnan(values)]
+        if observed.size == 0:
+            return table
+        if (observed <= 0).any():
+            raise ValueError(
+                "Cannot log-transform values that are not positive. Use a "
+                "non-negative na_threshold, or set log_transform=False."
+            )
+        if observed.max() < 100:
+            warnings.warn(
+                "The values seem to be log-transformed already (all below 100), "
+                "but they are log-transformed again. If the dataset is already "
+                "log-transformed, set log_transform=False.",
+                category=UserWarning,
+                stacklevel=4,
+            )
+        return cast(pd.DataFrame, np.log2(table))
 
     def missing_values(
         self, na_threshold: float = 0.0
@@ -1144,7 +1568,7 @@ class TabularDataset(abc.ABC):
             stacklevel=2,
         )
         data = self.to_table()
-        n_missing_per_exp = data.shape[0] - np.sum(data > na_threshold, axis=0)
+        n_missing_per_exp = data.shape[0] - np.sum(self._detection_mask(data, na_threshold), axis=0)
 
         n_missing = n_missing_per_exp.reset_index()
         n_missing.columns = ["experiment", "n_missing"]
@@ -1299,7 +1723,7 @@ class TabularDataset(abc.ABC):
         self, imputed_conditions, value_type, na_threshold, shift, random_noise
     ) -> list[TabularExperimentalConditionDataset]:
         df = self.to_table()
-        df[df <= na_threshold] = np.nan
+        df = self._mask_missing(df, na_threshold)
         if value_type == "min":
             values_series = df.min(axis=1, skipna=True)
         elif value_type == "mean":
@@ -1328,7 +1752,7 @@ class TabularDataset(abc.ABC):
         random_noise: bool = False,
     ) -> list[TabularExperimentalConditionDataset]:
         df = self.to_table()
-        df[df <= na_threshold] = np.nan
+        df = self._mask_missing(df, na_threshold)
         all_values = df.to_numpy().flatten()
         if value_type == "min":
             targ_value = np.nanmin(all_values)
@@ -1370,11 +1794,14 @@ class TabularDataset(abc.ABC):
     def normalize(
         self,
         method: NormMethod,
-        ref_exp: str | None = None,
+        ref_experiment: str | Sequence[str] | None = None,
         ref_condition: str | None = None,
         use_common_records: bool = False,
         na_threshold: float = 0.0,
         trim_fraction: float = 0.0,
+        within_conditions: bool = False,
+        *,
+        ref_exp: str | None = None,
     ) -> Self:
         """
         Normalize the dataset.
@@ -1394,7 +1821,7 @@ class TabularDataset(abc.ABC):
         Steps, for either method:
 
         - Without common records (default):
-            1. Pick the reference experiment: ``ref_exp`` if given, else the
+            1. Pick the reference experiment: ``ref_experiment`` if given, else the
                experiment with the most records (within ``ref_condition``
                if given, otherwise across the whole dataset).
             2. Calculate the mean or median intensity of each experiment,
@@ -1412,23 +1839,55 @@ class TabularDataset(abc.ABC):
                iii. Shift all intensities of that experiment by that
                     difference.
 
+        With ``within_conditions=True`` each condition is normalized on its
+        own, and the differences between conditions are kept. Within a
+        condition, the replicates are shifted to:
+
+        - the central value of the condition's reference experiment, if one
+          is given in ``ref_experiment``. With ``use_common_records=True``
+          each replicate is compared pairwise with the reference, as above.
+        - otherwise, the mean of the replicates' central values, so the
+          overall level of the condition does not change. With
+          ``use_common_records=True`` the central values are calculated on
+          the records detected in all replicates of the condition.
+
+        Use it only when the differences in overall level between conditions
+        are expected to be biological rather than technical, e.g. a pulldown
+        against an IgG control, or fractions with different total amounts.
+        Otherwise, technical offsets between conditions (e.g. from separate
+        sample preparation batches) are kept and show up as global up- or
+        down-regulation.
+
         Examples
         --------
         >>> norm = dataset.log2_transform() \\
         ...     .normalize(method="median") \\
         ...     .log2_backtransform()  # doctest: +SKIP
 
+        Normalize the replicates of each condition to their mean, using
+        ``c1_rep1`` as the reference of condition ``c1``:
+
+        >>> norm = dataset.log2_transform() \\
+        ...     .normalize(method="median", within_conditions=True,
+        ...                ref_experiment=["c1_rep1"]) \\
+        ...     .log2_backtransform()  # doctest: +SKIP
+
         Parameters
         ----------
         method:
             Normalization method: ``"mean"`` or ``"median"``.
-        ref_exp: str, optional
+        ref_experiment: str or list of str, optional
             If specified, this experiment will be considered the reference.
             If this is set, the ``ref_condition`` field is ignored.
+            With ``within_conditions=True`` it may be a list, with at most
+            one experiment per condition. Each one is the reference of its
+            own condition; conditions without one are normalized to the
+            mean of their replicates.
         ref_condition: str, optional
             If specified, the experiment of that condition with the most records
             will be considered the reference.
-            Note that ``ref_exp`` should not be set.
+            Note that ``ref_experiment`` should not be set.
+            Not allowed with ``within_conditions=True``.
         use_common_records: bool
             If set to ``True``, common records, in a pairwise comparison with the
             reference, will be considered for normalization.
@@ -1443,11 +1902,22 @@ class TabularDataset(abc.ABC):
             will be discarded (5% from each edge). Must be in ``[0, 1)``.
             Only used with ``method="mean"``; it has no effect on the
             median, which symmetric trimming does not change.
+        within_conditions: bool
+            If set to ``True``, normalize the replicates of each condition
+            among themselves only, keeping the differences between
+            conditions. See above.
+
+        ref_exp: str, optional
+            .. deprecated:: 0.3.0
+                Use ``ref_experiment`` instead.
 
         Returns
         -------
         A new instance of the same object with normalized values.
         """
+        ref_experiment = resolve_renamed_arg(
+            ref_experiment, ref_exp, "ref_experiment", "ref_exp"
+        )
         if not 0.0 <= trim_fraction < 1.0:
             raise ValueError(
                 f"trim_fraction must be in the range [0, 1), got {trim_fraction}."
@@ -1458,16 +1928,41 @@ class TabularDataset(abc.ABC):
                 f"Normalization method {method} is not implemented."
             )
 
-        ref_exp = self._select_norm_ref(na_threshold, ref_condition, ref_exp)
+        if within_conditions:
+            if ref_condition is not None:
+                raise ValueError(
+                    "ref_condition cannot be used with within_conditions=True. "
+                    "Use ref_experiment to set a reference per condition."
+                )
+            refs = self._select_within_condition_refs(ref_experiment)
+            exp_conditions = copy.deepcopy(self._conditions)
+            for condition in exp_conditions:
+                self._normalize_condition(
+                    condition,
+                    ref_experiment=refs.get(condition.name),
+                    na_threshold=na_threshold,
+                    method=method,
+                    trim_fraction=trim_fraction,
+                    use_common_records=use_common_records,
+                )
+            return self.__class__(conditions=exp_conditions)
+
+        if ref_experiment is not None and not isinstance(ref_experiment, str):
+            raise TypeError(
+                "A list of reference experiments is only allowed with "
+                "within_conditions=True. Pass a single experiment name."
+            )
+
+        ref_experiment = self._select_norm_ref(na_threshold, ref_condition, ref_experiment)
 
         # step 2 - calculate difference
         if use_common_records:
             exp_conditions = self._norm_with_shared_records(
-                na_threshold, ref_exp, method=method, trim_fraction=trim_fraction
+                na_threshold, ref_experiment, method=method, trim_fraction=trim_fraction
             )
         else:
             exp_conditions = self._base_normalization(
-                na_threshold, ref_exp, method=method, trim_fraction=trim_fraction
+                na_threshold, ref_experiment, method=method, trim_fraction=trim_fraction
             )
 
         return self.__class__(conditions=exp_conditions)
@@ -1475,31 +1970,31 @@ class TabularDataset(abc.ABC):
     def _norm_with_shared_records(
         self,
         na_threshold: float,
-        ref_exp: str,
+        ref_experiment: str,
         method: NormMethod = "mean",
         trim_fraction: float = 0.0,
     ) -> Sequence[TabularExperimentalConditionDataset]:
         exp_conditions_data = copy.deepcopy(self._conditions)
 
         ref_c = next(
-            (c for c in exp_conditions_data if ref_exp in c.experiment_names), None
+            (c for c in exp_conditions_data if ref_experiment in c.experiment_names), None
         )
         if ref_c:
             # The reference experiment is never shifted, so its values
             # can be read once, up front.
-            ref_case = ref_c.filter(exp=ref_exp).to_table()
+            ref_case = ref_c.filter(experiments=ref_experiment).to_table()
             for exp_c in exp_conditions_data:
                 for targ_exp in exp_c.experiment_names:
-                    if targ_exp == ref_exp:
+                    if targ_exp == ref_experiment:
                         continue
-                    targ_case = exp_c.filter(exp=targ_exp).to_table()
+                    targ_case = exp_c.filter(experiments=targ_exp).to_table()
                     df = ref_case.merge(
                         targ_case, left_index=True, right_index=True, how="inner"
                     )
-                    df[df <= na_threshold] = np.nan
+                    df = self._mask_missing(df, na_threshold)
                     df = df.dropna()
 
-                    center_ref = _central_value(df[ref_exp], method, trim_fraction)
+                    center_ref = _central_value(df[ref_experiment], method, trim_fraction)
                     center_targ = _central_value(df[targ_exp], method, trim_fraction)
                     norm_diff = center_targ - center_ref
                     exp_c.shift(targ_exp, norm_diff, na_threshold=na_threshold)
@@ -1509,18 +2004,18 @@ class TabularDataset(abc.ABC):
     def _base_normalization(
         self,
         na_threshold: float,
-        ref_exp: str,
+        ref_experiment: str,
         method: NormMethod = "mean",
         trim_fraction: float = 0.0,
     ) -> Sequence[TabularExperimentalConditionDataset]:
         centers: dict[str, float] = {}
         for c in self._conditions:
             for exp in c.experiment_names:
-                values = c.filter(exp=exp).to_table()[exp]
+                values = c.filter(experiments=exp).to_table()[exp]
                 centers[exp] = _central_value(
-                    values[values > na_threshold], method, trim_fraction
+                    values[self._detection_mask(values, na_threshold)], method, trim_fraction
                 )
-        ref_center = centers[ref_exp]
+        ref_center = centers[ref_experiment]
         exp_conditions_data = copy.deepcopy(self._conditions)
         for condition in exp_conditions_data:
             for exp in condition.experiment_names:
@@ -1529,13 +2024,13 @@ class TabularDataset(abc.ABC):
                     condition.shift(exp, value=shift_value, na_threshold=na_threshold)
         return exp_conditions_data
 
-    def _select_norm_ref(self, na_threshold, ref_condition, ref_exp) -> str:
+    def _select_norm_ref(self, na_threshold, ref_condition, ref_experiment) -> str:
         """Select a reference experiment for the normalization step."""
-        if ref_exp is not None:
+        if ref_experiment is not None:
             available_exps = self.experiment_names()
-            if ref_exp not in available_exps:
+            if ref_experiment not in available_exps:
                 raise ValueError(
-                    f"Reference experiment {ref_exp!r} not found. "
+                    f"Reference experiment {ref_experiment!r} not found. "
                     f"Available experiments: {available_exps}."
                 )
         elif ref_condition is not None:
@@ -1547,11 +2042,85 @@ class TabularDataset(abc.ABC):
             n_entries_per_exp = self.frequency(
                 na_threshold=na_threshold, axis=0, conditions=[ref_condition]
             ).transpose()
-            ref_exp = n_entries_per_exp["frequency"].idxmax()
+            ref_experiment = n_entries_per_exp["frequency"].idxmax()
         else:
             n_entries_per_exp = self.frequency(
                 na_threshold=na_threshold, axis=0
             ).transpose()
-            ref_exp = n_entries_per_exp["frequency"].idxmax()
+            ref_experiment = n_entries_per_exp["frequency"].idxmax()
 
-        return str(ref_exp)
+        return str(ref_experiment)
+
+    def _select_within_condition_refs(
+        self, ref_experiment: str | Sequence[str] | None
+    ) -> dict[str, str]:
+        """Map each condition to its reference experiment, if one is given."""
+        if ref_experiment is None:
+            return {}
+        names = [ref_experiment] if isinstance(ref_experiment, str) else list(ref_experiment)
+        exp_to_condition = {
+            exp: c.name for c in self._conditions for exp in c.experiment_names
+        }
+        refs: dict[str, str] = {}
+        for exp in names:
+            if exp not in exp_to_condition:
+                raise ValueError(
+                    f"Reference experiment {exp!r} not found. "
+                    f"Available experiments: {list(exp_to_condition)}."
+                )
+            condition = exp_to_condition[exp]
+            if condition in refs:
+                raise ValueError(
+                    f"Condition {condition!r} has more than one reference "
+                    f"experiment: {refs[condition]!r} and {exp!r}."
+                )
+            refs[condition] = exp
+        return refs
+
+    def _normalize_condition(
+        self,
+        condition: TabularExperimentalConditionDataset,
+        ref_experiment: str | None,
+        na_threshold: float,
+        method: NormMethod,
+        trim_fraction: float,
+        use_common_records: bool,
+    ) -> None:
+        """
+        Normalize the replicates of one condition among themselves, in place.
+
+        Replicates are shifted to the central value of ``ref_experiment``,
+        or to the mean of the replicates' central values if it is ``None``.
+        """
+        table = condition.to_table(mask_missing=True, na_threshold=na_threshold)
+
+        def center(values: pd.Series) -> float:
+            return _central_value(values, method, trim_fraction)
+
+        shifts: dict[str, float] = {}
+        if ref_experiment is not None and use_common_records:
+            for exp in table.columns:
+                if exp == ref_experiment:
+                    continue
+                pair = table[[ref_experiment, exp]].dropna()
+                shifts[exp] = center(pair[exp]) - center(pair[ref_experiment])
+        else:
+            if use_common_records:
+                table = table.dropna()
+            centers = {exp: center(table[exp]) for exp in table.columns}
+            target = (
+                centers[ref_experiment]
+                if ref_experiment is not None
+                else float(np.mean(list(centers.values())))
+            )
+            shifts = {exp: value - target for exp, value in centers.items()}
+
+        for exp, value in shifts.items():
+            if np.isnan(value):
+                raise ValueError(
+                    f"Cannot normalize experiment {exp!r} of condition "
+                    f"{condition.name!r}: no records to calculate its central "
+                    "value from."
+                )
+            if value != 0:
+                condition.shift(exp, value=value, na_threshold=na_threshold)

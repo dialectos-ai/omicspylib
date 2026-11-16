@@ -57,3 +57,4 @@ Summarizing
 Exporting
 ---------
 .. automethod:: PeptidesDatasetExpCondition.to_table
+.. automethod:: PeptidesDatasetExpCondition.detection_matrix

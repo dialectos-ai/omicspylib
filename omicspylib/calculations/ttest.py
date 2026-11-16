@@ -52,9 +52,7 @@ def calc_ttest_adj(
         and optionally adjusted p-values. Row indices remain as they
         were provided.
     """
-    df = data.to_table(join_method="inner")
-    mask = df > na_threshold
-    df[~mask] = np.nan
+    df = data.to_table(join_method="inner", mask_missing=True, na_threshold=na_threshold)
     a_cols = data.experiment_names(condition_a)
     b_cols = data.experiment_names(condition_b)
     m1 = df[a_cols].to_numpy()

@@ -9,6 +9,7 @@ from omicspylib import ProteinsDataset
 from omicspylib.datasets.abc import TabularDataset
 from omicspylib.docs.definition import doc
 from omicspylib.plots.utils import apply_text_annotation_formatting, apply_xtick_formatting
+from omicspylib.utils.deprecation import resolve_renamed_arg
 
 
 def _plot_barplot(
@@ -120,8 +121,10 @@ def plot_missing_values(
     xlabel: str = "Experiment",
     ylabel: str = "Number of missing values",
     title: str = "Missing values over experiments",
-    min_threshold: float = 0,
+    na_threshold: float = 0.0,
     ax: Axes | None = None,
+    *,
+    min_threshold: float | None = None,
     **kwargs
 ) -> Axes:
     """
@@ -139,14 +142,18 @@ def plot_missing_values(
         Y-axis label.
     title: str
         Title of the plot.
-    {min_threshold}
+    {na_threshold}
     {ax}
+    {min_threshold}
     {kwargs_doc}
 
     {returns_ax}
     """
+    na_threshold = resolve_renamed_arg(
+        na_threshold, min_threshold, "na_threshold", "min_threshold", default=0.0
+    )
     df, n_missing, n_total = dataset.record_counts(
-        na_threshold=min_threshold,
+        na_threshold=na_threshold,
         value_type="missing"
     )
     prc_missing = n_missing / n_total * 100
@@ -175,8 +182,10 @@ def plot_record_frequency(
     xlabel: str = "Experiment",
     ylabel: str = "Number of records",
     title: str = "Missing records over experiments",
-    min_threshold: float = 0,
+    na_threshold: float = 0.0,
     ax: Axes | None = None,
+    *,
+    min_threshold: float | None = None,
     **kwargs
 ) -> Axes:
     """Plot record counts.
@@ -190,14 +199,18 @@ def plot_record_frequency(
         Y-axis label.
     title: str
         Title of the plot.
-    {min_threshold}
+    {na_threshold}
     {ax}
+    {min_threshold}
     {kwargs_doc}
 
     {returns_ax}
     """
+    na_threshold = resolve_renamed_arg(
+        na_threshold, min_threshold, "na_threshold", "min_threshold", default=0.0
+    )
     df, n_pressent, n_total = dataset.record_counts(
-        na_threshold=min_threshold,
+        na_threshold=na_threshold,
         value_type="present"
     )
     prc_missing = n_pressent / n_total * 100

@@ -93,3 +93,58 @@ def test_clustering_min_frequency_counts_all_columns(min_frequency, kept) -> Non
     result = clustering.eval(data=data)
 
     assert ("p0" in result.filtered_data.index) is kept
+
+
+def test_row_annotations_aligned_on_index(proteins_dataset: ProteinsDataset) -> None:
+    """Labels are matched on the index; filtered or unlabelled rows are handled."""
+    import pandas as pd
+
+    data_in = proteins_dataset.to_table()
+    labels = pd.Series(
+        ["a", "b"] * (len(data_in) // 2) + ["a"] * (len(data_in) % 2),
+        index=data_in.index,
+    )
+    labels = labels.drop(labels.index[0])  # one row without a label
+    clustering = HierarchicallyClusteredHeatmap(min_frequency=5, n_col_clusters=None)
+
+    result = clustering.eval(
+        data=data_in,
+        row_annotations={"fraction": labels},
+        row_annotation_palettes={"fraction": {"a": "black"}},
+    )
+
+    row_colors = result.g.row_colors
+    assert row_colors is not None
+    assert len(row_colors) == 2  # row groups + annotation track
+    track = list(row_colors[1])
+    assert len(track) == result.filtered_data.shape[0]
+    expected = labels.reindex(result.filtered_data.index)
+    for color, lbl in zip(track, expected, strict=True):
+        if pd.isna(lbl):
+            assert color == (1.0, 1.0, 1.0)
+        elif lbl == "a":
+            assert color == (0.0, 0.0, 0.0)
+
+
+def test_row_annotations_reject_non_series(proteins_dataset: ProteinsDataset) -> None:
+    clustering = HierarchicallyClusteredHeatmap()
+    data_in = proteins_dataset.to_table()
+
+    with pytest.raises(TypeError):
+        clustering.eval(data=data_in, row_annotations={"x": ["a"] * len(data_in)})  # pyright: ignore
+
+
+def test_rows_only_layout_reclaims_column_band(proteins_dataset: ProteinsDataset) -> None:
+    result = HierarchicallyClusteredHeatmap(n_col_clusters=None).eval(
+        data=proteins_dataset.to_table()
+    )
+
+    g = result.g
+    assert not g.ax_col_dendrogram.get_visible()
+    top = g.ax_col_dendrogram.get_position().y1
+    assert g.ax_heatmap.get_position().y1 == pytest.approx(top)
+    # colour bar sits left of the row dendrogram, labelled low/high
+    assert g.ax_cbar is not None
+    assert g.ax_cbar.get_position().x1 <= g.ax_row_dendrogram.get_position().x0
+    labels = [t.get_text() for t in g.ax_cbar.get_yticklabels()]
+    assert labels == ["low", "high"]

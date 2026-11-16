@@ -3,6 +3,7 @@ import pandas as pd
 from omicspylib.calculations.fold_change import calc_fold_change
 from omicspylib.calculations.ttest import MULTITEST_METHOD, calc_ttest_adj
 from omicspylib.datasets.proteins import ProteinsDataset
+from omicspylib.utils.deprecation import resolve_renamed_arg
 
 
 class PairwiseComparisonTTestFC:
@@ -34,7 +35,9 @@ class PairwiseComparisonTTestFC:
              min_frequency: int = 3,
              na_threshold: float = 0.0,
              pval_adj_method: MULTITEST_METHOD | None = "fdr_bh",
-             use_log_transformed: bool = True) -> pd.DataFrame:
+             log_transform: bool = True,
+             *,
+             use_log_transformed: bool | None = None) -> pd.DataFrame:
         """
         Perform the pairwise comparison between the two groups, using
         a t-test and a fold change rule. By default, quantitative values
@@ -52,9 +55,12 @@ class PairwiseComparisonTTestFC:
         pval_adj_method: str or None, optional
             Method to adjust p-values for multiple hypothesis testing error.
             If not provided, no adjustment will be performed.
-        use_log_transformed: bool, optional
+        log_transform: bool, optional
             By default, quantitative values are log2 transformed prior to
             t-test. If set to ``False`` this transformation will be omitted.
+        use_log_transformed: bool, optional
+            .. deprecated:: 0.3.0
+                Use ``log_transform`` instead.
 
         Returns
         -------
@@ -63,8 +69,12 @@ class PairwiseComparisonTTestFC:
             change calculations. Use the data frame index to join
             back the results with the dataset.
         """
+        log_transform = resolve_renamed_arg(
+            log_transform, use_log_transformed, "log_transform", "use_log_transformed",
+            default=True,
+        )
         dataset = self._raw_dataset.filter(
-            cond=[self._condition_a, self._condition_b],
+            conditions=[self._condition_a, self._condition_b],
             min_frequency=min_frequency,
             na_threshold=na_threshold)
 
@@ -79,7 +89,7 @@ class PairwiseComparisonTTestFC:
             condition_a=self._condition_a,
             condition_b=self._condition_b)
 
-        ttest_input_dataset = dataset.log2_transform() if use_log_transformed else dataset
+        ttest_input_dataset = dataset.log2_transform() if log_transform else dataset
 
         ttest_out = calc_ttest_adj(
             data=ttest_input_dataset,

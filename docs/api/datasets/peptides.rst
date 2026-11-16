@@ -53,6 +53,12 @@ Summarizing
 .. automethod:: PeptidesDataset.record_counts
 
 
+Checking reproducibility
+------------------------
+.. automethod:: PeptidesDataset.correlation
+.. automethod:: PeptidesDataset.bland_altman
+
+
 Combining datasets
 ------------------
 .. automethod:: PeptidesDataset.append
@@ -66,6 +72,7 @@ Converting to proteins
 Exporting
 ---------
 .. automethod:: PeptidesDataset.to_table
+.. automethod:: PeptidesDataset.detection_matrix
 
 
 Deprecated

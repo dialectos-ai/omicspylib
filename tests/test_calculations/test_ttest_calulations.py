@@ -15,7 +15,7 @@ def test_ttest_calculations(
     proteins_dataset: ProteinsDataset, padj_method, exp_cols, skipped_cols
 ) -> None:
     # setup
-    dataset = proteins_dataset.filter(cond=["c1", "c2"])
+    dataset = proteins_dataset.filter(conditions=["c1", "c2"])
 
     # action
     ttest_out = calc_ttest_adj(

@@ -53,6 +53,12 @@ Summarizing
 .. automethod:: ProteinsDataset.record_counts
 
 
+Checking reproducibility
+------------------------
+.. automethod:: ProteinsDataset.correlation
+.. automethod:: ProteinsDataset.bland_altman
+
+
 Combining datasets
 ------------------
 .. automethod:: ProteinsDataset.append
@@ -61,6 +67,7 @@ Combining datasets
 Exporting
 ---------
 .. automethod:: ProteinsDataset.to_table
+.. automethod:: ProteinsDataset.detection_matrix
 
 
 Deprecated
