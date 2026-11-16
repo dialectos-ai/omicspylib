@@ -1794,11 +1794,12 @@ class TabularDataset(MissingValuesMixin, abc.ABC):
     def normalize(
         self,
         method: NormMethod,
-        ref_experiment: str | None = None,
+        ref_experiment: str | Sequence[str] | None = None,
         ref_condition: str | None = None,
         use_common_records: bool = False,
         na_threshold: float = 0.0,
         trim_fraction: float = 0.0,
+        within_conditions: bool = False,
         *,
         ref_exp: str | None = None,
     ) -> Self:
@@ -1838,23 +1839,55 @@ class TabularDataset(MissingValuesMixin, abc.ABC):
                iii. Shift all intensities of that experiment by that
                     difference.
 
+        With ``within_conditions=True`` each condition is normalized on its
+        own, and the differences between conditions are kept. Within a
+        condition, the replicates are shifted to:
+
+        - the central value of the condition's reference experiment, if one
+          is given in ``ref_experiment``. With ``use_common_records=True``
+          each replicate is compared pairwise with the reference, as above.
+        - otherwise, the mean of the replicates' central values, so the
+          overall level of the condition does not change. With
+          ``use_common_records=True`` the central values are calculated on
+          the records detected in all replicates of the condition.
+
+        Use it only when the differences in overall level between conditions
+        are expected to be biological rather than technical, e.g. a pulldown
+        against an IgG control, or fractions with different total amounts.
+        Otherwise, technical offsets between conditions (e.g. from separate
+        sample preparation batches) are kept and show up as global up- or
+        down-regulation.
+
         Examples
         --------
         >>> norm = dataset.log2_transform() \\
         ...     .normalize(method="median") \\
         ...     .log2_backtransform()  # doctest: +SKIP
 
+        Normalize the replicates of each condition to their mean, using
+        ``c1_rep1`` as the reference of condition ``c1``:
+
+        >>> norm = dataset.log2_transform() \\
+        ...     .normalize(method="median", within_conditions=True,
+        ...                ref_experiment=["c1_rep1"]) \\
+        ...     .log2_backtransform()  # doctest: +SKIP
+
         Parameters
         ----------
         method:
             Normalization method: ``"mean"`` or ``"median"``.
-        ref_experiment: str, optional
+        ref_experiment: str or list of str, optional
             If specified, this experiment will be considered the reference.
             If this is set, the ``ref_condition`` field is ignored.
+            With ``within_conditions=True`` it may be a list, with at most
+            one experiment per condition. Each one is the reference of its
+            own condition; conditions without one are normalized to the
+            mean of their replicates.
         ref_condition: str, optional
             If specified, the experiment of that condition with the most records
             will be considered the reference.
             Note that ``ref_experiment`` should not be set.
+            Not allowed with ``within_conditions=True``.
         use_common_records: bool
             If set to ``True``, common records, in a pairwise comparison with the
             reference, will be considered for normalization.
@@ -1869,6 +1902,10 @@ class TabularDataset(MissingValuesMixin, abc.ABC):
             will be discarded (5% from each edge). Must be in ``[0, 1)``.
             Only used with ``method="mean"``; it has no effect on the
             median, which symmetric trimming does not change.
+        within_conditions: bool
+            If set to ``True``, normalize the replicates of each condition
+            among themselves only, keeping the differences between
+            conditions. See above.
 
         ref_exp: str, optional
             .. deprecated:: 0.3.0
@@ -1889,6 +1926,31 @@ class TabularDataset(MissingValuesMixin, abc.ABC):
         if method not in ("mean", "median"):
             raise NotImplementedError(
                 f"Normalization method {method} is not implemented."
+            )
+
+        if within_conditions:
+            if ref_condition is not None:
+                raise ValueError(
+                    "ref_condition cannot be used with within_conditions=True. "
+                    "Use ref_experiment to set a reference per condition."
+                )
+            refs = self._select_within_condition_refs(ref_experiment)
+            exp_conditions = copy.deepcopy(self._conditions)
+            for condition in exp_conditions:
+                self._normalize_condition(
+                    condition,
+                    ref_experiment=refs.get(condition.name),
+                    na_threshold=na_threshold,
+                    method=method,
+                    trim_fraction=trim_fraction,
+                    use_common_records=use_common_records,
+                )
+            return self.__class__(conditions=exp_conditions)
+
+        if ref_experiment is not None and not isinstance(ref_experiment, str):
+            raise TypeError(
+                "A list of reference experiments is only allowed with "
+                "within_conditions=True. Pass a single experiment name."
             )
 
         ref_experiment = self._select_norm_ref(na_threshold, ref_condition, ref_experiment)
@@ -1988,3 +2050,77 @@ class TabularDataset(MissingValuesMixin, abc.ABC):
             ref_experiment = n_entries_per_exp["frequency"].idxmax()
 
         return str(ref_experiment)
+
+    def _select_within_condition_refs(
+        self, ref_experiment: str | Sequence[str] | None
+    ) -> dict[str, str]:
+        """Map each condition to its reference experiment, if one is given."""
+        if ref_experiment is None:
+            return {}
+        names = [ref_experiment] if isinstance(ref_experiment, str) else list(ref_experiment)
+        exp_to_condition = {
+            exp: c.name for c in self._conditions for exp in c.experiment_names
+        }
+        refs: dict[str, str] = {}
+        for exp in names:
+            if exp not in exp_to_condition:
+                raise ValueError(
+                    f"Reference experiment {exp!r} not found. "
+                    f"Available experiments: {list(exp_to_condition)}."
+                )
+            condition = exp_to_condition[exp]
+            if condition in refs:
+                raise ValueError(
+                    f"Condition {condition!r} has more than one reference "
+                    f"experiment: {refs[condition]!r} and {exp!r}."
+                )
+            refs[condition] = exp
+        return refs
+
+    def _normalize_condition(
+        self,
+        condition: TabularExperimentalConditionDataset,
+        ref_experiment: str | None,
+        na_threshold: float,
+        method: NormMethod,
+        trim_fraction: float,
+        use_common_records: bool,
+    ) -> None:
+        """
+        Normalize the replicates of one condition among themselves, in place.
+
+        Replicates are shifted to the central value of ``ref_experiment``,
+        or to the mean of the replicates' central values if it is ``None``.
+        """
+        table = condition.to_table(mask_missing=True, na_threshold=na_threshold)
+
+        def center(values: pd.Series) -> float:
+            return _central_value(values, method, trim_fraction)
+
+        shifts: dict[str, float] = {}
+        if ref_experiment is not None and use_common_records:
+            for exp in table.columns:
+                if exp == ref_experiment:
+                    continue
+                pair = table[[ref_experiment, exp]].dropna()
+                shifts[exp] = center(pair[exp]) - center(pair[ref_experiment])
+        else:
+            if use_common_records:
+                table = table.dropna()
+            centers = {exp: center(table[exp]) for exp in table.columns}
+            target = (
+                centers[ref_experiment]
+                if ref_experiment is not None
+                else float(np.mean(list(centers.values())))
+            )
+            shifts = {exp: value - target for exp, value in centers.items()}
+
+        for exp, value in shifts.items():
+            if np.isnan(value):
+                raise ValueError(
+                    f"Cannot normalize experiment {exp!r} of condition "
+                    f"{condition.name!r}: no records to calculate its central "
+                    "value from."
+                )
+            if value != 0:
+                condition.shift(exp, value=value, na_threshold=na_threshold)
