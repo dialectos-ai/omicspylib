@@ -11,6 +11,8 @@ import numpy as np
 import pandas as pd
 from typing_extensions import Self
 
+from omicspylib.datasets.missing import MissingValuesMixin
+
 AxisName = Literal["rows", "columns"]
 NormMethod = Literal["mean", "median"]  # future implementation for quantile etc
 MergeHow = Literal["left", "right", "inner", "outer", "cross"]
@@ -64,7 +66,7 @@ def _central_value(values: pd.Series, method: NormMethod, trim_fraction: float) 
     raise NotImplementedError(f"Normalization method {method} is not implemented.")
 
 
-class TabularExperimentalConditionDataset(abc.ABC):
+class TabularExperimentalConditionDataset(MissingValuesMixin, abc.ABC):
     def __init__(
         self,
         name: str,
@@ -198,7 +200,7 @@ class TabularExperimentalConditionDataset(abc.ABC):
             "n_experiments": self.n_experiments,
             "n_records": len(self.record_ids),
             "experiment_names": self._data.columns.tolist(),
-            "n_records_per_experiment": np.sum(self._data.to_numpy() > na_threshold, axis=0).tolist(),
+            "n_records_per_experiment": self._detection_mask(self._data, na_threshold).sum(axis=0).tolist(),
         }
 
     def min(
@@ -227,8 +229,7 @@ class TabularExperimentalConditionDataset(abc.ABC):
             A single value if ``axis`` is ``None``. Otherwise, a series indexed
             by experiment name (``"rows"``) or by record id (``"columns"``).
         """
-        df = self._data.copy()
-        df[df <= na_threshold] = np.nan
+        df = self._mask_missing(self._data, na_threshold)
         if axis is None:
             min_value = np.nanmin(df.to_numpy().flatten())
         elif axis == "rows":
@@ -259,7 +260,7 @@ class TabularExperimentalConditionDataset(abc.ABC):
             Number of total values of that condition.
         """
         n_missing_per_exp = self._data.shape[0] - np.sum(
-            self._data > na_threshold, axis=0
+            self._detection_mask(self._data, na_threshold), axis=0
         )
         n_missing_total = np.sum(n_missing_per_exp)
         total_values = self._data.shape[0] * self._data.shape[1]
@@ -323,9 +324,8 @@ class TabularExperimentalConditionDataset(abc.ABC):
             column named ``mean_<condition name>``. For ``axis=0``, a data frame
             indexed by experiment name with a single column named ``mean``.
         """
-        mask = self._data > na_threshold
-        data = self._data.copy()
-        data[~mask] = np.nan
+        mask = self._detection_mask(self._data, na_threshold)
+        data = self._data.where(mask)
         mean = data.sum(axis=axis) / mask.sum(axis=axis)
         if axis == 1:  # row mean
             return pd.DataFrame({f"mean_{self.name}": mean})
@@ -345,7 +345,7 @@ class TabularExperimentalConditionDataset(abc.ABC):
     def _apply_filter(self, exp, min_frequency, na_threshold, ids=None) -> pd.DataFrame:
         data = self._data.copy()
         if min_frequency is not None:
-            valid_rows = (data > na_threshold).sum(axis=1) >= min_frequency
+            valid_rows = self._detection_mask(data, na_threshold).sum(axis=1) >= min_frequency
             data = data.loc[valid_rows, :].copy()
         if isinstance(exp, str):
             exp = [exp]
@@ -381,7 +381,7 @@ class TabularExperimentalConditionDataset(abc.ABC):
             frame indexed by experiment name with a single column named
             ``frequency``.
         """
-        f = np.sum(self._data > na_threshold, axis=axis)
+        f = np.sum(self._detection_mask(self._data, na_threshold), axis=axis)
         if axis == 1:
             return pd.DataFrame({f"frequency_{self.name}": f})
         return pd.DataFrame({"frequency": f})
@@ -475,7 +475,7 @@ class TabularExperimentalConditionDataset(abc.ABC):
             If ``method`` is unknown, or ``value`` is missing for the
             ``fixed`` and ``fixed row`` methods.
         """
-        self._data[self._data <= na_threshold] = np.nan
+        self._data = self._mask_missing(self._data, na_threshold)
 
         rand_noise_std = self._calc_mean_std() if random_noise else None
 
@@ -559,9 +559,21 @@ class TabularExperimentalConditionDataset(abc.ABC):
 
         return row
 
-    def to_table(self) -> pd.DataFrame:
+    def to_table(
+        self, mask_missing: bool = False, na_threshold: float = 0.0
+    ) -> pd.DataFrame:
         """
         Return the values of this condition as a pandas data frame.
+
+        Parameters
+        ----------
+        mask_missing : bool, optional
+            If ``True``, missing values (values below or equal to
+            ``na_threshold``) are returned as ``NaN``. By default, values
+            are returned as stored.
+        na_threshold : float, optional
+            Values below or equal to this threshold are considered missing.
+            Used only if ``mask_missing`` is ``True``.
 
         Returns
         -------
@@ -569,7 +581,27 @@ class TabularExperimentalConditionDataset(abc.ABC):
             A copy of the table, with record ids as the index and one column
             per experiment. Modifying it does not change this object.
         """
+        if mask_missing:
+            return self._mask_missing(self._data, na_threshold)
         return self._data.copy()
+
+    def detection_matrix(self, na_threshold: float = 0.0) -> pd.DataFrame:
+        """
+        Return whether each record was detected in each experiment.
+
+        Parameters
+        ----------
+        na_threshold : float, optional
+            Values below or equal to this threshold are considered missing.
+
+        Returns
+        -------
+        pd.DataFrame
+            A boolean data frame with the same shape as :meth:`to_table`.
+            ``True`` if the value is above ``na_threshold``, ``False`` if it
+            is missing.
+        """
+        return self._detection_mask(self._data, na_threshold)
 
     def shift(self, exp, value, na_threshold: float = 0.0) -> None:
         """
@@ -588,11 +620,11 @@ class TabularExperimentalConditionDataset(abc.ABC):
             Values below or equal to this threshold are considered missing,
             and are not shifted.
         """
-        mask = self._data[exp] > na_threshold
+        mask = self._detection_mask(self._data[exp], na_threshold)
         self._data.loc[mask, exp] -= value
 
 
-class TabularDataset(abc.ABC):
+class TabularDataset(MissingValuesMixin, abc.ABC):
     def __init__(
         self, conditions: Sequence[TabularExperimentalConditionDataset]
     ) -> None:
@@ -928,9 +960,9 @@ class TabularDataset(abc.ABC):
         """
         data = self.to_table()
         if value_type == "missing":
-            n_counts_per_exp = data.shape[0] - np.sum(data > na_threshold, axis=0)
+            n_counts_per_exp = data.shape[0] - np.sum(self._detection_mask(data, na_threshold), axis=0)
         elif value_type == "present":
-            n_counts_per_exp = np.sum(data > na_threshold, axis=0)
+            n_counts_per_exp = np.sum(self._detection_mask(data, na_threshold), axis=0)
         else:
             raise ValueError("type must be either 'missing' or 'present'")  # pyright: ignore
 
@@ -1086,7 +1118,12 @@ class TabularDataset(abc.ABC):
         bt_conditions = [c.log2_backtransform() for c in conditions_copy]
         return self.__class__(conditions=bt_conditions)
 
-    def to_table(self, join_method: MergeHow = "outer") -> pd.DataFrame:
+    def to_table(
+        self,
+        join_method: MergeHow = "outer",
+        mask_missing: bool = False,
+        na_threshold: float = 0.0,
+    ) -> pd.DataFrame:
         """
         Merge individual experimental conditions to one table.
         You might use this method to extract a Pandas data frame from
@@ -1095,18 +1132,81 @@ class TabularDataset(abc.ABC):
         Note that the entry identifier is in the index of the
         data frame.
 
+        By default, values are returned as stored, so missing values may
+        appear as ``0``. Generic tools (e.g., ``DataFrame.mean``,
+        ``DataFrame.corr``, scikit-learn) treat such zeros as measured
+        values. Set ``mask_missing=True`` to get missing values as ``NaN``
+        instead, which pandas skips by default.
+
         Parameters
         ----------
-        join_method: MergeHow, optional
+        join_method : MergeHow, optional
             Method of joining records of each experimental condition in the output.
+            Records absent from a condition are ``NaN`` in its columns.
+        mask_missing : bool, optional
+            If ``True``, values below or equal to ``na_threshold`` are
+            replaced by ``NaN``. Default is ``False``.
+        na_threshold : float, optional
+            Values below or equal to this threshold are considered missing.
+            Used only if ``mask_missing`` is ``True``.
 
         Returns
         -------
         pd.DataFrame
             A Pandas data frame containing all experimental conditions.
+
+        See Also
+        --------
+        detection_matrix : Whether each record was detected in each experiment.
+
+        Examples
+        --------
+        >>> table = dataset.to_table(mask_missing=True)
+        >>> table.corr()  # zeros no longer count as measurements
         """
-        tables = [c.to_table() for c in self._conditions]
+        tables = [
+            c.to_table(mask_missing=mask_missing, na_threshold=na_threshold)
+            for c in self._conditions
+        ]
         return self._join_list_of_tables(tables, how=join_method)
+
+    def detection_matrix(
+        self, na_threshold: float = 0.0, join_method: MergeHow = "outer"
+    ) -> pd.DataFrame:
+        """
+        Return whether each record was detected in each experiment.
+
+        A value is detected if it is above ``na_threshold``. Missing
+        values, stored as ``0`` or ``NaN``, are not detected. Neither are
+        records absent from a condition after joining.
+
+        Useful for presence/absence analyses, such as records detected in
+        one condition but not another, or patterns of missing values.
+        To count detections, use :meth:`frequency` instead.
+
+        Parameters
+        ----------
+        na_threshold : float, optional
+            Values below or equal to this threshold are considered missing.
+        join_method : MergeHow, optional
+            Method of joining records of each experimental condition in the
+            output.
+
+        Returns
+        -------
+        pd.DataFrame
+            A boolean data frame with the same index and columns as
+            :meth:`to_table` with the same ``join_method``.
+
+        Examples
+        --------
+        >>> detected = dataset.detection_matrix()
+        >>> only_in_treated = detected[
+        ...     detected[dataset.experiment_names("treated")].any(axis=1)
+        ...     & ~detected[dataset.experiment_names("control")].any(axis=1)
+        ... ].index
+        """
+        return self._detection_mask(self.to_table(join_method=join_method), na_threshold)
 
     def missing_values(
         self, na_threshold: float = 0.0
@@ -1144,7 +1244,7 @@ class TabularDataset(abc.ABC):
             stacklevel=2,
         )
         data = self.to_table()
-        n_missing_per_exp = data.shape[0] - np.sum(data > na_threshold, axis=0)
+        n_missing_per_exp = data.shape[0] - np.sum(self._detection_mask(data, na_threshold), axis=0)
 
         n_missing = n_missing_per_exp.reset_index()
         n_missing.columns = ["experiment", "n_missing"]
@@ -1299,7 +1399,7 @@ class TabularDataset(abc.ABC):
         self, imputed_conditions, value_type, na_threshold, shift, random_noise
     ) -> list[TabularExperimentalConditionDataset]:
         df = self.to_table()
-        df[df <= na_threshold] = np.nan
+        df = self._mask_missing(df, na_threshold)
         if value_type == "min":
             values_series = df.min(axis=1, skipna=True)
         elif value_type == "mean":
@@ -1328,7 +1428,7 @@ class TabularDataset(abc.ABC):
         random_noise: bool = False,
     ) -> list[TabularExperimentalConditionDataset]:
         df = self.to_table()
-        df[df <= na_threshold] = np.nan
+        df = self._mask_missing(df, na_threshold)
         all_values = df.to_numpy().flatten()
         if value_type == "min":
             targ_value = np.nanmin(all_values)
@@ -1496,7 +1596,7 @@ class TabularDataset(abc.ABC):
                     df = ref_case.merge(
                         targ_case, left_index=True, right_index=True, how="inner"
                     )
-                    df[df <= na_threshold] = np.nan
+                    df = self._mask_missing(df, na_threshold)
                     df = df.dropna()
 
                     center_ref = _central_value(df[ref_exp], method, trim_fraction)
@@ -1518,7 +1618,7 @@ class TabularDataset(abc.ABC):
             for exp in c.experiment_names:
                 values = c.filter(exp=exp).to_table()[exp]
                 centers[exp] = _central_value(
-                    values[values > na_threshold], method, trim_fraction
+                    values[self._detection_mask(values, na_threshold)], method, trim_fraction
                 )
         ref_center = centers[ref_exp]
         exp_conditions_data = copy.deepcopy(self._conditions)

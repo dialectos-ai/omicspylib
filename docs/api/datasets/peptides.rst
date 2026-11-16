@@ -66,6 +66,7 @@ Converting to proteins
 Exporting
 ---------
 .. automethod:: PeptidesDataset.to_table
+.. automethod:: PeptidesDataset.detection_matrix
 
 
 Deprecated

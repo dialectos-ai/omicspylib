@@ -289,8 +289,7 @@ class HierarchicallyClusteredHeatmap:
             valid values.
         """
         if self._na_threshold is not None:
-            is_na = data <= self._na_threshold
-            data[is_na] = np.nan
+            data = data.where(data > self._na_threshold)
 
         if self._min_frequency > 1:
             non_nan_freq = data.notna().sum(axis=1)

@@ -172,7 +172,7 @@ class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
     ) -> pd.DataFrame:
         data = self._data.copy()
         if min_frequency is not None:
-            valid_rows = (data > na_threshold).sum(axis=1) >= min_frequency
+            valid_rows = self._detection_mask(data, na_threshold).sum(axis=1) >= min_frequency
             data = data.loc[valid_rows, :].copy()
         if isinstance(exp, str):
             exp = [exp]
@@ -430,6 +430,7 @@ class PeptidesDataset(TabularDataset):
         agg_method: ProteinsAggMethod = "sum",
         names_lookup: dict | None = None,
         add_prefix: str | None = None,
+        na_threshold: float = 0.0,
     ) -> ProteinsDataset | None:
         """
         Aggregate peptides dataset into Proteins dataset.
@@ -463,6 +464,10 @@ class PeptidesDataset(TabularDataset):
             Use ``add_prefix`` instead of ``names_lookup`` for simple name prefixing.
             NOTE: there will be no separator between the prefix and the existing column name.
             You need to provide it (e.g., ``intensity_`` or ``pept_counts_``).
+        na_threshold : float, optional
+            Used only with ``agg_method="counts"``: peptides with a value
+            below or equal to this threshold are considered missing, and
+            are not counted.
 
         Returns
         -------
@@ -502,7 +507,7 @@ class PeptidesDataset(TabularDataset):
         ]
         if agg_method == "counts":
             numeric_cols = [c for c in data.columns if c != protein_id_col]
-            data[numeric_cols] = (data[numeric_cols] > 0).astype(int)
+            data[numeric_cols] = self._detection_mask(data[numeric_cols], na_threshold).astype(int)
 
         aggregate_df = data.groupby(protein_id_col).sum().reset_index()
 

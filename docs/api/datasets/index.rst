@@ -139,7 +139,8 @@ The most common tasks:
      - ``mean``, ``frequency``, ``record_counts``
    * - Export
      - ``to_table``, which returns a pandas data frame with one column per
-       experiment
+       experiment, and ``detection_matrix``, which tells whether each record
+       was detected in each experiment
 
 .. note::
 
@@ -156,6 +157,41 @@ The most common tasks:
    ``log2_backtransform`` afterwards if you need the original scale.
 
 
+Exporting data and missing values
+---------------------------------
+
+``to_table`` returns the values as stored, so missing values can appear as
+``0``. Methods of the dataset already leave them out of their calculations,
+but generic tools don't know the convention: pandas ``mean`` or ``corr``,
+scikit-learn or a PCA would treat a ``0`` as a value measured at zero.
+
+If you continue the analysis outside omicspylib, ask for missing values as
+``NaN``, which pandas skips by default:
+
+.. code-block:: python
+
+   table = dataset.to_table(mask_missing=True)
+   table.corr()  # zeros no longer count as measurements
+
+Use the ``na_threshold`` argument to treat higher values as missing too,
+e.g. ``dataset.to_table(mask_missing=True, na_threshold=10.0)``.
+
+For presence/absence questions, use ``detection_matrix``. It returns a
+boolean data frame with the same shape as ``to_table``, ``True`` where the
+record was detected. For example, the records detected in at least one
+``treated`` experiment but in none of the ``control`` experiments:
+
+.. code-block:: python
+
+   detected = dataset.detection_matrix()
+   in_treated = detected[dataset.experiment_names("treated")].any(axis=1)
+   in_control = detected[dataset.experiment_names("control")].any(axis=1)
+   only_in_treated = detected.index[in_treated & ~in_control]
+
+To count detections per record or per experiment, ``frequency`` and
+``record_counts`` give the same numbers directly.
+
+
 From peptides to proteins
 -------------------------
 
@@ -166,7 +202,8 @@ conditions and experiments. Two aggregation methods are available:
 * ``agg_method="sum"`` (default): protein intensity is the sum of its
   peptide intensities.
 * ``agg_method="counts"``: the number of peptides of each protein found in
-  each experiment.
+  each experiment. Peptides with values equal to or below ``na_threshold``
+  (default ``0.0``) are not counted.
 
 .. code-block:: python
 
