@@ -3,6 +3,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Literal
 
+import matplotlib.colors as mcolors
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
@@ -148,6 +149,8 @@ class HierarchicallyClusteredHeatmap:
         sorted_cols: list | None = None,
         figsize: tuple[int, int] = (10, 14),
         title: str = "Clustering groups",
+        row_annotations: dict[str, pd.Series] | None = None,
+        row_annotation_palettes: dict[str, dict] | None = None,
     ) -> HCHeatmapData:
         """
         Perform hierarchical clustering and plot a heatmap with the separated groups.
@@ -167,6 +170,18 @@ class HierarchicallyClusteredHeatmap:
             If nothing is provided, a default size will be returned.
         title: str
             Title to be placed on top of the plot.
+        row_annotations: dict or None
+            Extra colour tracks drawn beside the rows, one per entry. Keys
+            are the track names, values are ``pd.Series`` with a
+            categorical label per record, indexed like ``data``. Labels
+            are matched on the index, so rows removed by filtering are
+            ignored; rows without a label are left blank. The clustering
+            does not use these labels, so they are a way to check whether
+            the row clusters mean anything.
+        row_annotation_palettes: dict or None
+            Optional colours per track, as ``{track name: {label: colour}}``.
+            Tracks or labels without a colour get one from a default
+            categorical palette.
 
         Returns
         -------
@@ -198,6 +213,8 @@ class HierarchicallyClusteredHeatmap:
             row_groups=row_groups,
             figsize=figsize,
             title=title,
+            row_annotations=row_annotations,
+            row_annotation_palettes=row_annotation_palettes,
         )
 
         try:
@@ -325,6 +342,8 @@ class HierarchicallyClusteredHeatmap:
         col_linkage,
         col_groups,
         title: str = "",
+        row_annotations: dict[str, pd.Series] | None = None,
+        row_annotation_palettes: dict[str, dict] | None = None,
         **clustermap_kwargs,
     ) -> ClusterGrid:
         # base setup
@@ -337,6 +356,16 @@ class HierarchicallyClusteredHeatmap:
             row_linkage = None
             row_grp_colors = None
             plot_row_cluster = False
+
+        annotation_colors, annotation_palettes = self._annotation_tracks(
+            data.index, row_annotations, row_annotation_palettes
+        )
+        if annotation_colors is not None:
+            if row_grp_colors is not None:
+                annotation_colors.insert(
+                    0, "Row groups", [mcolors.to_hex(c) for c in row_grp_colors]
+                )
+            row_grp_colors = annotation_colors
         if col_linkage is not None:
             col_grp_colors = [tree_cmap(grp_idx) for grp_idx in col_groups]
             plot_col_cluster = True
@@ -377,12 +406,151 @@ class HierarchicallyClusteredHeatmap:
             g.ax_col_dendrogram.legend(
                 handles=col_patches, loc="lower left", title="Col groups"
             )
-        if g.ax_cbar is not None:
+        if annotation_palettes:
+            self._add_annotation_legend(g, annotation_palettes)
+
+        rows_only = not plot_col_cluster and col_grp_colors is None
+        if g.ax_cbar is not None and not rows_only:
             g.ax_cbar.set_aspect(2)  # decrease width of colorbar
         g.figure.suptitle(title)
         plt.tight_layout()
 
+        # positions are fixed after tight_layout, which would otherwise undo them
+        if rows_only:
+            self._tidy_rows_only_layout(g)
+        if self._center_scale:
+            self._label_cbar_low_high(g)
+
         return g
+
+    @staticmethod
+    def _annotation_tracks(
+        index: pd.Index,
+        row_annotations: dict[str, pd.Series] | None,
+        row_annotation_palettes: dict[str, dict] | None,
+    ) -> tuple[pd.DataFrame | None, dict[str, dict]]:
+        """
+        Map each per-record label to a colour, aligned to the plotted rows.
+
+        Returns a frame of colours (one column per track, rows in the
+        order of ``index``) and the ``{track: {label: colour}}`` palettes
+        used, for the legend. Rows without a label are left white.
+        """
+        if not row_annotations:
+            return None, {}
+        if not index.is_unique:
+            raise ValueError(
+                "row_annotations are matched on the index, which must be unique."
+            )
+        palettes_in = row_annotation_palettes or {}
+        aligned_tracks = {}
+        uncoloured = []  # (track, label) pairs needing a default colour
+        for name, labels in row_annotations.items():
+            if not isinstance(labels, pd.Series):
+                raise TypeError(
+                    f"row_annotations['{name}'] should be a pd.Series indexed "
+                    "like the data."
+                )
+            if not labels.index.is_unique:
+                raise ValueError(
+                    f"row_annotations['{name}'] has a duplicated index."
+                )
+            aligned = labels.reindex(index)
+            aligned_tracks[name] = aligned
+            given = palettes_in.get(name, {})
+            uncoloured += [
+                (name, lbl)
+                for lbl in sorted(aligned.dropna().unique(), key=str)
+                if lbl not in given
+            ]
+
+        # one palette across all tracks, so no two labels share a colour, and
+        # distinct from the tab20 colours of the row groups
+        n_colors = len(uncoloured)
+        defaults = dict(
+            zip(
+                uncoloured,
+                sns.color_palette("Dark2" if n_colors <= 8 else "husl", n_colors),
+                strict=True,
+            )
+        )
+
+        tracks = {}
+        palettes = {}
+        for name, aligned in aligned_tracks.items():
+            given = palettes_in.get(name, {})
+            palette = {
+                lbl: mcolors.to_hex(given[lbl] if lbl in given else defaults[(name, lbl)])
+                for lbl in sorted(aligned.dropna().unique(), key=str)
+            }
+            tracks[name] = [
+                palette[lbl] if pd.notna(lbl) else "#ffffff" for lbl in aligned
+            ]
+            palettes[name] = palette
+        return pd.DataFrame(tracks, index=index), palettes
+
+    @staticmethod
+    def _add_annotation_legend(g: ClusterGrid, palettes: dict[str, dict]) -> None:
+        """Legend for the annotation tracks, in the same colours as the tracks."""
+        multiple = len(palettes) > 1
+        handles = [
+            mpatches.Patch(
+                color=color, label=f"{name}: {lbl}" if multiple else str(lbl)
+            )
+            for name, palette in palettes.items()
+            for lbl, color in palette.items()
+        ]
+        legend_title = "Row annotations" if multiple else next(iter(palettes))
+        # ``legend`` replaces the axes legend, so keep the row groups one
+        row_groups_legend = g.ax_row_dendrogram.get_legend()
+        g.ax_row_dendrogram.legend(
+            handles=handles, loc="upper left", title=legend_title
+        )
+        if row_groups_legend is not None:
+            g.ax_row_dendrogram.add_artist(row_groups_legend)
+
+    @staticmethod
+    def _tidy_rows_only_layout(g: ClusterGrid) -> None:
+        """
+        Fix the layout when only rows are clustered: give the empty
+        column-dendrogram band to the heatmap and move the colour bar from
+        the top left to a narrow strip beside the row dendrogram.
+        """
+        top = g.ax_col_dendrogram.get_position().y1
+        g.ax_col_dendrogram.set_visible(False)
+        for ax in (g.ax_heatmap, g.ax_row_dendrogram, g.ax_row_colors):
+            if ax is None:
+                continue
+            pos = ax.get_position()
+            ax.set_position((pos.x0, pos.y0, pos.width, top - pos.y0))
+
+        if g.ax_cbar is None:
+            return
+        dendro = g.ax_row_dendrogram.get_position()
+        cbar_width = 0.015
+        pad = 0.01
+        g.ax_row_dendrogram.set_position(
+            (
+                dendro.x0 + cbar_width + pad,
+                dendro.y0,
+                dendro.width - cbar_width - pad,
+                dendro.height,
+            )
+        )
+        cbar_height = dendro.height * 0.25
+        g.ax_cbar.set_position(
+            (dendro.x0, dendro.y1 - cbar_height, cbar_width, cbar_height)
+        )
+
+    @staticmethod
+    def _label_cbar_low_high(g: ClusterGrid) -> None:
+        """Values are z-scores per row: only ``low`` / ``high`` carry meaning."""
+        colorbar = g.ax_heatmap.collections[0].colorbar
+        if colorbar is None:
+            return
+        vmin, vmax = colorbar.mappable.get_clim()
+        colorbar.set_ticks([vmin, vmax])
+        colorbar.set_ticklabels(["low", "high"])
 
 
 @dataclass
