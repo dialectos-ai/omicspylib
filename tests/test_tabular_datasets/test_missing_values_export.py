@@ -29,17 +29,17 @@ def test_to_table_default_is_unchanged(small_dataset: ProteinsDataset) -> None:
 
 def test_to_table_mask_missing(small_dataset: ProteinsDataset) -> None:
     table = small_dataset.to_table(mask_missing=True)
-    assert np.isnan(table.loc["p2", "a1"])
-    assert np.isnan(table.loc["p1", "b1"])
-    assert np.isnan(table.loc["p3", "a1"])
+    assert pd.isna(table.loc["p2", "a1"])
+    assert pd.isna(table.loc["p1", "b1"])
+    assert pd.isna(table.loc["p3", "a1"])
     assert table.loc["p1", "a1"] == 10.0
     # pandas now skips missing values instead of counting zeros
-    assert table.loc["p1", ["b1", "b2"]].mean() == 1.0
+    assert table.loc[["p1"], ["b1", "b2"]].mean(axis=None) == 1.0
 
 
 def test_to_table_mask_missing_with_threshold(small_dataset: ProteinsDataset) -> None:
     table = small_dataset.to_table(mask_missing=True, na_threshold=3.0)
-    assert np.isnan(table.loc["p3", "b1"])  # 3.0 <= threshold
+    assert pd.isna(table.loc["p3", "b1"])  # 3.0 <= threshold
     assert table.loc["p3", "b2"] == 4.0
 
 
@@ -91,8 +91,12 @@ def test_counts_respect_na_threshold() -> None:
     peptides = PeptidesDataset.from_df(
         data, id_col="peptide", conditions={"a": ["a1", "a2"]}, protein_id_col="protein_id"
     )
-    default = peptides.to_proteins(agg_method="counts").to_table()
+    default_proteins = peptides.to_proteins(agg_method="counts")
+    assert isinstance(default_proteins, ProteinsDataset)
+    default = default_proteins.to_table()
     assert default.loc["p1", "a1"] == 2
-    thresholded = peptides.to_proteins(agg_method="counts", na_threshold=5.0).to_table()
+    thresholded_proteins = peptides.to_proteins(agg_method="counts", na_threshold=5.0)
+    assert isinstance(thresholded_proteins, ProteinsDataset)
+    thresholded = thresholded_proteins.to_table()
     assert thresholded.loc["p1", "a1"] == 1
     assert thresholded.loc["p1", "a2"] == 3
