@@ -8,6 +8,7 @@ import pandas as pd
 
 from omicspylib.datasets.abc import TabularDataset, TabularExperimentalConditionDataset
 from omicspylib.datasets.proteins import ProteinsDataset
+from omicspylib.utils.deprecation import resolve_renamed_arg
 
 ProteinsAggMethod = Literal["sum", "counts"]
 
@@ -122,18 +123,20 @@ class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
 
     def filter(
         self,
-        exp: str | list | None = None,
+        experiments: str | list | None = None,
         min_frequency: int | None = None,
         na_threshold: float = 0.0,
         ids: list | None = None,
         protein_ids: list | None = None,
+        *,
+        exp: str | list | None = None,
     ) -> PeptidesDatasetExpCondition:
         """
         Keep a subset of the experiments and records.
 
         Parameters
         ----------
-        exp: list, str, optional
+        experiments: list, str, optional
             Experiment name, or list of names, to keep. Names that are not
             part of this condition are ignored. Leave empty to keep all
             experiments.
@@ -148,14 +151,18 @@ class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
         protein_ids: list, optional
             If specified, keep only the peptides of these proteins.
             Requires ``protein_id_col``.
+        exp: list, str, optional
+            .. deprecated:: 0.3.0
+                Use ``experiments`` instead.
 
         Returns
         -------
         PeptidesDatasetExpCondition
             A new object, with the selected experiments and records.
         """
+        experiments = resolve_renamed_arg(experiments, exp, "experiments", "exp")
         data = self._apply_filter(
-            exp, min_frequency, na_threshold, ids=ids, protein_ids=protein_ids
+            experiments, min_frequency, na_threshold, ids=ids, protein_ids=protein_ids
         )
 
         return PeptidesDatasetExpCondition(
@@ -168,19 +175,19 @@ class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
         )
 
     def _apply_filter(
-        self, exp, min_frequency, na_threshold, ids=None, protein_ids=None
+        self, experiments, min_frequency, na_threshold, ids=None, protein_ids=None
     ) -> pd.DataFrame:
         data = self._data.copy()
         if min_frequency is not None:
             valid_rows = self._detection_mask(data, na_threshold).sum(axis=1) >= min_frequency
             data = data.loc[valid_rows, :].copy()
-        if isinstance(exp, str):
-            exp = [exp]
-        if exp is not None:
+        if isinstance(experiments, str):
+            experiments = [experiments]
+        if experiments is not None:
             # You might filter by providing names across experimental
             # conditions. So when you work on each condition separately,
             # some names are no longer valid.
-            local_exp: list[str] = [ex for ex in exp if ex in data.columns]
+            local_exp: list[str] = [ex for ex in experiments if ex in data.columns]
             data = data.loc[:, local_exp].copy()
         if ids is not None:
             data = data.loc[data.index.isin(ids)].copy()
@@ -193,7 +200,7 @@ class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
 
     def drop(
         self,
-        exp: str | list | None = None,
+        experiments: str | list | None = None,
         ids: list | None = None,
         omit_missing_cols: bool = True,
         **kwargs,
@@ -203,7 +210,7 @@ class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
 
         Parameters
         ----------
-        exp: list, str, optional
+        experiments: list, str, optional
             Experiment name, or list of names, to remove.
         ids: list, optional
             If specified, a list of record ids to remove.
@@ -213,6 +220,7 @@ class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
         **kwargs
             ``protein_ids`` (list, optional): remove all the peptides of
             these proteins. Requires ``protein_id_col``.
+            ``exp`` (deprecated since 0.3.0): use ``experiments`` instead.
 
         Returns
         -------
@@ -220,9 +228,12 @@ class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
             A new object, without the specified experiments and records.
         """
         protein_ids: list | None = kwargs.get("protein_ids")
+        experiments = resolve_renamed_arg(
+            experiments, kwargs.get("exp"), "experiments", "exp"
+        )
 
         data = self._apply_drop(
-            exp=exp,
+            experiments=experiments,
             ids=ids,
             protein_ids=protein_ids,
             omit_missing_cols=omit_missing_cols,
@@ -239,23 +250,23 @@ class PeptidesDatasetExpCondition(TabularExperimentalConditionDataset):
 
     def _apply_drop(
         self,
-        exp: str | list | None = None,
+        experiments: str | list | None = None,
         ids: list | None = None,
         omit_missing_cols: bool = True,
         **kwargs,
     ) -> pd.DataFrame:
         protein_ids = kwargs.get("protein_ids")
         data = cast(pd.DataFrame, self._data.copy())
-        if isinstance(exp, str):
-            exp = [exp]
+        if isinstance(experiments, str):
+            experiments = [experiments]
 
-        if omit_missing_cols and exp is not None:
+        if omit_missing_cols and experiments is not None:
             # allow the user to pass column names that don't exist or
             # are already excluded from previous steps.
-            exp = [e for e in exp if e in data.columns]
+            experiments = [e for e in experiments if e in data.columns]
 
-        if exp is not None:
-            data = data.drop(exp, axis=1)
+        if experiments is not None:
+            data = data.drop(experiments, axis=1)
 
         if ids is not None:
             data = data.loc[~data.index.isin(ids)].copy()
@@ -586,22 +597,25 @@ class PeptidesDataset(TabularDataset):
 
     def filter(
         self,
-        exp: str | list | None = None,
-        cond: list | None = None,
+        experiments: str | list | None = None,
+        conditions: str | list | None = None,
         min_frequency: int | None = None,
         na_threshold: float = 0.0,
         ids: list | None = None,
         protein_ids: list | None = None,
+        *,
+        exp: str | list | None = None,
+        cond: str | list | None = None,
     ) -> PeptidesDataset:
         """
         Filter the dataset based on a given set of properties.
 
         Parameters
         ----------
-        exp: list, str, optional
+        experiments: list, str, optional
             List of experiment name or a single experiment to keep.
             Leave empty to keep all experiments.
-        cond: list, optional
+        conditions: list, str, optional
             List of experimental condition names. If provided, only the conditions
             specified will remain in the dataset.
         min_frequency: int or None, optional
@@ -615,21 +629,30 @@ class PeptidesDataset(TabularDataset):
         protein_ids: list, optional
             If specified, a list of protein ids from which the records will
             remain in the dataset.
+        exp: list, str, optional
+            .. deprecated:: 0.3.0
+                Use ``experiments`` instead.
+        cond: list, str, optional
+            .. deprecated:: 0.3.0
+                Use ``conditions`` instead.
 
         Returns
         -------
-        ProteinsDataset
+        PeptidesDataset
             A new instance of the dataset object, filtered based on the
             user's input.
         """
-        exp_conditions = self._conditions.copy()
-        if isinstance(exp, str):
-            exp = [exp]
-        if isinstance(cond, str):
-            cond = [cond]
+        experiments = resolve_renamed_arg(experiments, exp, "experiments", "exp")
+        conditions = resolve_renamed_arg(conditions, cond, "conditions", "cond")
 
-        if cond is not None:
-            exp_conditions = [c for c in exp_conditions if c.name in cond]
+        exp_conditions = self._conditions.copy()
+        if isinstance(experiments, str):
+            experiments = [experiments]
+        if isinstance(conditions, str):
+            conditions = [conditions]
+
+        if conditions is not None:
+            exp_conditions = [c for c in exp_conditions if c.name in conditions]
 
         filt_min_f = min_frequency is not None
         filt_na_th = na_threshold is not None
@@ -638,7 +661,7 @@ class PeptidesDataset(TabularDataset):
         if filt_min_f or filt_na_th or filt_ids:
             exp_conditions = [
                 c.filter(
-                    exp=exp,
+                    experiments=experiments,
                     min_frequency=min_frequency,
                     na_threshold=na_threshold,
                     ids=ids,
@@ -651,25 +674,34 @@ class PeptidesDataset(TabularDataset):
 
     def drop(
         self,
-        exp: str | list | None = None,
-        cond: str | list | None = None,
+        experiments: str | list | None = None,
+        conditions: str | list | None = None,
         ids: list | None = None,
         protein_ids: list | None = None,
+        *,
+        exp: str | list | None = None,
+        cond: str | list | None = None,
     ) -> PeptidesDataset:
         """
         Drop specified experiment(s) and or condition(s).
 
         Parameters
         ----------
-        exp: str, list, optional
+        experiments: str, list, optional
             Experiment name(s) to be dropped.
-        cond: str, list, optional
+        conditions: str, list, optional
             Experimental condition(s) to be dropped.
         ids: list, optional
             If specified, a list of records ids to drop from the dataset.
         protein_ids: list, optional
             If specified, a list of protein ids from which the records will
             be dropped from the dataset.
+        exp: list, str, optional
+            .. deprecated:: 0.3.0
+                Use ``experiments`` instead.
+        cond: list, str, optional
+            .. deprecated:: 0.3.0
+                Use ``conditions`` instead.
 
         Returns
         -------
@@ -677,16 +709,19 @@ class PeptidesDataset(TabularDataset):
             An object of the same instance type without
             the specified experiment(s) and/or condition(s).
         """
-        filt_conditions = copy.deepcopy(self._conditions)
-        if isinstance(exp, str):
-            exp = [exp]
-        if isinstance(cond, str):
-            cond = [cond]
-        if cond is not None:
-            filt_conditions = [c for c in filt_conditions if c.name not in cond]
+        experiments = resolve_renamed_arg(experiments, exp, "experiments", "exp")
+        conditions = resolve_renamed_arg(conditions, cond, "conditions", "cond")
 
-        if exp is not None:
-            filt_conditions = [c.drop(exp) for c in filt_conditions]
+        filt_conditions = copy.deepcopy(self._conditions)
+        if isinstance(experiments, str):
+            experiments = [experiments]
+        if isinstance(conditions, str):
+            conditions = [conditions]
+        if conditions is not None:
+            filt_conditions = [c for c in filt_conditions if c.name not in conditions]
+
+        if experiments is not None:
+            filt_conditions = [c.drop(experiments) for c in filt_conditions]
 
         if ids is not None:
             filt_conditions = [c.drop(ids=ids) for c in filt_conditions]

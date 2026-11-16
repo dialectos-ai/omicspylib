@@ -137,6 +137,9 @@ The most common tasks:
        ``impute``
    * - Summarize
      - ``mean``, ``frequency``, ``record_counts``
+   * - Check reproducibility
+     - ``correlation``, ``bland_altman`` (see
+       :ref:`below <reproducibility_label>`)
    * - Export
      - ``to_table``, which returns a pandas data frame with one column per
        experiment, and ``detection_matrix``, which tells whether each record
@@ -173,6 +176,10 @@ If you continue the analysis outside omicspylib, ask for missing values as
    table = dataset.to_table(mask_missing=True)
    table.corr()  # zeros no longer count as measurements
 
+To correlate experiments, prefer ``dataset.correlation()`` (see
+:ref:`below <reproducibility_label>`), which also handles the choice of
+records and the log transformation for you.
+
 Use the ``na_threshold`` argument to treat higher values as missing too,
 e.g. ``dataset.to_table(mask_missing=True, na_threshold=10.0)``.
 
@@ -190,6 +197,70 @@ record was detected. For example, the records detected in at least one
 
 To count detections per record or per experiment, ``frequency`` and
 ``record_counts`` give the same numbers directly.
+
+
+.. _reproducibility_label:
+
+Checking reproducibility
+------------------------
+
+Replicates of the same condition should agree more closely than
+experiments of different conditions. Two methods measure this agreement,
+pair by pair. Both return a data frame with one row per pair of
+experiments and the columns ``experiment_a``, ``experiment_b``,
+``condition_a``, ``condition_b`` and ``n_records`` (the number of records
+used), plus their own results.
+
+* ``correlation`` gives a ``coefficient`` for each pair.
+* ``bland_altman`` gives the ``bias`` (mean difference) and the limits of
+  agreement (``loa_lower``, ``loa_upper``) for each pair. On log2 values,
+  a ``bias`` of ``1`` means ``experiment_a`` is two times higher than
+  ``experiment_b`` on average, which a correlation coefficient cannot show.
+
+.. code-block:: python
+
+   corr = dataset.correlation()  # replicates of each condition, Spearman
+   corr.groupby("condition_a")["coefficient"].median()
+
+   # replicates vs. experiments of different conditions
+   within = dataset.correlation(pairs="within_conditions")["coefficient"].median()
+   across = dataset.correlation(pairs="across_conditions")["coefficient"].median()
+
+   dataset.bland_altman(pairs=[("ctrl_rep1", "ctrl_rep2")])
+
+Three choices affect the results. The defaults are chosen to be safe:
+
+* **Which pairs** (``pairs``): ``"within_conditions"`` (default),
+  ``"across_conditions"``, ``"all"``, or a list of
+  ``(experiment_a, experiment_b)`` tuples.
+* **Which records** (``missing``): with ``"pairwise"`` (default), each pair
+  uses the records with a value in both of its experiments. With
+  ``"listwise"``, every pair uses only the records with a value in all the
+  experiments of the selected pairs. The two give different results, and
+  ``"listwise"`` can leave few records when there are many missing values.
+  In both cases, missing values (``0``, ``NaN``, or values below
+  ``na_threshold``) are never treated as measurements. Pairs with fewer
+  than ``min_records`` records (default ``10``) get ``NaN``.
+* **Which coefficient, on which scale** (``method``, ``log_transform``):
+  Spearman (default) and Kendall are rank-based, so a log transformation
+  does not change them. Pearson is not: intensities span several orders of
+  magnitude, so on raw values a few dozen of the most abundant records
+  dominate it. ``correlation`` therefore log2 transforms the values for
+  Pearson by default. ``bland_altman`` always log2 transforms by default.
+  If your dataset is already log-transformed, pass ``log_transform=False``.
+
+To see the results, use
+:func:`~omicspylib.plots.agreement.plot_correlation_heatmap` for an overview
+of all pairs, and
+:func:`~omicspylib.plots.agreement.plot_experiment_pair` for a scatter or
+Bland-Altman plot of one pair:
+
+.. code-block:: python
+
+   from omicspylib.plots import plot_correlation_heatmap, plot_experiment_pair
+
+   plot_correlation_heatmap(dataset)
+   plot_experiment_pair(dataset, "ctrl_rep1", "ctrl_rep2", plot_type="bland_altman")
 
 
 From peptides to proteins

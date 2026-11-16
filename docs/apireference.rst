@@ -48,8 +48,11 @@ Typical workflow
 
 #. **Load** your data with ``from_df`` (any pandas data frame) or, for
    proteins, ``from_maxquant`` (a MaxQuant output file).
-#. **Explore** it with ``describe``, ``frequency`` and ``missing_values``,
+#. **Explore** it with ``describe``, ``frequency`` and ``record_counts``,
    or with the :doc:`plotting functions <api/plots/index>`.
+#. **Check reproducibility** with ``correlation`` and ``bland_altman``,
+   which compare experiments pair by pair, or with
+   ``plot_correlation_heatmap``.
 #. **Prepare** it with ``filter``, ``log2_transform``, ``impute`` and
    ``normalize``.
 #. **Compare** experimental conditions using the
@@ -102,10 +105,12 @@ Package overview
        or unique records), and hierarchical clustering heatmaps.
    * - :doc:`api/calculations/index`
      - Lower-level statistical functions (fold change, t-test with
-       multiple-testing correction) used by the comparison objects.
+       multiple-testing correction, pairwise correlation, Bland-Altman)
+       used by the dataset methods and comparison objects.
    * - :doc:`api/plots/index`
      - Plots for data exploration and results: density, frequency, missing
-       values, Venn diagrams and volcano plots.
+       values, agreement between experiments (correlation heatmap, scatter
+       and Bland-Altman plots), Venn diagrams and volcano plots.
    * - :doc:`api/go/index`
      - Mapping Gene Ontology (GO) terms to GO slims, using the EBI QuickGO
        web service (requires an internet connection).
@@ -127,6 +132,43 @@ package:
        concat,
        go_to_goslim,
    )
+
+
+Argument names
+--------------
+
+The same concept has the same argument name across the library:
+``experiments`` and ``conditions`` to select experiments and conditions,
+``na_threshold`` for the value at or below which a value is missing, and
+``log_transform`` to log-transform values before a calculation.
+
+.. deprecated:: 0.3.0
+
+   Earlier names still work, but raise a ``DeprecationWarning`` and will be
+   removed in a future release:
+
+   .. list-table::
+      :header-rows: 1
+      :widths: 40 30 30
+
+      * - Where
+        - Old name
+        - New name
+      * - ``filter``, ``drop`` (datasets and conditions)
+        - ``exp``
+        - ``experiments``
+      * - ``filter``, ``drop`` (datasets)
+        - ``cond``
+        - ``conditions``
+      * - ``normalize``
+        - ``ref_exp``
+        - ``ref_experiment``
+      * - ``plot_missing_values``, ``plot_record_frequency``
+        - ``min_threshold``
+        - ``na_threshold``
+      * - ``PairwiseComparisonTTestFC.eval``
+        - ``use_log_transformed``
+        - ``log_transform``
 
 
 .. toctree::

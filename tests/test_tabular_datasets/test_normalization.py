@@ -40,7 +40,7 @@ def test_trimmed_mean_normalization_explicit() -> None:
     trim_fraction = 0.2  # 10% from lower, 10% from upper end
     norm_dataset = dataset.normalize(
         method="mean",
-        ref_exp="ref_rep1",
+        ref_experiment="ref_rep1",
         use_common_records=True,
         trim_fraction=trim_fraction,
     )
@@ -81,7 +81,7 @@ def test_trimmed_mean_normalization_all_records() -> None:
     trim_fraction = 0.2
     norm_dataset = dataset.normalize(
         method="mean",
-        ref_exp="ref_rep1",
+        ref_experiment="ref_rep1",
         use_common_records=False,
         trim_fraction=trim_fraction,
     )
@@ -120,7 +120,7 @@ def test_median_normalization_explicit(use_common_records) -> None:
     dataset = PeptidesDataset.from_df(df, **config)
 
     norm_table = dataset.normalize(
-        method="median", ref_exp="ref_rep1", use_common_records=use_common_records
+        method="median", ref_experiment="ref_rep1", use_common_records=use_common_records
     ).to_table()
 
     present = df["targ_rep1"] > 0
@@ -172,7 +172,7 @@ def test_reference_condition_replicates_are_normalized(
     dataset = PeptidesDataset.from_df(df, **config)
 
     norm_table = dataset.normalize(
-        method=method, ref_exp="ref_rep1", use_common_records=use_common_records
+        method=method, ref_experiment="ref_rep1", use_common_records=use_common_records
     ).to_table()
 
     np.testing.assert_allclose(norm_table["ref_rep2"], df["ref_rep1"])
@@ -210,7 +210,7 @@ def test_normalization_with_trim_fraction_param(
 
     norm_dataset = dataset.normalize(
         method="mean",
-        ref_exp="c1_rep1",
+        ref_experiment="c1_rep1",
         use_common_records=use_common_records,
         trim_fraction=trim_fraction,
     )
@@ -218,7 +218,7 @@ def test_normalization_with_trim_fraction_param(
 
 
 @pytest.mark.parametrize(
-    ("method", "ref_exp", "ref_condition", "use_common_records", "atol"),
+    ("method", "ref_experiment", "ref_condition", "use_common_records", "atol"),
     [
         ("mean", None, None, False, 0.1),
         ("mean", "c2_rep2", None, False, 0.1),
@@ -230,7 +230,7 @@ def test_normalization_with_trim_fraction_param(
     ],
 )
 def test_normalization_method(
-    method: NormMethod, ref_exp, ref_condition, use_common_records, atol
+    method: NormMethod, ref_experiment, ref_condition, use_common_records, atol
 ) -> None:
     # setup
     data_df = pd.read_csv("tests/data/peptides_dataset.tsv", sep="\t")
@@ -254,7 +254,7 @@ def test_normalization_method(
     # action
     norm_dataset = dataset.normalize(
         method=method,
-        ref_exp=ref_exp,
+        ref_experiment=ref_experiment,
         ref_condition=ref_condition,
         use_common_records=use_common_records,
     )

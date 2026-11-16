@@ -57,7 +57,7 @@ compares two conditions record by record. ``eval`` runs these steps:
    condition B, using the values on their original scale and ignoring
    missing values.
 #. Runs a two-sided Student's t-test (equal variances assumed) on
-   ``log2(x + 1)`` values. Set ``use_log_transformed=False`` to run it on the
+   ``log2(x + 1)`` values. Set ``log_transform=False`` to run it on the
    values as they are.
 #. Adjusts the p-values for multiple testing, by default with the
    Benjamini-Hochberg method (``pval_adj_method="fdr_bh"``). Set it to

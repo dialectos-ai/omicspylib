@@ -9,6 +9,10 @@ Plotting functions
 
 .. autofunction:: omicspylib.plots.records.plot_record_across_experiments
 
+.. autofunction:: omicspylib.plots.agreement.plot_correlation_heatmap
+
+.. autofunction:: omicspylib.plots.agreement.plot_experiment_pair
+
 .. autofunction:: omicspylib.plots.venn.plot_venn2
 
 .. autofunction:: omicspylib.plots.volcano.plot_volcano

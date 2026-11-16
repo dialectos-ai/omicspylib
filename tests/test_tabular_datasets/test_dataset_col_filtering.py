@@ -33,7 +33,7 @@ def test_exp_dropping_in_dataset(
     }
     dataset = dsets[dset_name]
 
-    new_dataset = dataset.drop(exp=drop_exp, cond=drop_cond)
+    new_dataset = dataset.drop(experiments=drop_exp, conditions=drop_cond)
 
     # assertion
     if drop_cond is None:
