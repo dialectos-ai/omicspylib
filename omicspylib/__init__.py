@@ -10,7 +10,7 @@ from omicspylib.datasets.peptides import PeptidesDataset
 from omicspylib.datasets.proteins import ProteinsDataset
 
 # Analysis imports
-from omicspylib.analysis.clusters import HierarchicallyClusteredHeatmap
+from omicspylib.analysis.clusters import ClusterDiagnostics, HierarchicallyClusteredHeatmap
 from omicspylib.analysis.pairs.frequency_based import PairwiseUniqueEntryComparison
 from omicspylib.analysis.pairs.statistical import PairwiseComparisonTTestFC
 from omicspylib.go.goslim import go_to_goslim
@@ -18,6 +18,7 @@ from omicspylib.go.obo import GeneOntology, load_obo
 # ruff: isort: on
 
 __all__ = [
+    "ClusterDiagnostics",
     "GeneOntology",
     "HierarchicallyClusteredHeatmap",
     "PairwiseComparisonTTestFC",
