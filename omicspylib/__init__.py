@@ -14,16 +14,19 @@ from omicspylib.analysis.clusters import HierarchicallyClusteredHeatmap
 from omicspylib.analysis.pairs.frequency_based import PairwiseUniqueEntryComparison
 from omicspylib.analysis.pairs.statistical import PairwiseComparisonTTestFC
 from omicspylib.go.goslim import go_to_goslim
+from omicspylib.go.obo import GeneOntology, load_obo
 # ruff: isort: on
 
 __all__ = [
+    "GeneOntology",
     "HierarchicallyClusteredHeatmap",
     "PairwiseComparisonTTestFC",
     "PairwiseUniqueEntryComparison",
     "PeptidesDataset",
     "ProteinsDataset",
     "concat",
-    "go_to_goslim"
+    "go_to_goslim",
+    "load_obo",
 ]
 
 try:

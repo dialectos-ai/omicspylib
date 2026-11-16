@@ -1,0 +1,139 @@
+format-version: 1.2
+data-version: releases/2099-01-01
+ontology: go
+! Hand-written synthetic ontology for tests. All ids and names are invented;
+! no Gene Ontology content is copied.
+
+[Term]
+id: GO:9999001
+name: root process
+namespace: biological_process
+
+[Term]
+id: GO:9999002
+name: slim process
+namespace: biological_process
+is_a: GO:9999001 ! root process
+
+[Term]
+id: GO:9999003
+name: child process
+namespace: biological_process
+is_a: GO:9999002 ! slim process
+
+[Term]
+id: GO:9999004
+name: grandchild process
+namespace: biological_process
+is_a: GO:9999003 ! child process
+
+[Term]
+id: GO:9999005
+name: part of slim process
+namespace: biological_process
+relationship: part_of GO:9999002 ! slim process
+
+[Term]
+id: GO:9999006
+name: regulated target
+namespace: biological_process
+is_a: GO:9999001 ! root process
+
+[Term]
+id: GO:9999007
+name: regulation of target
+namespace: biological_process
+relationship: regulates GO:9999006 ! regulated target
+
+[Term]
+id: GO:9999008
+name: positive regulation of target
+namespace: biological_process
+relationship: positively_regulates GO:9999006 {source="test"} ! regulated target
+
+[Term]
+id: GO:9999010
+name: root component
+namespace: cellular_component
+
+[Term]
+id: GO:9999011
+name: slim component
+namespace: cellular_component
+alt_id: GO:9999091
+is_a: GO:9999010 ! root component
+
+[Term]
+id: GO:9999012
+name: process occurring in component
+namespace: biological_process
+relationship: occurs_in GO:9999011 ! slim component
+
+[Term]
+id: GO:9999013
+name: process having a part
+namespace: biological_process
+is_a: GO:9999002 ! slim process
+relationship: has_part GO:9999011 ! slim component
+
+[Term]
+id: GO:9999014
+name: process with alt id
+namespace: biological_process
+alt_id: GO:9999094
+is_a: GO:9999003 ! child process
+
+[Term]
+id: GO:9999020
+name: obsolete replaced
+namespace: biological_process
+is_obsolete: true
+replaced_by: GO:9999003
+
+[Term]
+id: GO:9999021
+name: obsolete consider only
+namespace: biological_process
+is_obsolete: true
+consider: GO:9999003
+
+[Term]
+id: GO:9999022
+name: obsolete replaced by obsolete
+namespace: biological_process
+is_obsolete: true
+replaced_by: GO:9999020
+
+[Term]
+id: GO:9999023
+name: obsolete cycle a
+namespace: biological_process
+is_obsolete: true
+replaced_by: GO:9999024
+
+[Term]
+id: GO:9999024
+name: obsolete cycle b
+namespace: biological_process
+is_obsolete: true
+replaced_by: GO:9999023
+
+[Term]
+id: GO:9999025
+name: obsolete slim
+namespace: biological_process
+is_obsolete: true
+replaced_by: GO:9999002
+
+[Term]
+id: GO:9999026
+name: obsolete ambiguous
+namespace: biological_process
+is_obsolete: true
+replaced_by: GO:9999002
+replaced_by: GO:9999006
+
+[Typedef]
+id: part_of
+name: part of
+is_transitive: true
