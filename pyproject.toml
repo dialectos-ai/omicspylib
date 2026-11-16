@@ -19,7 +19,6 @@ dependencies = [
     "scikit-learn>=1.0.0",
     "requests>=2.0.0",
     "typing-extensions>=4.16.0",
-    "ipykernel>=7.3.0",
 ]
 
 [project.urls]
@@ -30,8 +29,7 @@ repository = 'https://github.com/dialectos-ai/omicspylib'
 [dependency-groups]
 dev = [
     "pytest",
-    "mypy",
-    "pylint",
+    "ipykernel>=7.3.0",
     "ruff",
     "sphinx",
     "sphinx-rtd-theme",

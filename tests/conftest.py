@@ -1,13 +1,23 @@
 """Fixtures shared across tests"""
 
+from collections.abc import Iterator
+
 import matplotlib
 
 matplotlib.use("Agg")
 
+import matplotlib.pyplot as plt
 import pandas as pd
 import pytest
 
 from omicspylib import PeptidesDataset, ProteinsDataset
+
+
+@pytest.fixture(autouse=True)
+def close_figures() -> Iterator[None]:
+    """Close the figures each test opens, so they don't pile up across tests."""
+    yield
+    plt.close("all")
 
 
 @pytest.fixture
