@@ -61,6 +61,7 @@ Combining datasets
 Exporting
 ---------
 .. automethod:: ProteinsDataset.to_table
+.. automethod:: ProteinsDataset.detection_matrix
 
 
 Deprecated

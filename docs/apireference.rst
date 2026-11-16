@@ -55,7 +55,7 @@ Typical workflow
 #. **Compare** experimental conditions using the
    :doc:`comparison objects <api/comparisons/index>`.
 #. **Export** the results with ``to_table``, which returns a pandas data
-   frame.
+   frame. Pass ``mask_missing=True`` to get missing values as ``NaN``.
 
 .. code-block:: python
 

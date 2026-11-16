@@ -56,3 +56,4 @@ Summarizing
 Exporting
 ---------
 .. automethod:: ProteinsDatasetExpCondition.to_table
+.. automethod:: ProteinsDatasetExpCondition.detection_matrix
